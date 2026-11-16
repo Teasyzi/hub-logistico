@@ -23,6 +23,7 @@ tags: []
 - Instalado neste PC: `code/hub.ini` aponta `dados = C:\HubLogistico\dados` (banco `hub.db`) e `entrada = C:\Users\luisi\Downloads`. Histórico jan–nov/2026 carregado de uma cópia do zip (o drive `Z:` não estava acessível); os arquivos de 01–13/11 foram importados dos Downloads.
 
 ## Site (GitHub Pages + Firebase) — 2026-11-16
+- **Em uso**: Firebase configurado, números conferidos pelo usuário contra a planilha. Link do acompanhamento para e-mail: `https://teasyzi.github.io/hub-logistico/#/montagem/resumo/AAAA-MM` (leitor vê só esse acompanhamento; `#/` = painel principal, só admin).
 - Endereço: https://teasyzi.github.io/hub-logistico/ (código em `docs/`, Pages servindo `main:/docs`).
 - Login pelo Firebase Authentication (projeto `hub-log-dd1a0`); dados no Firestore. Regras em `docs/firestore.rules`:
   - **administrador**: documento `admins/{uid}`, criado só pelo console;

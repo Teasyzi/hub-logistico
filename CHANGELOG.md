@@ -17,6 +17,10 @@ tags: []
 ### Alterado
 ### Corrigido
 
+## 2026-11-16 (site v2)
+- Alterado: visual com as cores das planilhas (cabeçalho #C00000, TOTAL amarelo, MÉDIA cinza, formatação condicional de ocupação/reprog/retorno/tendência); cada acompanhamento é uma área com link próprio e abas internas; painel principal só para admin; Importar/Parâmetros/Publicar dentro do acompanhamento; diário em 3 tabelas agrupadas sem rolagem lateral; valores sobre as barras dos gráficos.
+- Validado pelo usuário: números do site batem com a planilha da Montagem.
+
 ## 2026-11-16 (site)
 - Adicionado: site em `docs/` (GitHub Pages) com Firebase Auth e Firestore. Inclui login, papéis (administrador e leitor), importação no navegador, parâmetros, planejamento manual, rascunho e publicação, e gestão de leitores. Cálculos e importadores portados para JavaScript e validados contra o Python.
 

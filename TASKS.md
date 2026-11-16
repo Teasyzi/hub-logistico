@@ -13,12 +13,13 @@ tags: []
 # HubLogistico — Tarefas
 
 ## Em andamento
-- [ ] Usuário, no console do Firebase: ativar Authentication (e-mail/senha) e autorizar o domínio `teasyzi.github.io`; criar o Firestore e colar `docs/firestore.rules`; criar a própria conta no site e o documento `admins/{uid}`.
-- [ ] Testar o site com os arquivos do dia e conferir contra a planilha.
-- [ ] Usar o Hub em paralelo à planilha da Montagem por alguns dias e anotar divergências.
+- [ ] Usuário: conferir o novo layout do site (cores das planilhas, abas internas, diário em 3 tabelas) e pedir ajustes.
+- [ ] Usar o site no dia a dia (importar → conferir → publicar) em paralelo à planilha da Montagem e anotar divergências.
 
 ## Concluído em 2026-11-16
-- [x] Repositório privado criado e enviado: https://github.com/Teasyzi/hub-logistico (Git e GitHub CLI instalados via winget).
+- [x] Firebase configurado pelo usuário (Auth, Firestore, regras, admin); site testado com dados reais — números batem com a planilha.
+- [x] Site reformulado: cores das planilhas, cada acompanhamento com link próprio (painel principal só admin), Importar/Parâmetros/Publicar dentro da Montagem, diário dividido em Volume e montagem / Reprogramação / Retorno, valores em cima das barras.
+- [x] Repositório https://github.com/Teasyzi/hub-logistico (o usuário tornou **público**; contém só código e notas, sem dados) com GitHub Pages em `main:/docs`.
 - [x] `hub.ini` criado (`C:\HubLogistico\dados`, entrada = Downloads); histórico jan–nov/2026 e arquivos de 01–13/11 importados.
 
 ## Próximas
