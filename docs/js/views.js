@@ -204,21 +204,25 @@ function faltaPES(l) {
 function blocoPES(c, pl, mes, admin) {
   if (!pl) return `<div class="bloco"><div class="faixa">${ROTULO[c]}</div><div class="corpo small">Placar de ${nomeMes(mes)} ainda não publicado.</div></div>`;
   const semMont = pl.linhas.filter((l) => l.auto).every((l) => l.real == null);
-  const linhas = pl.linhas.map((l) => `<tr><td class="t">${E(l.nome)}${l.auto ? '' : ' <span class="tag">digitado</span>'}</td><td>${metaPES(l)}</td>
-<td class="${l.bateu == null ? '' : l.bateu ? 'c-ok' : 'c-no'}">${valPES(l, l.real)}</td>
-<td>${fi(l.possiveis)}</td><td><b>${fi(l.feitos)}</b></td><td>${l.solar == null ? '' : fi(l.solar)}</td><td class="t small">${faltaPES(l)}</td></tr>`).join('');
-  const t = pl.total;
-  return `<div class="bloco"><div class="faixa"><span>${ROTULO[c]}</span><span>${fi(t.feitos)} / ${fi(t.possiveis)} pts</span></div><div class="corpo">
+  const linhas = pl.linhas.map((l) => `<tr><td class="t">${E(l.nome.replace(/ \(.*\)$/, ''))}${l.auto ? '' : ' <span class="tag">digitado</span>'}</td><td>${metaPES(l)}</td>
+<td class="${l.bateu == null ? '' : l.bateu ? 'c-ok' : 'c-no'}"><b>${valPES(l, l.real)}</b></td>
+<td>${faltaPES(l)}</td><td>${fi(l.possiveis)}</td><td><b>${fi(l.feitos)}</b></td><td>${l.solar == null ? '' : fi(l.solar)}</td></tr>`).join('');
+  const t = pl.total, pct = t.possiveis ? t.feitos / t.possiveis : 0;
+  const batidas = pl.linhas.filter((l) => l.bateu).length, dig = pl.linhas.filter((l) => !l.auto), digOk = dig.filter((l) => l.real != null).length;
+  return `<div class="bloco"><div class="faixa"><span>${ROTULO[c]}</span></div><div class="corpo">
+<div class="pes-resumo"><div class="pes-pontos"><span class="v">${fi(t.feitos)}</span><span class="l">de ${fi(t.possiveis)} pontos</span>
+<div class="barra" role="img" aria-label="${fi(t.feitos)} de ${fi(t.possiveis)} pontos"><i style="width:${(pct * 100).toFixed(1)}%"></i></div></div>
+<div class="chips"><span class="chip">Metas batidas<b>${batidas} de ${pl.linhas.length}</b></span><span class="chip">Digitados preenchidos<b>${digOk} de ${dig.length}</b></span>${t.solar == null ? '' : `<span class="chip">SOLAR<b>${fi(t.solar)}</b></span>`}</div></div>
 ${semMont ? `<div class="aviso">Sem dados da Montagem em ${nomeMes(mes)}: os 4 indicadores automáticos ficam sem dado.</div>` : ''}
-${admin && pl.linhas.some((l) => !l.auto && l.real == null) ? `<div class="aviso">Há indicadores digitados em branco. <a href="#/pes/digitacao/${mes}">Preencher</a></div>` : ''}
-<div class="tw"><table><thead><tr><th class="t">Indicador</th><th>Meta</th><th>Real</th><th>Pontos possíveis</th><th>Pontos feitos</th><th>SOLAR</th><th class="t">vs meta</th></tr></thead>
-<tbody>${linhas}<tr class="tot"><td class="t">TOTAL</td><td></td><td></td><td>${fi(t.possiveis)}</td><td>${fi(t.feitos)}</td><td>${t.solar == null ? '' : fi(t.solar)}</td><td></td></tr></tbody></table></div>
+${admin && digOk < dig.length ? `<div class="aviso">Há indicadores digitados em branco. <a href="#/pes/digitacao/${mes}">Preencher</a></div>` : ''}
+<div class="tw"><table class="pes"><thead><tr><th class="t">Indicador</th><th>Meta</th><th>Real</th><th>vs meta</th><th>Pontos possíveis</th><th>Pontos feitos</th><th>SOLAR</th></tr></thead>
+<tbody>${linhas}<tr class="tot"><td class="t">TOTAL</td><td></td><td></td><td></td><td>${fi(t.possiveis)}</td><td>${fi(t.feitos)}</td><td>${t.solar == null ? '' : fi(t.solar)}</td></tr></tbody></table></div>
 </div></div>`;
 }
 
 // placares: {CBAR: placar|null, CCRT: placar|null}
 export function paginaPES(placares, { mes, admin, topo }) {
   return `${topo}<p class="sub">Programa de Excelência Solar — resultados logísticos. Ponto cheio só se bater a meta. Os 4 percentuais de retorno e reprogramação vêm da Montagem de Cargas do mês; os demais são digitados.</p>
-<div class="g2">${Object.keys(UNIDADES).map((c) => blocoPES(c, placares[c], mes, admin)).join('')}</div>
+<div class="pes-dls">${Object.keys(UNIDADES).map((c) => blocoPES(c, placares[c], mes, admin)).join('')}</div>
 <p class="small">vs meta: ▼ abaixo ou ▲ acima da meta no acumulado do mês, em cx unit ou clientes.</p>`;
 }
