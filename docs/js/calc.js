@@ -75,7 +75,9 @@ export function calcular({ mes, venda, retorno, plan, par, prevendaData }) {
   const CAMPOS = ['vol_cxf', 'entregas', 'cargas', 'cubos', 'cx_unit', 'reprog_uc', 'reprog_cli'];
   const total = Object.fromEntries(CAMPOS.map((c) => [c, soma(c)]));
   const vendaU = Object.values(V).reduce((a, x) => a + x.cxu, 0);
-  total.ret_vol = div(Object.values(R).reduce((a, x) => a + x.ext_u, 0), vendaU);
+  total.venda_cxu = vendaU;
+  total.ret_ext_cxu = Object.values(R).reduce((a, x) => a + x.ext_u, 0);
+  total.ret_vol = div(total.ret_ext_cxu, vendaU);
   total.ret_cli = div(Object.values(sCont).reduce((a, b) => a + b, 0), total.entregas);
   total.ret_cli_clientes = div(Object.values(cliExt).reduce((a, s) => a + s.size, 0), total.entregas);
   const med = Object.fromEntries(CAMPOS.map((c) => [c, div(total[c], diasTrab)]));

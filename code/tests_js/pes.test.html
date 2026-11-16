@@ -1,0 +1,75 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Testes PES</title>
+<ul id="r"></ul><p id="fim">rodando…</p>
+<script type="module">
+const $r = document.getElementById('r');
+let ok_ = 0, falhas = 0;
+const ok = (nome, cond) => { cond ? ok_++ : falhas++; $r.insertAdjacentHTML('beforeend', `<li>${cond ? '✓' : '✕ FALHA'} ${nome}</li>`); };
+const perto = (a, b) => a != null && b != null && Math.abs(a - b) < 1e-9;
+try {
+  const { calcular } = await import('../../docs/js/calc.js');
+  const P = await import('../../docs/js/pes.js');
+  const mes = '2026-11';
+  const venda = [
+    { transporte: 'T1', data: '2026-11-03', cxf: 100, cxu: 1000 },
+    { transporte: 'T2', data: '2026-11-04', cxf: 50, cxu: 500 },
+  ];
+  const retorno = [
+    { transporte: 'T1', tipo: 'A', data: '2026-11-03', cli: 'C1', mot: 'M1', ext: true, cxf: 1, cxu: 8 },
+    { transporte: 'T2', tipo: 'A', data: '2026-11-04', cli: 'C2', mot: 'M2', ext: false, cxf: 2, cxu: 20 },
+  ];
+  const plan = {
+    '2026-11-03': { entregas: 40, cargas: 4, uc_total: 1000, reprog_so_cubos: 5, reprog_so_cli: 1 },
+    '2026-11-04': { entregas: 10, cargas: 2, uc_total: 500, reprog_so_cubos: 0, reprog_so_cli: 0 },
+  };
+  const m = calcular({ mes, venda, retorno, plan, par: { meta_reprog: 0.03 }, prevendaData: null });
+  ok('total.venda_cxu = 1500', m.total.venda_cxu === 1500);
+  ok('total.ret_ext_cxu = 8', m.total.ret_ext_cxu === 8);
+  ok('ret_vol da Montagem = 8/1500', perto(m.total.ret_vol, 8 / 1500));
+
+  const vazio = P.placarPES(null, {});
+  ok('9 indicadores', vazio.linhas.length === 9);
+  ok('sem dados: todos sem dado', vazio.linhas.every((l) => l.bateu === null));
+  ok('sem dados: 0 pontos', vazio.total.feitos === 0);
+  ok('possíveis = 1000', vazio.total.possiveis === 1000);
+  ok('chaves na ordem', P.INDICADORES_PES.map((i) => i.k).join() === 'ret_vol,ret_cli,reprog_vol,reprog_cli,green_mile,csat,licencas,acidentes,telemetria');
+
+  const lin = (pl, k) => pl.linhas.find((l) => l.k === k);
+  const ac0 = P.placarPES(null, { valores: { acidentes: 0 } });
+  ok('acidentes = 0 bate', lin(ac0, 'acidentes').bateu === true && lin(ac0, 'acidentes').feitos === 200);
+  ok('acidentes = 1 não bate', lin(P.placarPES(null, { valores: { acidentes: 1 } }), 'acidentes').bateu === false);
+  ok('acidentes vazio = sem dado', lin(vazio, 'acidentes').bateu === null && lin(vazio, 'acidentes').feitos === 0);
+
+  const pm = P.placarPES(m, {});
+  const rv = lin(pm, 'ret_vol');
+  ok('ret_vol real = total.ret_vol', perto(rv.real, m.total.ret_vol));
+  ok('ret_vol 0,53% ≤ 1% bate, 100 pts', rv.bateu === true && rv.feitos === 100);
+  ok('ret_vol falta = 0,01·1500 − 8 = 7 cx', perto(rv.falta, 7) && rv.faltaUn === 'cx unit');
+  const rvM = lin(P.placarPES(m, { metas: { ret_vol: 0.005 } }), 'ret_vol');
+  ok('meta 0,5%: não bate, 0 pts, falta < 0', rvM.bateu === false && rvM.feitos === 0 && perto(rvM.falta, -0.5));
+  ok('meta editada aparece na linha', rvM.meta === 0.005);
+
+  const rc = lin(pm, 'ret_cli');
+  ok('ret_cli falta = 0,02·50 − 1 = 0 clientes', perto(rc.falta, 0) && rc.faltaUn === 'clientes');
+  const pv = lin(pm, 'reprog_vol');
+  ok('reprog_vol real = reprog.pct', perto(pv.real, m.reprog.pct));
+  ok('reprog_vol falta = 0,03·1500 − 8', perto(pv.falta, 45 - 8));
+  const pc = lin(pm, 'reprog_cli');
+  ok('reprog_cli falta = 0,03·50 − 1', perto(pc.falta, 0.5));
+  ok('digitados sem falta', lin(pm, 'csat').falta === null);
+  ok('soma com automáticos = 400', pm.total.feitos === 400);
+
+  const cheio = P.placarPES(m, { valores: { green_mile: 0.96, csat: 91, licencas: 1, acidentes: 0, telemetria: 0.97 }, solar: { csat: 50 } });
+  ok('tudo batido = 1000', cheio.total.feitos === 1000);
+  ok('SOLAR: valor e total', lin(cheio, 'csat').solar === 50 && cheio.total.solar === 50);
+  ok('SOLAR vazio = null', P.placarPES(m, {}).total.solar === null);
+
+  ok("pctDeTela('96,5') = 0,965", P.pctDeTela('96,5') === 0.965);
+  ok("pctDeTela('') = null", P.pctDeTela('') === null);
+  ok("pctParaTela(0,965) = '96,5'", P.pctParaTela(0.965) === '96,5');
+  ok('pctParaTela(null) = vazio', P.pctParaTela(null) === '');
+  ok('ida e volta 0,953', P.pctDeTela(P.pctParaTela(0.953)) === 0.953);
+} catch (e) { falhas++; $r.insertAdjacentHTML('beforeend', `<li>✕ ERRO ${e.message}</li>`); }
+document.getElementById('fim').textContent = `${ok_} ok, ${falhas} falhas`;
+</script>
