@@ -13,6 +13,8 @@ tags: []
 # HubLogistico — Tarefas
 
 ## Em andamento
+- [ ] Usuário, no console do Firebase: ativar Authentication (e-mail/senha) e autorizar o domínio `teasyzi.github.io`; criar o Firestore e colar `docs/firestore.rules`; criar a própria conta no site e o documento `admins/{uid}`.
+- [ ] Testar o site com os arquivos do dia e conferir contra a planilha.
 - [ ] Usar o Hub em paralelo à planilha da Montagem por alguns dias e anotar divergências.
 
 ## Concluído em 2026-11-16

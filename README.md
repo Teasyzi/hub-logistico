@@ -22,7 +22,16 @@ tags: []
 - 2026-11-16: **fase 0 e fase 1 (Montagem de Cargas + Reprogramação DL's) implementadas e validadas** contra as planilhas de jan–nov/2026. Detalhes, regras e erros encontrados nas planilhas em [[12_PROJECTS/Active/HubLogistico/MODULES/MOD_Montagem_de_Cargas|Montagem de cargas]]. Stack em [[12_PROJECTS/Active/HubLogistico/DECISIONS/ADR-0001 Stack local com Python stdlib e SQLite|ADR-0001]].
 - Instalado neste PC: `code/hub.ini` aponta `dados = C:\HubLogistico\dados` (banco `hub.db`) e `entrada = C:\Users\luisi\Downloads`. Histórico jan–nov/2026 carregado de uma cópia do zip (o drive `Z:` não estava acessível); os arquivos de 01–13/11 foram importados dos Downloads.
 
-## Como executar
+## Site (GitHub Pages + Firebase) — 2026-11-16
+- Endereço: https://teasyzi.github.io/hub-logistico/ (código em `docs/`, Pages servindo `main:/docs`).
+- Login pelo Firebase Authentication (projeto `hub-log-dd1a0`); dados no Firestore. Regras em `docs/firestore.rules`:
+  - **administrador**: documento `admins/{uid}`, criado só pelo console;
+  - **leitores**: e-mails em `meta/acesso`, editados na página Acessos, e só leem o que foi publicado.
+- O administrador importa as planilhas no navegador (SheetJS), confere o rascunho, completa Parâmetros e Planejamento e clica em **Publicar**.
+- No Firestore vão só números e códigos (transporte, código do cliente, motivo), sem nomes.
+- Cálculos portados para JS (`docs/js/calc.js`) e validados contra o Python: 3.070 valores de out–nov/2026 iguais. A leitura das 6 planilhas de novembro também é idêntica.
+
+## Como executar (versão local em Python)
 Requisito: Python 3 (só biblioteca padrão). Na pasta `12_PROJECTS/Active/HubLogistico/code/`:
 ```bash
 copy hub.ini.exemplo hub.ini          # ajuste dados= (FORA do vault) e entrada= (ex.: Downloads)

@@ -17,6 +17,9 @@ tags: []
 ### Alterado
 ### Corrigido
 
+## 2026-11-16 (site)
+- Adicionado: site em `docs/` (GitHub Pages) com Firebase Auth e Firestore. Inclui login, papéis (administrador e leitor), importação no navegador, parâmetros, planejamento manual, rascunho e publicação, e gestão de leitores. Cálculos e importadores portados para JavaScript e validados contra o Python.
+
 ## 2026-11-16 (fase 1)
 - Adicionado: código do Hub em `code/` — leitores `.xlsx`/`.xls` (stdlib), SQLite, importadores da Montagem (venda, retorno, Resumo de Planejamento, planilhas antigas), cálculo dos indicadores da Montagem e da Reprogramação, app local com painel principal, detalhe por DL, parâmetros e planejamento editáveis, importação, exportação estática, testes.
 - Validação contra jan–nov/2026: diferenças só onde a planilha tem erro (ver [[12_PROJECTS/Active/HubLogistico/MODULES/MOD_Montagem_de_Cargas|Montagem]] §Problemas).
