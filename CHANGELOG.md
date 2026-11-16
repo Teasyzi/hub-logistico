@@ -17,6 +17,12 @@ tags: []
 ### Alterado
 ### Corrigido
 
+## 2026-11-16 (Fase 2: PES Logístico + temas)
+- Adicionado: área `#/pes` com placar mensal do PES Logístico por DL. Os 4 indicadores automáticos vêm da Montagem, os 5 são digitados, há metas editáveis e coluna SOLAR, "vs meta" com ▲/▼ e quantidade, e publicação própria. Design e plano em `DESIGN/`; testes em `code/tests_js/pes.test.html` (37 ok).
+- Adicionado: seletor de tema no cabeçalho (Automático, Claro, Escuro, Alto contraste), guardado no navegador.
+- Regras do Firestore: coleções `pes`, `pes_publicado` e `meta/publicacoes_pes` (publicadas pelo usuário no console).
+- Corrigido antes de publicar (revisão final): texto inválido na digitação virava 0 e pontuava; mês sem Reprogramação pontuava 0%.
+
 ## 2026-11-16 (site v2)
 - Alterado: visual com as cores das planilhas (cabeçalho #C00000, TOTAL amarelo, MÉDIA cinza, formatação condicional de ocupação/reprog/retorno/tendência); cada acompanhamento é uma área com link próprio e abas internas; painel principal só para admin; Importar/Parâmetros/Publicar dentro do acompanhamento; diário em 3 tabelas agrupadas sem rolagem lateral; valores sobre as barras dos gráficos.
 - Validado pelo usuário: números do site batem com a planilha da Montagem.

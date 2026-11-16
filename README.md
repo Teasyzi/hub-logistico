@@ -49,7 +49,8 @@ Ferramenta de análise usada no levantamento: [[XLSX Inspector (Python)]].
 
 ## Próximas etapas
 - [ ] Usar o Hub em paralelo à planilha da Montagem por alguns dias (importar a cada nova exportação).
-- [ ] Fase 2: PES Logístico calculado a partir da Montagem ([[12_PROJECTS/Active/HubLogistico/IMPLEMENTATION_PLAN|Plano]]).
+- [x] Fase 2: PES Logístico no site, `#/pes/resumo/AAAA-MM` (2026-11-16). Design e plano em `DESIGN/`. Seletor de tema no cabeçalho.
+- [ ] Próxima fase do [[12_PROJECTS/Active/HubLogistico/IMPLEMENTATION_PLAN|Plano]]: Cargas em aberto (fase 3).
 
 ## Por onde começar a ler
 | Documento | Conteúdo |
