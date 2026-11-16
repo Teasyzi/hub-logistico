@@ -1,4 +1,5 @@
-// Hub Logístico — app (rotas por hash, login, área do administrador).
+// Hub Logístico — app. Cada acompanhamento é uma área com link próprio (#/montagem/...);
+// o painel principal (#/) e as telas de importação/parâmetros/publicação são só do administrador.
 import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
@@ -9,25 +10,43 @@ import * as V from './views.js';
 import { diasDoMes } from './calc.js';
 
 const $app = document.getElementById('app');
-const estado = { user: null, admin: false, modo: 'rascunho' };  // admin pode alternar rascunho/publicado
-
+const estado = { user: null, admin: false, modo: 'rascunho' };
 const mesAtual = () => new Date().toISOString().slice(0, 7);
 const html = (h) => { $app.innerHTML = h; };
 const erro = (e) => `<div class="erro">${V.E(e?.message || e)}</div>`;
+const mesP = (s) => (/^\d{4}-\d{2}$/.test(s || '') ? s : null);
 
-function nav(rota) {
-  const it = [['#/', 'Início'], ['#/montagem', 'Montagem de cargas']];
-  if (estado.admin) it.push(['#/importar', 'Importar'], ['#/parametros', 'Parâmetros'], ['#/publicar', 'Publicar'], ['#/acessos', 'Acessos']);
-  document.getElementById('nav').innerHTML = estado.user
-    ? it.map(([h, t]) => `<a class="${rota.startsWith(h.slice(1)) && (h !== '#/' || rota === '/') ? 'on' : ''}" href="${h}">${t}</a>`).join('') : '';
+function cabecalhoSite(titulo) {
+  document.getElementById('nav').innerHTML = titulo ? `<span>· ${V.E(titulo)}</span>` : '';
   document.getElementById('usuario').innerHTML = estado.user
-    ? `${V.E(estado.user.email)} ${estado.admin ? '<span class="tag">admin</span>' : ''} · <a href="#" id="sair">sair</a>` : '';
+    ? `${estado.admin ? '<a href="#/">Painel principal</a> · ' : ''}${V.E(estado.user.email)}${estado.admin ? ' <span class="tag" style="color:#fff;border-color:#fff8">admin</span>' : ''} · <a href="#" id="sair">sair</a>` : '';
   document.getElementById('sair')?.addEventListener('click', (e) => { e.preventDefault(); signOut(auth); });
 }
 
-// ---------------------------------------------------------------- dados da visualização
+// ---------------------------------------------------------------- topo do acompanhamento Montagem
+async function topoMontagem(aba, mes, titulo, comMes = true) {
+  let ctrl = '';
+  if (comMes) {
+    const meses = estado.admin ? await D.mesesComDados() : await D.mesesPublicados();
+    if (!meses.includes(mes)) meses.unshift(mes);
+    ctrl = V.seletorMes(meses, mes);
+    if (estado.admin && ['resumo', 'CBAR', 'CCRT'].includes(aba)) {
+      ctrl += ` · <select id="selModo"><option value="rascunho" ${estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho (dados atuais)</option>`
+        + `<option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado (o que os leitores veem)</option></select> `
+        + (estado.modo === 'rascunho' ? '<span class="badge">rascunho</span>' : '<span class="badge pub">publicado</span>');
+    }
+  }
+  return `<h1>Montagem de Cargas — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasMontagem(aba, mes, estado.admin)}`;
+}
+
+function ligarTopo(rotaMes) {
+  document.getElementById('selMes')?.addEventListener('change', (e) => { location.hash = rotaMes(e.target.value); });
+  document.getElementById('selModo')?.addEventListener('change', (e) => { estado.modo = e.target.value; rotear(); });
+}
+
 async function dadosDoMes(mes) {
-  const ms = {}, mots = {}, info = {};
+  const ms = {}, mots = {};
+  let pubEm = null;
   for (const c of Object.keys(D.UNIDADES)) {
     if (estado.admin && estado.modo === 'rascunho') {
       const x = await D.calcularAoVivo(c, mes);
@@ -36,60 +55,51 @@ async function dadosDoMes(mes) {
     } else {
       const p = await D.lerPublicado(c, mes);
       ms[c] = p?.resultado || null; mots[c] = p?.motivos || [];
-      info[c] = p;
+      if (p?.publicadoEm) pubEm = p.publicadoEm;
     }
   }
-  return { ms, mots, info };
+  return { ms, mots, pubEm };
 }
 
-async function cabecalho(mes, rotaBase) {
-  const meses = estado.admin ? await D.mesesComDados() : await D.mesesPublicados();
-  if (!meses.includes(mes)) meses.unshift(mes);
-  let h = V.seletorMes(meses, mes);
-  if (estado.admin) {
-    h += ` · <select id="selModo"><option value="rascunho" ${estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho (dados atuais)</option>`
-      + `<option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado (o que os leitores veem)</option></select>`
-      + (estado.modo === 'rascunho' ? ' <span class="badge">rascunho</span>' : ' <span class="badge pub">publicado</span>');
-  }
-  return { h, ligar: () => {
-    document.getElementById('selMes')?.addEventListener('change', (e) => { location.hash = `${rotaBase}/${e.target.value}`; });
-    document.getElementById('selModo')?.addEventListener('change', (e) => { estado.modo = e.target.value; rotear(); });
-  } };
-}
-
-async function telaVisual(tipo, mes, centro) {
+async function telaResumo(mes) {
   html('<p class="small">Calculando…</p>');
-  const base = tipo === 'detalhe' ? `#/montagem/${centro}` : tipo === 'inicio' ? '#/inicio' : '#/montagem';
-  const cab = await cabecalho(mes, base);
-  const { ms, mots, info } = await dadosDoMes(mes);
-  const pub = Object.values(info).find((x) => x?.publicadoEm);
-  const ctx = { mes, admin: estado.admin, cabecalho: cab.h + (pub ? ` <span class="small">· publicado em ${pub.publicadoEm.toLocaleString('pt-BR')}</span>` : '') };
-  if (tipo === 'inicio') html(V.paginaInicio(ms, ctx));
-  else if (tipo === 'montagem') html(V.paginaMontagem(ms, ctx));
-  else if (!ms[centro]) html(`<p><a href="#/montagem/${mes}">← Montagem</a></p><p>Sem dados de ${V.E(D.UNIDADES[centro].nome)} em ${V.nomeMes(mes)}.</p>${cab.h}`);
-  else html(V.paginaDetalhe(centro, ms[centro], mots[centro], ctx));
-  cab.ligar();
+  const topo = await topoMontagem('resumo', mes, `Resumo · ${V.nomeMes(mes)}`);
+  const { ms, pubEm } = await dadosDoMes(mes);
+  html(V.paginaResumo(ms, { mes, admin: estado.admin, topo }));
+  if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
+  ligarTopo((m) => `#/montagem/resumo/${m}`);
 }
 
-// ---------------------------------------------------------------- administrador
+async function telaDetalhe(c, mes) {
+  html('<p class="small">Calculando…</p>');
+  const topo = await topoMontagem(c, mes, `${D.UNIDADES[c].nome} · ${V.nomeMes(mes)}`);
+  const { ms, mots, pubEm } = await dadosDoMes(mes);
+  html(ms[c] ? V.paginaDetalhe(c, ms[c], mots[c], { admin: estado.admin, topo }) : `${topo}<p>Sem dados de ${V.E(D.UNIDADES[c].nome)} em ${V.nomeMes(mes)}.</p>`);
+  if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
+  ligarTopo((m) => `#/montagem/${c}/${m}`);
+}
+
+// ---------------------------------------------------------------- telas do administrador (dentro do acompanhamento)
 async function telaImportar() {
+  const topo = await topoMontagem('importar', mesAtual(), 'Importar planilhas', false);
   const ult = await D.ultimasImportacoes();
   const hist = ult.map((r) => `<tr><td class="t">${r.em?.toDate ? r.em.toDate().toLocaleString('pt-BR') : ''}</td><td class="t">${V.E(r.arquivo)}</td>
 <td class="t">${V.E(r.tipo)}</td><td class="t">${V.E(r.centro || '')}</td><td>${r.linhas ?? ''}</td><td class="t">${V.E(r.periodo || '')}</td><td class="t">${V.E(r.por || '')}</td></tr>`).join('');
-  html(`<h1>Importar planilhas</h1>
-<p class="sub">Arraste os arquivos do dia: VOLUMES DE VENDAS/RETORNOS (Barreiras), ZSD0092/ZSD0090 (Juazeiro) e os 2 Resumos de Planejamento.
-Para o histórico, as planilhas antigas "MM - Montagem de Cargas" e "Reprogramação DL's" (primeiro as de Montagem). Os arquivos são lidos neste navegador; só números e códigos vão para o banco.</p>
-<div class="aviso">Resumo de Planejamento: salve sem habilitar a edição, para não recalcular a data (C8). Confira abaixo a data detectada.</div>
-<div class="drop" id="drop"><p>Arraste aqui ou</p><input type="file" id="arqs" multiple accept=".xls,.xlsx,.xlsm"></div>
+  html(`${topo}
+<p class="sub">Arquivos do dia: <b>VOLUMES DE VENDAS/RETORNOS</b> (Barreiras), <b>ZSD0092/ZSD0090</b> (Juazeiro) e os 2 <b>Resumos de Planejamento</b>.
+Histórico: planilhas antigas "MM - Montagem de Cargas" e "Reprogramação DL's". Os arquivos são lidos neste navegador; só números e códigos vão para o banco.</p>
+<div class="aviso">Resumo de Planejamento: salve sem habilitar a edição para não recalcular a data (C8). Confira a data detectada no resultado.</div>
+<div class="drop" id="drop"><p>Arraste os arquivos aqui ou</p><input type="file" id="arqs" multiple accept=".xls,.xlsx,.xlsm"></div>
 <div id="res"></div>
-<h2>Últimas importações</h2><div class="tw"><table><tr><th class="t">Quando</th><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Centro</th><th>Linhas</th><th class="t">Período / data</th><th class="t">Por</th></tr>${hist}</table></div>`);
+<h2>Últimas importações</h2><div class="tw scroll"><table><thead><tr><th class="t">Quando</th><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Centro</th><th>Linhas</th><th class="t">Período / data</th><th class="t">Por</th></tr></thead><tbody>${hist}</tbody></table></div>`);
   const drop = document.getElementById('drop');
   const processar = async (files) => {
     const out = document.getElementById('res');
-    const ordem = [...files].sort((a, b) => (/montagem de cargas/i.test(b.name) - /montagem de cargas/i.test(a.name)) || (/reprograma/i.test(b.name) - /reprograma/i.test(a.name)));
+    const prio = (n) => (/montagem de cargas/i.test(n) ? 0 : /reprograma/i.test(n) ? 1 : 2);
+    const ordem = [...files].sort((a, b) => prio(a.name) - prio(b.name));
     let linhasRes = '';
     for (const f of ordem) {
-      out.innerHTML = `<p class="small">Lendo ${V.E(f.name)}…</p><div class="tw"><table>${linhasRes}</table></div>`;
+      out.innerHTML = `<p class="small">Lendo ${V.E(f.name)}…</p>`;
       let r;
       try {
         const x = await lerArquivo(f);
@@ -105,9 +115,7 @@ Para o histórico, as planilhas antigas "MM - Montagem de Cargas" e "Reprograma�
           r.centro = x.plan.centro; r.linhas = 1;
           r.periodo = `planejamento de ${V.fdata(x.plan.data)}/${x.plan.data.slice(0, 4)} — confira se é o dia certo`;
         } else if (x.tipo === 'montagem') {
-          await D.gravarVenda(x.venda);
-          await D.gravarRetorno(x.retorno);
-          await D.gravarPlan(x.plan, 'legado');
+          await D.gravarVenda(x.venda); await D.gravarRetorno(x.retorno); await D.gravarPlan(x.plan, 'legado');
           for (const c of Object.keys(x.par)) await D.gravarParametros(c, x.mes, x.par[c], 'planilha');
           r.centro = 'CBAR,CCRT'; r.linhas = x.venda.length + x.retorno.length + x.plan.length; r.periodo = V.nomeMes(x.mes);
         } else if (x.tipo === 'reprog') {
@@ -119,8 +127,8 @@ Para o histórico, as planilhas antigas "MM - Montagem de Cargas" e "Reprograma�
         linhasRes += `<tr><td class="t">${V.E(f.name)}</td><td class="t" colspan="4">✕ erro: ${V.E(e.message)}</td></tr>`;
       }
     }
-    out.innerHTML = `<h2>Resultado</h2><div class="tw"><table><tr><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Centro</th><th>Linhas</th><th class="t">Período / data</th></tr>${linhasRes}</table></div>
-<p><a class="btn" href="#/montagem">Ver rascunho</a> <a class="btn sec" href="#/publicar">Publicar</a></p>`;
+    out.innerHTML = `<h2>Resultado</h2><div class="tw scroll"><table><thead><tr><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Centro</th><th>Linhas</th><th class="t">Período / data</th></tr></thead><tbody>${linhasRes}</tbody></table></div>
+<p><a class="btn" href="#/montagem/resumo/${mesAtual()}">Conferir rascunho</a> <a class="btn sec" href="#/montagem/publicar/${mesAtual()}">Publicar</a></p>`;
   };
   document.getElementById('arqs').addEventListener('change', (e) => processar(e.target.files));
   drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
@@ -132,17 +140,17 @@ const valTxt = (v) => (v == null ? '' : String(+v.toPrecision(12)).replace('.', 
 const lerCampo = (s) => (s.trim() === '' ? null : num(s));
 
 async function telaParametros(mes) {
+  const topo = await topoMontagem('parametros', mes, `Parâmetros · ${V.nomeMes(mes)}`);
   const cs = Object.keys(D.UNIDADES);
   const pars = Object.fromEntries(await Promise.all(cs.map(async (c) => [c, await D.lerParametros(c, mes)])));
   const linhas = Object.entries(D.PARAMETROS).map(([k, [rot, pad]]) => `<tr><td class="t">${V.E(rot)}</td>${cs.map((c) => {
     const o = pars[c].origem[k];
-    return `<td><input type="text" inputmode="decimal" data-c="${c}" data-k="${k}" value="${valTxt(pars[c].valores[k])}"> ${o ? `<span class="tag">${o}</span>` : pad != null ? `<span class="tag">padrão ${pad}</span>` : ''}</td>`;
+    return `<td><input type="text" inputmode="decimal" data-c="${c}" data-k="${k}" value="${valTxt(pars[c].valores[k])}"></td><td class="t small">${o || (pad != null ? `padrão ${pad}` : '')}</td>`;
   }).join('')}</tr>`).join('');
-  const meses = await D.mesesComDados();
-  html(`<h1>Parâmetros do mês — ${V.nomeMes(mes)}</h1><p class="sub">${V.seletorMes(meses.includes(mes) ? meses : [mes, ...meses], mes)} · valores digitados à mão (antes no RESUMO). Vírgula ou ponto como decimal; vazio apaga.</p>
-<div class="tw"><table><tr><th class="t">Parâmetro</th>${cs.map((c) => `<th>${V.E(D.UNIDADES[c].nome)}</th>`).join('')}</tr>${linhas}</table></div>
+  html(`${topo}<p class="sub">Valores digitados à mão (antes no RESUMO da planilha). Vírgula ou ponto como decimal; vazio apaga.</p>
+<div class="tw" style="max-width:900px"><table><thead><tr><th class="t">Parâmetro</th>${cs.map((c) => `<th>${V.E(D.UNIDADES[c].nome)}</th><th class="t">origem</th>`).join('')}</tr></thead><tbody>${linhas}</tbody></table></div>
 <p><button class="btn" id="salvar">Salvar</button> <span id="msg"></span></p>`);
-  document.getElementById('selMes').addEventListener('change', (e) => { location.hash = `#/parametros/${e.target.value}`; });
+  ligarTopo((m) => `#/montagem/parametros/${m}`);
   document.getElementById('salvar').addEventListener('click', async (ev) => {
     ev.target.disabled = true;
     try {
@@ -160,28 +168,28 @@ async function telaParametros(mes) {
   });
 }
 
-const CAMPOS_PLAN = [['entregas', 'Entregas plan'], ['cargas', 'Cargas'], ['ocupacao', 'Tx ocupação (0,xx)'], ['reprog_uc', 'Vol reprog (cx unit)'],
-  ['reprog_cli', 'Qtd cli reprog'], ['uc_total', 'UC total (Reprog DL)'], ['reprog_so_cubos', 'Cubos REPROG'], ['reprog_so_cli', 'Cli REPROG']];
+const CAMPOS_PLAN = [['entregas', 'Entregas plan'], ['cargas', 'Cargas'], ['ocupacao', 'Tx ocup. (0,xx)'], ['reprog_uc', 'Vol reprog'],
+  ['reprog_cli', 'Cli reprog'], ['uc_total', 'UC total'], ['reprog_so_cubos', 'Cubos REPROG'], ['reprog_so_cli', 'Cli REPROG']];
 
-async function telaPlanejamento(centro, mes) {
-  const plan = await D.lerPlanMes(centro, mes);
+async function telaPlanejamento(c, mes) {
+  const topo = await topoMontagem(c, mes, `Editar planejamento · ${D.UNIDADES[c].nome}`);
+  const plan = await D.lerPlanMes(c, mes);
   const linhas = diasDoMes(mes).map((d) => `<tr><td>${V.fdata(d)}</td>${CAMPOS_PLAN.map(([k]) =>
     `<td><input type="text" inputmode="decimal" data-d="${d}" data-k="${k}" value="${valTxt(plan[d]?.[k])}"></td>`).join('')}<td class="t small">${plan[d]?.origem || ''}</td></tr>`).join('');
-  html(`<p><a href="#/montagem/${centro}/${mes}">← Detalhe</a></p><h1>Planejamento — ${V.E(D.UNIDADES[centro].nome)} — ${V.nomeMes(mes)}</h1>
+  html(`${topo}<p><a href="#/montagem/${c}/${mes}">← Voltar ao detalhe</a></p>
 <p class="sub">Normalmente vem do Resumo de Planejamento. Edite só para corrigir ou preencher um dia sem Resumo (o dia passa a ter origem "manual").</p>
-<div class="tw"><table><tr><th class="t">Dia</th>${CAMPOS_PLAN.map(([, n]) => `<th>${n}</th>`).join('')}<th class="t">Origem</th></tr>${linhas}</table></div>
+<div class="tw"><table class="diario"><thead><tr><th class="t">Dia</th>${CAMPOS_PLAN.map(([, n]) => `<th>${n}</th>`).join('')}<th class="t">Origem</th></tr></thead><tbody>${linhas}</tbody></table></div>
 <p><button class="btn" id="salvar">Salvar</button> <span id="msg"></span></p>`);
+  ligarTopo((m) => `#/montagem/planejamento/${c}/${m}`);
   document.getElementById('salvar').addEventListener('click', async (ev) => {
     ev.target.disabled = true;
     const porDia = {};
     document.querySelectorAll('input[data-d]').forEach((i) => {
       const novo = lerCampo(i.value), velho = plan[i.dataset.d]?.[i.dataset.k] ?? null;
-      if (novo !== velho && !(novo != null && velho != null && Math.abs(novo - velho) <= 1e-9 * Math.max(1, Math.abs(novo)))) {
-        (porDia[i.dataset.d] ??= {})[i.dataset.k] = novo;
-      }
+      if (novo !== velho && !(novo != null && velho != null && Math.abs(novo - velho) <= 1e-9 * Math.max(1, Math.abs(novo)))) (porDia[i.dataset.d] ??= {})[i.dataset.k] = novo;
     });
     try {
-      await D.salvarPlanManual(centro, mes, porDia);
+      await D.salvarPlanManual(c, mes, porDia);
       document.getElementById('msg').innerHTML = `<span class="st ok">✓ ${Object.keys(porDia).length} dia(s) salvos</span>`;
     } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
     ev.target.disabled = false;
@@ -189,11 +197,14 @@ async function telaPlanejamento(centro, mes) {
 }
 
 async function telaPublicar(mes) {
-  const meses = await D.mesesComDados();
-  html(`<h1>Publicar</h1><p class="sub">${V.seletorMes(meses.includes(mes) ? meses : [mes, ...meses], mes)}</p>
-<p>Publicar grava uma foto dos números calculados agora (rascunho). Os leitores só veem a última publicação.</p>
-<p><a class="btn sec" href="#/montagem/${mes}">Conferir rascunho antes</a> <button class="btn" id="pub">Publicar ${V.nomeMes(mes)}</button> <span id="msg"></span></p>`);
-  document.getElementById('selMes').addEventListener('change', (e) => { location.hash = `#/publicar/${e.target.value}`; });
+  const topo = await topoMontagem('publicar', mes, `Publicar · ${V.nomeMes(mes)}`);
+  const link = `${location.origin}${location.pathname}#/montagem/resumo/${mes}`;
+  html(`${topo}<p>Publicar grava uma foto dos números calculados agora (rascunho). Os leitores só veem a última publicação.</p>
+<p><a class="btn sec" href="#/montagem/resumo/${mes}">Conferir rascunho antes</a> <button class="btn" id="pub">Publicar ${V.nomeMes(mes)}</button> <span id="msg"></span></p>
+<h2>Link para enviar por e-mail</h2><p><input type="text" readonly value="${V.E(link)}" style="width:100%;max-width:640px" id="lnk"> <button class="btn sec" id="copiar">Copiar</button></p>
+<p class="small">Quem receber precisa estar na lista de <a href="#/acessos">Acessos</a> e entrar com o e-mail cadastrado.</p>`);
+  ligarTopo((m) => `#/montagem/publicar/${m}`);
+  document.getElementById('copiar').onclick = () => navigator.clipboard.writeText(link);
   document.getElementById('pub').addEventListener('click', async (ev) => {
     ev.target.disabled = true;
     try { await D.publicar(mes); document.getElementById('msg').innerHTML = '<span class="st ok">✓ publicado</span>'; }
@@ -202,9 +213,17 @@ async function telaPublicar(mes) {
   });
 }
 
+// ---------------------------------------------------------------- painel principal e acessos (admin)
+function telaPainel() {
+  html(V.painelPrincipal());
+  document.querySelectorAll('[data-copiar]').forEach((b) => {
+    b.onclick = () => { navigator.clipboard.writeText(`${location.origin}${location.pathname}${b.dataset.copiar}`); b.textContent = 'Copiado ✓'; };
+  });
+}
+
 async function telaAcessos() {
   const lista = await D.lerLeitores();
-  html(`<h1>Acessos</h1><p class="sub">E-mails que podem ver o que foi publicado (um por linha). A pessoa cria a conta em "Criar conta" na tela de login com esse e-mail.
+  html(`<p><a href="#/">← Painel principal</a></p><h1>Acessos</h1><p class="sub">E-mails que podem ver o que foi publicado (um por linha). A pessoa cria a conta em "Criar conta" com esse e-mail.
 Administradores são definidos só no console do Firebase (coleção <code>admins</code>).</p>
 <textarea id="lst" rows="10" style="width:100%;max-width:520px;font:inherit">${V.E(lista.join('\n'))}</textarea>
 <p><button class="btn" id="salvar">Salvar</button> <span id="msg"></span></p>`);
@@ -216,9 +235,9 @@ Administradores são definidos só no console do Firebase (coleção <code>admin
 }
 
 // ---------------------------------------------------------------- login
-function telaLogin(msg = '') {
-  nav('');
-  html(`<div class="login card"><h1>Entrar</h1>${msg}
+function telaLogin() {
+  cabecalhoSite('');
+  html(`<div class="login card"><h1>Entrar</h1>
 <label>E-mail<input type="email" id="em" autocomplete="username"></label>
 <label>Senha<input type="password" id="pw" autocomplete="current-password"></label>
 <p><button class="btn" id="entrar">Entrar</button> <button class="btn sec" id="criar">Criar conta</button></p>
@@ -235,26 +254,34 @@ function telaLogin(msg = '') {
 }
 
 // ---------------------------------------------------------------- rotas
+async function mesPadrao() {
+  if (estado.admin) return mesAtual();
+  return (await D.mesesPublicados())[0] || mesAtual();
+}
+
 async function rotear() {
   if (!estado.user) return telaLogin();
-  const rota = location.hash.replace(/^#/, '') || '/';
-  nav(rota);
-  const p = rota.split('/').filter(Boolean);
-  const mesP = (s) => (/^\d{4}-\d{2}$/.test(s || '') ? s : null);
+  const p = (location.hash.replace(/^#/, '') || '/').split('/').filter(Boolean);
   try {
-    if (p.length === 0 || p[0] === 'inicio') return await telaVisual('inicio', mesP(p[1]) || mesAtual());
-    if (p[0] === 'montagem' && D.UNIDADES[p[1]]) return await telaVisual('detalhe', mesP(p[2]) || mesAtual(), p[1]);
-    if (p[0] === 'montagem') return await telaVisual('montagem', mesP(p[1]) || mesAtual());
-    if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
-    if (p[0] === 'importar') return await telaImportar();
-    if (p[0] === 'parametros') return await telaParametros(mesP(p[1]) || mesAtual());
-    if (p[0] === 'planejamento' && D.UNIDADES[p[1]]) return await telaPlanejamento(p[1], mesP(p[2]) || mesAtual());
-    if (p[0] === 'publicar') return await telaPublicar(mesP(p[1]) || mesAtual());
+    if (p[0] === 'montagem') {
+      cabecalhoSite('Montagem de Cargas');
+      const sub = p[1];
+      if (sub === 'CBAR' || sub === 'CCRT') return await telaDetalhe(sub, mesP(p[2]) || await mesPadrao());
+      if (!sub || sub === 'resumo') return await telaResumo(mesP(p[2]) || await mesPadrao());
+      if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
+      if (sub === 'importar') return await telaImportar();
+      if (sub === 'parametros') return await telaParametros(mesP(p[2]) || mesAtual());
+      if (sub === 'publicar') return await telaPublicar(mesP(p[2]) || mesAtual());
+      if (sub === 'planejamento' && D.UNIDADES[p[2]]) return await telaPlanejamento(p[2], mesP(p[3]) || mesAtual());
+    }
+    cabecalhoSite('');
+    if (!estado.admin) {
+      return html('<div class="card"><h1>Hub Logístico</h1><p>Abra o acompanhamento pelo link que você recebeu por e-mail.</p></div>');
+    }
     if (p[0] === 'acessos') return await telaAcessos();
-    html('<p>Página não encontrada. <a href="#/">Início</a></p>');
+    return telaPainel();
   } catch (e) {
-    const semPermissao = /permission/i.test(e?.message || '');
-    html(semPermissao
+    html(/permission/i.test(e?.message || '')
       ? `<div class="aviso">Sua conta (${V.E(estado.user.email)}) ainda não tem acesso. Peça ao administrador para liberar o seu e-mail.</div>`
       : erro(e));
   }
