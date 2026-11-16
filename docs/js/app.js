@@ -8,6 +8,7 @@ import * as D from './dados.js';
 import { lerArquivo, num } from './importar.js';
 import * as V from './views.js';
 import { diasDoMes } from './calc.js';
+import { INDICADORES_PES, pctDeTela, pctParaTela } from './pes.js';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho' };
@@ -213,6 +214,96 @@ async function telaPublicar(mes) {
   });
 }
 
+// ---------------------------------------------------------------- acompanhamento PES Logístico
+async function topoPES(aba, mes, titulo, comModo = false) {
+  const meses = estado.admin ? await D.mesesComDados() : await D.mesesPESPublicados();
+  if (!meses.includes(mes)) meses.unshift(mes);
+  let ctrl = V.seletorMes(meses, mes);
+  if (estado.admin && comModo) {
+    ctrl += ` · <select id="selModo"><option value="rascunho" ${estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho (dados atuais)</option>`
+      + `<option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado (o que os leitores veem)</option></select> `
+      + (estado.modo === 'rascunho' ? '<span class="badge">rascunho</span>' : '<span class="badge pub">publicado</span>');
+  }
+  return `<h1>PES Logístico — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasPES(aba, mes, estado.admin)}`;
+}
+
+async function telaPESResumo(mes) {
+  html('<p class="small">Calculando…</p>');
+  const topo = await topoPES('resumo', mes, `Placar · ${V.nomeMes(mes)}`, true);
+  const placares = {};
+  let pubEm = null;
+  for (const c of Object.keys(D.UNIDADES)) {
+    if (estado.admin && estado.modo === 'rascunho') placares[c] = await D.placarAoVivo(c, mes);
+    else {
+      const p = await D.lerPESPublicado(c, mes);
+      placares[c] = p?.placar || null;
+      if (p?.publicadoEm) pubEm = p.publicadoEm;
+    }
+  }
+  html(V.paginaPES(placares, { mes, admin: estado.admin, topo }));
+  if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
+  ligarTopo((m) => `#/pes/resumo/${m}`);
+}
+
+async function telaPESDigitacao(mes) {
+  const topo = await topoPES('digitacao', mes, `Digitação · ${V.nomeMes(mes)}`);
+  const cs = Object.keys(D.UNIDADES);
+  const digs = Object.fromEntries(await Promise.all(cs.map(async (c) => [c, await D.lerDigPES(c, mes)])));
+  const paraTela = (ind, x) => (ind.pct ? pctParaTela(x) : valTxt(x));
+  const campo = (c, grupo, ind) => `<td><input type="text" inputmode="decimal" data-c="${c}" data-g="${grupo}" data-k="${ind.k}" value="${V.E(paraTela(grupo === 'solar' ? { pct: false } : ind, digs[c][grupo][ind.k]))}" placeholder="${grupo === 'metas' ? V.E(paraTela(ind, ind.meta)) : ''}"></td>`;
+  const un = (ind) => (ind.pct ? ' <span class="small">(%)</span>' : '');
+  const cab = `<tr><th class="t">Indicador</th>${cs.map((c) => `<th>${V.E(D.UNIDADES[c].nome)}</th>`).join('')}</tr>`;
+  const tab = (grupo, lista, titulo, nota) => `<h2>${titulo}</h2><p class="small">${nota}</p><div class="tw" style="max-width:720px"><table><thead>${cab}</thead><tbody>
+${lista.map((ind) => `<tr><td class="t">${V.E(ind.nome)}${grupo === 'solar' ? '' : un(ind)}</td>${cs.map((c) => campo(c, grupo, ind)).join('')}</tr>`).join('')}</tbody></table></div>`;
+  html(`${topo}<p class="sub">Vírgula ou ponto como decimal; vazio apaga. Percentuais em % (ex.: 96,5).</p>
+${tab('valores', INDICADORES_PES.filter((i) => !i.auto), 'Indicadores digitados', 'Licenças: 1 = todas vigentes, 0 = alguma vencida. Acidentes: quantidade no mês (0 pontua).')}
+${tab('metas', INDICADORES_PES, 'Metas do mês', 'Vazio = meta padrão de 2026 (aparece em cinza).')}
+${tab('solar', INDICADORES_PES, 'Pontuação oficial SOLAR (opcional)', 'Pontos que a Solar deu em cada indicador, para comparar com o nosso cálculo.')}
+<p><button class="btn" id="salvar">Salvar</button> <a class="btn sec" href="#/pes/resumo/${mes}">Ver placar</a> <span id="msg"></span></p>`);
+  ligarTopo((m) => `#/pes/digitacao/${m}`);
+  const porK = Object.fromEntries(INDICADORES_PES.map((i) => [i.k, i]));
+  document.getElementById('salvar').addEventListener('click', async (ev) => {
+    ev.target.disabled = true;
+    try {
+      let n = 0;
+      for (const c of cs) {
+        const novo = { valores: {}, metas: {}, solar: {} };
+        document.querySelectorAll(`input[data-c="${c}"]`).forEach((i) => {
+          const ind = porK[i.dataset.k], g = i.dataset.g;
+          const v = g !== 'solar' && ind.pct ? pctDeTela(i.value) : lerCampo(i.value);
+          if (v != null) novo[g][i.dataset.k] = v;
+        });
+        if (JSON.stringify(novo) !== JSON.stringify(digs[c])) { await D.gravarDigPES(c, mes, novo); digs[c] = novo; n++; }
+      }
+      document.getElementById('msg').innerHTML = `<span class="st ok">✓ ${n ? 'salvo' : 'nada mudou'}</span>`;
+    } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
+    ev.target.disabled = false;
+  });
+}
+
+async function telaPESPublicar(mes) {
+  const topo = await topoPES('publicar', mes, `Publicar · ${V.nomeMes(mes)}`);
+  const link = `${location.origin}${location.pathname}#/pes/resumo/${mes}`;
+  html(`${topo}<p>Publicar grava uma foto do placar calculado agora (rascunho), com a Montagem do mês como está neste momento. Os leitores só veem a última publicação.</p>
+<div class="aviso">Publique a Montagem de ${V.nomeMes(mes)} junto, para as duas áreas mostrarem os mesmos números.</div>
+<p><a class="btn sec" href="#/pes/resumo/${mes}">Conferir rascunho antes</a> <button class="btn" id="pub">Publicar PES ${V.nomeMes(mes)}</button> <span id="msg"></span></p>
+<h2>Link para enviar por e-mail</h2><p><input type="text" readonly value="${V.E(link)}" style="width:100%;max-width:640px"> <button class="btn sec" id="copiar">Copiar</button></p>
+<p class="small">Quem receber precisa estar na lista de <a href="#/acessos">Acessos</a> e entrar com o e-mail cadastrado.</p>`);
+  ligarTopo((m) => `#/pes/publicar/${m}`);
+  document.getElementById('copiar').onclick = () => navigator.clipboard.writeText(link);
+  document.getElementById('pub').addEventListener('click', async (ev) => {
+    ev.target.disabled = true;
+    try { await D.publicarPES(mes); document.getElementById('msg').innerHTML = '<span class="st ok">✓ publicado</span>'; }
+    catch (e) { document.getElementById('msg').innerHTML = erro(e); }
+    ev.target.disabled = false;
+  });
+}
+
+async function mesPadraoPES() {
+  if (estado.admin) return mesAtual();
+  return (await D.mesesPESPublicados())[0] || mesAtual();
+}
+
 // ---------------------------------------------------------------- painel principal e acessos (admin)
 function telaPainel() {
   html(V.painelPrincipal());
@@ -273,6 +364,14 @@ async function rotear() {
       if (sub === 'parametros') return await telaParametros(mesP(p[2]) || mesAtual());
       if (sub === 'publicar') return await telaPublicar(mesP(p[2]) || mesAtual());
       if (sub === 'planejamento' && D.UNIDADES[p[2]]) return await telaPlanejamento(p[2], mesP(p[3]) || mesAtual());
+    }
+    if (p[0] === 'pes') {
+      cabecalhoSite('PES Logístico');
+      const sub = p[1];
+      if (!sub || sub === 'resumo') return await telaPESResumo(mesP(p[2]) || await mesPadraoPES());
+      if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
+      if (sub === 'digitacao') return await telaPESDigitacao(mesP(p[2]) || mesAtual());
+      if (sub === 'publicar') return await telaPESPublicar(mesP(p[2]) || mesAtual());
     }
     cabecalhoSite('');
     if (!estado.admin) {

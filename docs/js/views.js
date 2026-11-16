@@ -74,7 +74,7 @@ export function grafico(dias, campo, corS, meta, rotulo, fmt = fi, fmtBarra = fk
 // ---------------------------------------------------------------- painel principal (só admin)
 export function painelPrincipal() {
   const acomp = [['Montagem de cargas (DLs)', '#/montagem', 'ativo · Barreiras e Juazeiro'], ['KPI Distribuição e Logística', null, 'próxima fase'],
-    ['PES Logístico', null, 'próxima fase'], ['Cargas em aberto', null, 'planejado'], ['Montadores', null, 'planejado'],
+    ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', null, 'planejado'], ['Montadores', null, 'planejado'],
     ['Perdas de estoque', null, 'planejado'], ['KM planejado × realizado', null, 'planejado'], ['Retorno por motivo', null, 'planejado'],
     ['Fill rate', null, 'planejado'], ['Gestão à vista', null, 'planejado'], ['Custos de descarga', null, 'planejado']];
   return `<h1>Painel principal</h1><p class="sub">Acompanhamentos do Hub. Cada um tem link próprio para enviar por e-mail; quem recebe vê só aquele acompanhamento.</p>
@@ -180,4 +180,43 @@ ${lb({ ...t, tx_reprog: null }, 'tot', 'TOTAL', { rp_cubos: rp.rp_cubos, rp_uc_t
 <h2>Reprogramação</h2>${tabB}
 <h2>Retorno</h2><div class="card">${grafico(m.dias, 'ret_vol', corS, META_PES.ret_vol, 'meta PES', (v) => fp(v, 1), (v) => fp(v, 1))}</div>
 <div class="g2" style="margin-top:14px">${tabC}${tabM}</div>${legenda()}`;
+}
+
+// ---------------------------------------------------------------- PES Logístico
+export function abasPES(ativa, mes, admin) {
+  const a = [['resumo', 'Placar', `#/pes/resumo/${mes}`]];
+  const adm = admin ? [['digitacao', 'Digitação', `#/pes/digitacao/${mes}`], ['publicar', 'Publicar', `#/pes/publicar/${mes}`]] : [];
+  return `<nav class="abas">${a.map(([k, t, h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
+    + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
+}
+
+const REGRA = { '<=': '≤', '>=': '≥', '=': '=' };
+const valPES = (l, x) => (x == null ? '–' : l.pct ? fp(x, 2) : fd(x, Number.isInteger(x) ? 0 : 1));
+const metaPES = (l) => `${REGRA[l.regra]} ${l.pct ? fp(l.meta, 0) : fi(l.meta)}`;
+function faltaPES(l) {
+  if (l.falta == null) return '';
+  const n = l.faltaUn === 'clientes' ? fd(l.falta, 1) : fi(l.falta);
+  return l.falta >= 0 ? `<span class="t-up">cabem ${n} ${l.faltaUn}</span>` : `<span class="t-down">estourou ${n.replace('-', '')} ${l.faltaUn}</span>`;
+}
+
+function blocoPES(c, pl, mes, admin) {
+  if (!pl) return `<div class="bloco"><div class="faixa">${ROTULO[c]}</div><div class="corpo small">Placar de ${nomeMes(mes)} ainda não publicado.</div></div>`;
+  const semMont = pl.linhas.filter((l) => l.auto).every((l) => l.real == null);
+  const linhas = pl.linhas.map((l) => `<tr><td class="t">${E(l.nome)}${l.auto ? '' : ' <span class="tag">digitado</span>'}</td><td>${metaPES(l)}</td>
+<td class="${l.bateu == null ? '' : l.bateu ? 'c-ok' : 'c-no'}">${valPES(l, l.real)}</td><td>${status(l.bateu, 'bateu', 'não bateu')}</td>
+<td>${fi(l.possiveis)}</td><td><b>${fi(l.feitos)}</b></td><td>${l.solar == null ? '' : fi(l.solar)}</td><td class="t small">${faltaPES(l)}</td></tr>`).join('');
+  const t = pl.total;
+  return `<div class="bloco"><div class="faixa"><span>${ROTULO[c]}</span><span>${fi(t.feitos)} / ${fi(t.possiveis)} pts</span></div><div class="corpo">
+${semMont ? `<div class="aviso">Sem dados da Montagem em ${nomeMes(mes)}: os 4 indicadores automáticos ficam sem dado.</div>` : ''}
+${admin && pl.linhas.some((l) => !l.auto && l.real == null) ? `<div class="aviso">Há indicadores digitados em branco. <a href="#/pes/digitacao/${mes}">Preencher</a></div>` : ''}
+<div class="tw"><table><thead><tr><th class="t">Indicador</th><th>Meta</th><th>Real</th><th>Status</th><th>Pontos possíveis</th><th>Pontos feitos</th><th>SOLAR</th><th class="t">Quanto falta</th></tr></thead>
+<tbody>${linhas}<tr class="tot"><td class="t">TOTAL</td><td></td><td></td><td></td><td>${fi(t.possiveis)}</td><td>${fi(t.feitos)}</td><td>${t.solar == null ? '' : fi(t.solar)}</td><td></td></tr></tbody></table></div>
+</div></div>`;
+}
+
+// placares: {CBAR: placar|null, CCRT: placar|null}
+export function paginaPES(placares, { mes, admin, topo }) {
+  return `${topo}<p class="sub">Programa de Excelência Solar — resultados logísticos. Ponto cheio só se bater a meta. Os 4 percentuais de retorno e reprogramação vêm da Montagem de Cargas do mês; os demais são digitados.</p>
+<div class="g2">${Object.keys(UNIDADES).map((c) => blocoPES(c, placares[c], mes, admin)).join('')}</div>
+<p class="small">Quanto falta: folga até a meta no acumulado do mês (cx unit ou clientes). "Estourou" = já passou da meta.</p>`;
 }
