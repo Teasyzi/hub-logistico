@@ -8,7 +8,7 @@ import * as D from './dados.js';
 import { lerArquivo, num } from './importar.js';
 import * as V from './views.js';
 import { diasDoMes } from './calc.js';
-import { INDICADORES_PES, pctDeTela, pctParaTela } from './pes.js';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho' };
@@ -266,14 +266,21 @@ ${tab('solar', INDICADORES_PES, 'Pontuação oficial SOLAR (opcional)', 'Pontos 
     ev.target.disabled = true;
     try {
       let n = 0;
+      const novos = {}, invalidos = [];
       for (const c of cs) {
         const novo = { valores: {}, metas: {}, solar: {} };
         document.querySelectorAll(`input[data-c="${c}"]`).forEach((i) => {
           const ind = porK[i.dataset.k], g = i.dataset.g;
-          const v = g !== 'solar' && ind.pct ? pctDeTela(i.value) : lerCampo(i.value);
-          if (v != null) novo[g][i.dataset.k] = v;
+          const r = lerNumTela(i.value, g !== 'solar' && ind.pct);
+          i.style.outline = r.ok ? '' : '2px solid var(--bad)';
+          if (!r.ok) invalidos.push(`${ind.nome} (${D.UNIDADES[c].nome})`);
+          else if (r.v != null) novo[g][i.dataset.k] = r.v;
         });
-        if (JSON.stringify(novo) !== JSON.stringify(digs[c])) { await D.gravarDigPES(c, mes, novo); digs[c] = novo; n++; }
+        novos[c] = novo;
+      }
+      if (invalidos.length) throw new Error(`Valor inválido, nada foi salvo: ${invalidos.join('; ')}`);
+      for (const c of cs) {
+        if (JSON.stringify(novos[c]) !== JSON.stringify(digs[c])) { await D.gravarDigPES(c, mes, novos[c]); digs[c] = novos[c]; n++; }
       }
       document.getElementById('msg').innerHTML = `<span class="st ok">✓ ${n ? 'salvo' : 'nada mudou'}</span>`;
     } catch (e) { document.getElementById('msg').innerHTML = erro(e); }

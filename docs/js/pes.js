@@ -28,6 +28,10 @@ function automatico(k, m, meta) {
   if (!m) return { real: null, falta: null, faltaUn: null };
   const t = m.total, rp = m.reprog;
   const ent = t.entregas || 0;
+  // Sem nenhum dia com Reprogramação, o % sairia 0 (soma vazia) e pontuaria: trata como sem dado
+  const semRp = (c) => !m.dias || m.dias.every((d) => d[c] == null);
+  if (k === 'reprog_vol' && semRp('rp_reprog')) return { real: null, falta: null, faltaUn: null };
+  if (k === 'reprog_cli' && semRp('rp_cli')) return { real: null, falta: null, faltaUn: null };
   switch (k) {
     case 'ret_vol': return { real: t.ret_vol, falta: t.ret_vol == null ? null : meta * t.venda_cxu - t.ret_ext_cxu, faltaUn: 'cx unit' };
     case 'ret_cli': return { real: t.ret_cli, falta: t.ret_cli == null ? null : meta * ent - t.ret_cli * ent, faltaUn: 'clientes' };
@@ -66,4 +70,12 @@ export const pctDeTela = (s) => {
   if (t === '' || !Number.isFinite(+t)) return null;
   return +(+t / 100).toPrecision(12);
 };
+// Leitura estrita de campo da tela: vazio = {ok, v:null}; texto que não é número = {ok:false}
+export function lerNumTela(s, pct) {
+  const t = String(s ?? '').trim().replace(/%$/, '').trim();
+  if (t === '') return { ok: true, v: null };
+  if (!/^-?\d+([.,]\d+)?$/.test(t)) return { ok: false, v: null };
+  const n = +t.replace(',', '.');
+  return { ok: true, v: pct ? +(n / 100).toPrecision(12) : n };
+}
 export const pctParaTela = (x) => (x == null ? '' : String(+(x * 100).toPrecision(12)).replace('.', ','));

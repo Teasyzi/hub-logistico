@@ -70,6 +70,18 @@ try {
   ok("pctParaTela(0,965) = '96,5'", P.pctParaTela(0.965) === '96,5');
   ok('pctParaTela(null) = vazio', P.pctParaTela(null) === '');
   ok('ida e volta 0,953', P.pctDeTela(P.pctParaTela(0.953)) === 0.953);
+
+  // revisão final: texto inválido não vira 0; Reprogramação ausente = sem dado
+  const r1 = P.lerNumTela('n/d', false), r2 = P.lerNumTela('', false), r3 = P.lerNumTela('0', false), r4 = P.lerNumTela('96,5', true), r5 = P.lerNumTela('9x', true);
+  ok("lerNumTela('n/d') inválido", r1.ok === false);
+  ok("lerNumTela('') = vazio válido", r2.ok === true && r2.v === null);
+  ok("lerNumTela('0') = 0", r3.ok === true && r3.v === 0);
+  ok("lerNumTela('96,5', pct) = 0,965", r4.ok === true && r4.v === 0.965);
+  ok("lerNumTela('9x', pct) inválido", r5.ok === false);
+  const semRp = calcular({ mes, venda, retorno, plan: { '2026-11-03': { entregas: 40, cargas: 4 }, '2026-11-04': { entregas: 10, cargas: 2 } }, par: { meta_reprog: 0.03 }, prevendaData: null });
+  const psr = P.placarPES(semRp, {});
+  ok('sem Reprogramação: reprog_cli sem dado', lin(psr, 'reprog_cli').bateu === null && lin(psr, 'reprog_cli').feitos === 0);
+  ok('sem Reprogramação: reprog_vol sem dado', lin(psr, 'reprog_vol').bateu === null);
 } catch (e) { falhas++; $r.insertAdjacentHTML('beforeend', `<li>✕ ERRO ${e.message}</li>`); }
 document.getElementById('fim').textContent = `${ok_} ok, ${falhas} falhas`;
 </script>
