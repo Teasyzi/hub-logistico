@@ -20,7 +20,7 @@ const mesP = (s) => (/^\d{4}-\d{2}$/.test(s || '') ? s : null);
 function cabecalhoSite(titulo) {
   document.getElementById('nav').innerHTML = titulo ? `<span>· ${V.E(titulo)}</span>` : '';
   document.getElementById('usuario').innerHTML = estado.user
-    ? `${estado.admin ? '<a href="#/">Painel principal</a> · ' : ''}${V.E(estado.user.email)}${estado.admin ? ' <span class="tag" style="color:#fff;border-color:#fff8">admin</span>' : ''} · <a href="#" id="sair">sair</a>` : '';
+    ? `${estado.admin ? '<a href="#/">Painel principal</a> · ' : ''}${V.E(estado.user.email)}${estado.admin ? ' <span class="tag" style="color:inherit;border-color:currentColor">admin</span>' : ''} · <a href="#" id="sair">sair</a>` : '';
   document.getElementById('sair')?.addEventListener('click', (e) => { e.preventDefault(); signOut(auth); });
 }
 
