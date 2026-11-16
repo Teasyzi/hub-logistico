@@ -7,7 +7,7 @@ project: "HubLogistico"
 status: in-progress
 project_status: active
 tech_stack: [python, sqlite]
-repo: ""
+repo: "https://github.com/Teasyzi/hub-logistico"
 created: 2026-11-16
 updated: 2026-11-16
 summary: "Hub de informações de logística e distribuição do Grupo CB: automatizar os acompanhamentos diários e mensais (KPI, KM, cargas, montadores, perdas, retorno, fill rate, PES) com scripts, sites e dashboards."
@@ -58,5 +58,6 @@ Módulos (um por acompanhamento) em `MODULES/`: KPI, KM, Montagem de Cargas, Mon
 ## Código
 - Local: `code/` dentro deste projeto (`hub/` pacote, `hub.py` CLI, `tests/`). Sem `.md` lá dentro (o vault indexaria).
 - Banco e páginas geradas ficam na pasta `dados` do `hub.ini`, **fora do vault** (contêm nomes de clientes e motoristas).
-- Repositório git: a criar.
+- Repositório git: https://github.com/Teasyzi/hub-logistico (**privado**, branch `main`). A raiz do repositório é esta pasta do projeto. O `.gitignore` bloqueia `hub.ini`, bancos, planilhas e páginas geradas.
+- Atualizar o GitHub depois de mudanças (nesta pasta): `git add -A`, depois `git commit -m "mensagem"`, depois `git push`.
 - Origem dos dados: pasta de rede `Z:\OPERACIONAL\Logistica e Dist\Informações Logisticas\` (cópia analisada: `Downloads\Informações Logisticas.zip`, 2026-11-16).

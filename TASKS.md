@@ -16,6 +16,7 @@ tags: []
 - [ ] Usar o Hub em paralelo à planilha da Montagem por alguns dias e anotar divergências.
 
 ## Concluído em 2026-11-16
+- [x] Repositório privado criado e enviado: https://github.com/Teasyzi/hub-logistico (Git e GitHub CLI instalados via winget).
 - [x] `hub.ini` criado (`C:\HubLogistico\dados`, entrada = Downloads); histórico jan–nov/2026 e arquivos de 01–13/11 importados.
 
 ## Próximas
