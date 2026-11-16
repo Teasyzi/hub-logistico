@@ -26,6 +26,14 @@ service cloud.firestore {
       allow read: if admin() || leitor();
       allow write: if admin();
     }
+    match /pes_publicado/{id} {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
+    match /meta/publicacoes_pes {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
     match /meta/acesso {
       allow read, write: if admin();
     }
@@ -35,5 +43,6 @@ service cloud.firestore {
     match /parametro/{id}    { allow read, write: if admin(); }
     match /estado/{id}       { allow read, write: if admin(); }
     match /importacao/{id}   { allow read, write: if admin(); }
+    match /pes/{id}          { allow read, write: if admin(); }
   }
 }

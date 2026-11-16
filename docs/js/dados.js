@@ -13,6 +13,7 @@ import {
   collection, doc, getDoc, getDocs, query, where, writeBatch, setDoc, addDoc, serverTimestamp, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { calcular, motivos } from './calc.js';
+import { placarPES } from './pes.js';
 
 export const UNIDADES = {
   CBAR: { nome: 'DL Barreiras', cor: 1 },
@@ -180,6 +181,51 @@ export async function lerPublicado(centro, mes) {
 
 export async function mesesPublicados() {
   return (await getDoc(doc(db, 'meta', 'publicacoes'))).data()?.meses || [];
+}
+
+// ---------------------------------------------------------------- PES Logístico
+//   pes/{centro}_{mes}            {centro, mes, valores:{k:num}, metas:{k:num}, solar:{k:num}}   (admin)
+//   pes_publicado/{centro}_{mes}  {centro, mes, placar (JSON), publicadoEm, por}                  (admin e leitores)
+//   meta/publicacoes_pes          {meses:[...]}
+export async function lerDigPES(centro, mes) {
+  const d = (await getDoc(doc(db, 'pes', `${centro}_${mes}`))).data();
+  return { valores: d?.valores || {}, metas: d?.metas || {}, solar: d?.solar || {} };
+}
+
+export async function gravarDigPES(centro, mes, dig) {
+  await setDoc(doc(db, 'pes', `${centro}_${mes}`), {
+    centro, mes, valores: dig.valores || {}, metas: dig.metas || {}, solar: dig.solar || {},
+  });
+}
+
+// Rascunho do admin: Montagem ao vivo (a mesma da área Montagem) + digitação
+export async function placarAoVivo(centro, mes) {
+  const [{ resultado }, dig] = await Promise.all([calcularAoVivo(centro, mes), lerDigPES(centro, mes)]);
+  const tem = resultado.dias.some((d) => d.cx_unit || d.entregas);
+  return placarPES(tem ? resultado : null, dig);
+}
+
+export async function publicarPES(mes) {
+  for (const c of Object.keys(UNIDADES)) {
+    const placar = await placarAoVivo(c, mes);
+    await setDoc(doc(db, 'pes_publicado', `${c}_${mes}`), {
+      centro: c, mes, placar: JSON.stringify(placar), publicadoEm: serverTimestamp(), por: auth.currentUser?.email || null,
+    });
+  }
+  const ref = doc(db, 'meta', 'publicacoes_pes');
+  const m = new Set((await getDoc(ref)).data()?.meses || []);
+  m.add(mes);
+  await setDoc(ref, { meses: [...m].sort().reverse(), atualizado: serverTimestamp() }, { merge: true });
+}
+
+export async function lerPESPublicado(centro, mes) {
+  const d = (await getDoc(doc(db, 'pes_publicado', `${centro}_${mes}`))).data();
+  if (!d) return null;
+  return { placar: JSON.parse(d.placar), publicadoEm: d.publicadoEm?.toDate?.(), por: d.por };
+}
+
+export async function mesesPESPublicados() {
+  return (await getDoc(doc(db, 'meta', 'publicacoes_pes'))).data()?.meses || [];
 }
 
 export async function souAdmin(uid) {
