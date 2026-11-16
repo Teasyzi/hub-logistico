@@ -1,0 +1,25 @@
+# Configuração local (caminhos desta máquina)
+code/hub.ini
+
+# Dados: nunca versionar (contêm nomes de clientes e motoristas)
+*.db
+*.db-journal
+*.sqlite
+site/
+dados/
+
+# Exportações e planilhas de origem
+*.xls
+*.xlsx
+*.xlsm
+*.XLSX
+*.XLS
+
+# Python
+__pycache__/
+*.pyc
+
+# Sistema / Office
+~$*
+Thumbs.db
+.DS_Store

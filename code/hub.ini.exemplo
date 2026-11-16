@@ -1,0 +1,6 @@
+; Copie para hub.ini e ajuste. Sem hub.ini, o banco fica em %LOCALAPPDATA%\HubLogistico
+; e a pasta de entrada e a sua pasta Downloads.
+; Nao coloque a pasta de dados dentro do vault BRAIN: o banco tem nomes de clientes e motoristas.
+[caminhos]
+dados = C:\HubLogistico\dados
+entrada = C:\Users\SEU_USUARIO\Downloads
