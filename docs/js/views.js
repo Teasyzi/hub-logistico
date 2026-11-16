@@ -193,24 +193,26 @@ export function abasPES(ativa, mes, admin) {
 const REGRA = { '<=': '≤', '>=': '≥', '=': '=' };
 const valPES = (l, x) => (x == null ? '–' : l.pct ? fp(x, 2) : fd(x, Number.isInteger(x) ? 0 : 1));
 const metaPES = (l) => `${REGRA[l.regra]} ${l.pct ? fp(l.meta, 0) : fi(l.meta)}`;
+// Distância até a meta: ▲ acima / ▼ abaixo, com a quantidade (verde = lado bom, vermelho = lado ruim)
 function faltaPES(l) {
   if (l.falta == null) return '';
-  const n = l.faltaUn === 'clientes' ? fd(l.falta, 1) : fi(l.falta);
-  return l.falta >= 0 ? `<span class="t-up">cabem ${n} ${l.faltaUn}</span>` : `<span class="t-down">estourou ${n.replace('-', '')} ${l.faltaUn}</span>`;
+  const q = Math.abs(l.falta), n = l.faltaUn === 'clientes' ? fd(q, 1) : fi(q);
+  const abaixo = l.falta >= 0;   // nos automáticos a meta é "≤": folga positiva = real abaixo da meta
+  return `<span class="${abaixo ? 't-up' : 't-down'}">${abaixo ? '▼' : '▲'} ${n} ${l.faltaUn}</span>`;
 }
 
 function blocoPES(c, pl, mes, admin) {
   if (!pl) return `<div class="bloco"><div class="faixa">${ROTULO[c]}</div><div class="corpo small">Placar de ${nomeMes(mes)} ainda não publicado.</div></div>`;
   const semMont = pl.linhas.filter((l) => l.auto).every((l) => l.real == null);
   const linhas = pl.linhas.map((l) => `<tr><td class="t">${E(l.nome)}${l.auto ? '' : ' <span class="tag">digitado</span>'}</td><td>${metaPES(l)}</td>
-<td class="${l.bateu == null ? '' : l.bateu ? 'c-ok' : 'c-no'}">${valPES(l, l.real)}</td><td>${status(l.bateu, 'bateu', 'não bateu')}</td>
+<td class="${l.bateu == null ? '' : l.bateu ? 'c-ok' : 'c-no'}">${valPES(l, l.real)}</td>
 <td>${fi(l.possiveis)}</td><td><b>${fi(l.feitos)}</b></td><td>${l.solar == null ? '' : fi(l.solar)}</td><td class="t small">${faltaPES(l)}</td></tr>`).join('');
   const t = pl.total;
   return `<div class="bloco"><div class="faixa"><span>${ROTULO[c]}</span><span>${fi(t.feitos)} / ${fi(t.possiveis)} pts</span></div><div class="corpo">
 ${semMont ? `<div class="aviso">Sem dados da Montagem em ${nomeMes(mes)}: os 4 indicadores automáticos ficam sem dado.</div>` : ''}
 ${admin && pl.linhas.some((l) => !l.auto && l.real == null) ? `<div class="aviso">Há indicadores digitados em branco. <a href="#/pes/digitacao/${mes}">Preencher</a></div>` : ''}
-<div class="tw"><table><thead><tr><th class="t">Indicador</th><th>Meta</th><th>Real</th><th>Status</th><th>Pontos possíveis</th><th>Pontos feitos</th><th>SOLAR</th><th class="t">Quanto falta</th></tr></thead>
-<tbody>${linhas}<tr class="tot"><td class="t">TOTAL</td><td></td><td></td><td></td><td>${fi(t.possiveis)}</td><td>${fi(t.feitos)}</td><td>${t.solar == null ? '' : fi(t.solar)}</td><td></td></tr></tbody></table></div>
+<div class="tw"><table><thead><tr><th class="t">Indicador</th><th>Meta</th><th>Real</th><th>Pontos possíveis</th><th>Pontos feitos</th><th>SOLAR</th><th class="t">vs meta</th></tr></thead>
+<tbody>${linhas}<tr class="tot"><td class="t">TOTAL</td><td></td><td></td><td>${fi(t.possiveis)}</td><td>${fi(t.feitos)}</td><td>${t.solar == null ? '' : fi(t.solar)}</td><td></td></tr></tbody></table></div>
 </div></div>`;
 }
 
@@ -218,5 +220,5 @@ ${admin && pl.linhas.some((l) => !l.auto && l.real == null) ? `<div class="aviso
 export function paginaPES(placares, { mes, admin, topo }) {
   return `${topo}<p class="sub">Programa de Excelência Solar — resultados logísticos. Ponto cheio só se bater a meta. Os 4 percentuais de retorno e reprogramação vêm da Montagem de Cargas do mês; os demais são digitados.</p>
 <div class="g2">${Object.keys(UNIDADES).map((c) => blocoPES(c, placares[c], mes, admin)).join('')}</div>
-<p class="small">Quanto falta: folga até a meta no acumulado do mês (cx unit ou clientes). "Estourou" = já passou da meta.</p>`;
+<p class="small">vs meta: ▼ abaixo ou ▲ acima da meta no acumulado do mês, em cx unit ou clientes.</p>`;
 }
