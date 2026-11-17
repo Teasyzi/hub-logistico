@@ -4,14 +4,17 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js';
+import * as D from './dados.js?v=20261117-4';
 import { lerArquivo, num } from './importar.js';
-import * as V from './views.js';
-import { diasDoMes } from './calc.js';
+import * as V from './views.js?v=20261117-4';
+import { diasDoMes } from './calc.js?v=20261117-4';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
-import { exportarPES } from './exportar_pes.js';
-import { exportarMontagem } from './exportar_montagem.js';
-import { exportarKM } from './exportar_km.js';
+import { exportarPES } from './exportar_pes.js?v=20261117-3';
+import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
+import { exportarKM } from './exportar_km.js?v=20261117-3';
+import { conectarModeloExportacao } from './modelos.js?v=20261117-3';
+import { importarMontadoresLocal, dadosMontadores, calcularMontadores } from './montadores.js?v=20261117-3';
+import { exportarMontadores } from './exportar_montadores.js?v=20261117-3';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho' };
@@ -85,22 +88,13 @@ async function telaDetalhe(c, mes) {
 
 async function telaMontagemExportar(mes) {
   const topo = await topoMontagem('exportar', mes, `Exportar planilha · ${V.nomeMes(mes)}`);
-  html(`${topo}<p>Escolha uma cópia do modelo oficial XLSM da Montagem. O Hub atualiza o resumo e os valores diários das duas unidades e baixa uma nova planilha; o modelo selecionado permanece no seu computador.</p>
-<p><label>Modelo oficial da Montagem (.xlsm)<br><input type="file" id="modeloMontagem" accept=".xlsm"></label></p>
-<p><button class="btn" id="exportar" disabled>Exportar ${V.nomeMes(mes)}</button> <span id="msg"></span></p>
-<p class="small">A exportação usa os dados atuais do rascunho e pede ao Excel para recalcular as fórmulas ao abrir.</p>`);
-  const input = document.getElementById('modeloMontagem'), botao = document.getElementById('exportar');
-  input.onchange = () => { botao.disabled = !input.files?.[0]; };
-  botao.onclick = async () => {
-    const modelo = input.files?.[0]; if (!modelo) return;
-    botao.disabled = true;
-    try {
+  html(`${topo}<p>O modelo oficial fica salvo neste navegador. A exportação baixa uma cópia atualizada e preserva o arquivo original.</p>
+<div class="modelo-box"><label>MODELO OFICIAL (.XLSM)<br><input type="file" id="modeloMontagem" accept=".xlsm"></label><span id="modeloStatus" class="small"></span></div>
+<p><button class="btn" id="exportar" disabled>EXPORTAR ${V.nomeMes(mes)}</button></p><p class="small">Usa os dados atuais do rascunho e solicita recálculo das fórmulas ao abrir no Excel.</p>`);
+  conectarModeloExportacao({ id:'montagem', inputId:'modeloMontagem', statusId:'modeloStatus', botaoId:'exportar', executar: async (modelo) => {
       const resultados = Object.fromEntries(await Promise.all(Object.keys(D.UNIDADES).map(async (c) => [c, (await D.calcularAoVivo(c, mes)).resultado])));
       await exportarMontagem(modelo, mes, resultados);
-      document.getElementById('msg').innerHTML = '<span class="st ok">Planilha baixada.</span>';
-    } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
-    botao.disabled = false;
-  };
+  }});
   ligarTopo((m) => `#/montagem/exportar/${m}`);
 }
 
@@ -332,24 +326,14 @@ async function telaPESPublicar(mes) {
 
 async function telaPESExportar(mes) {
   const topo = await topoPES('exportar', mes, `Exportar planilha · ${V.nomeMes(mes)}`);
-  html(`${topo}<p>Escolha uma cópia do modelo oficial PES XLSM. O Hub preenche os dados de Barreiras e Juazeiro e baixa uma nova planilha; o arquivo escolhido fica no seu computador.</p>
-<p><label>Modelo oficial PES (.xlsm)<br><input type="file" id="modeloPES" accept=".xlsm"></label></p>
-<p><button class="btn" id="exportar" disabled>Exportar ${V.nomeMes(mes)}</button> <span id="msg"></span></p>
-<p class="small">Use a planilha de outubro como modelo se o arquivo do mês atual ainda não estiver disponível. O Hub mantém as macros e fórmulas existentes e pede ao Excel para recalcular ao abrir.</p>`);
-  const input = document.getElementById('modeloPES'), botao = document.getElementById('exportar');
-  input.onchange = () => { botao.disabled = !input.files?.[0]; };
-  botao.onclick = async () => {
-    const modelo = input.files?.[0];
-    if (!modelo) return;
-    botao.disabled = true;
-    try {
+  html(`${topo}<p>O modelo oficial fica salvo neste navegador. A exportação baixa uma cópia atualizada e preserva o arquivo original.</p>
+<div class="modelo-box"><label>MODELO OFICIAL (.XLSM)<br><input type="file" id="modeloPES" accept=".xlsm"></label><span id="modeloStatus" class="small"></span></div>
+<p><button class="btn" id="exportar" disabled>EXPORTAR ${V.nomeMes(mes)}</button></p><p class="small">Você pode substituir o modelo quando receber uma versão nova.</p>`);
+  conectarModeloExportacao({ id:'pes', inputId:'modeloPES', statusId:'modeloStatus', botaoId:'exportar', executar: async (modelo) => {
       const cs = ['CBAR', 'CCRT'];
       const placares = Object.fromEntries(await Promise.all(cs.map(async (c) => [c, await D.placarAoVivo(c, mes)])));
       await exportarPES(modelo, mes, placares);
-      document.getElementById('msg').innerHTML = '<span class="st ok">Planilha baixada.</span>';
-    } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
-    botao.disabled = false;
-  };
+  }});
   ligarTopo((m) => `#/pes/exportar/${m}`);
 }
 
@@ -395,22 +379,13 @@ async function telaKMResumo(mes) {
 
 async function telaKMExportar(mes) {
   const topo = await topoKM('exportar', mes, `Exportar planilha · ${V.nomeMes(mes)}`);
-  html(`${topo}<p>Escolha uma cópia do modelo oficial XLSM do KM. O Hub atualiza a análise diária das quatro unidades e baixa uma nova planilha; o modelo selecionado permanece no seu computador.</p>
-<p><label>Modelo oficial do KM (.xlsm)<br><input type="file" id="modeloKM" accept=".xlsm"></label></p>
-<p><button class="btn" id="exportar" disabled>Exportar ${V.nomeMes(mes)}</button> <span id="msg"></span></p>
-<p class="small">A exportação usa os dados atuais do rascunho e pede ao Excel para recalcular as fórmulas ao abrir.</p>`);
-  const input = document.getElementById('modeloKM'), botao = document.getElementById('exportar');
-  input.onchange = () => { botao.disabled = !input.files?.[0]; };
-  botao.onclick = async () => {
-    const modelo = input.files?.[0]; if (!modelo) return;
-    botao.disabled = true;
-    try {
+  html(`${topo}<p>O modelo oficial fica salvo neste navegador. A exportação baixa uma cópia atualizada e preserva o arquivo original.</p>
+<div class="modelo-box"><label>MODELO OFICIAL (.XLSM)<br><input type="file" id="modeloKM" accept=".xlsm"></label><span id="modeloStatus" class="small"></span></div>
+<p><button class="btn" id="exportar" disabled>EXPORTAR ${V.nomeMes(mes)}</button></p><p class="small">Usa os dados atuais do rascunho e solicita recálculo das fórmulas ao abrir no Excel.</p>`);
+  conectarModeloExportacao({ id:'km', inputId:'modeloKM', statusId:'modeloStatus', botaoId:'exportar', executar: async (modelo) => {
       const resultado = await D.calcularKMAoVivo(mes);
       await exportarKM(modelo, mes, resultado);
-      document.getElementById('msg').innerHTML = '<span class="st ok">Planilha baixada.</span>';
-    } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
-    botao.disabled = false;
-  };
+  }});
   ligarTopo((m) => `#/km/exportar/${m}`);
 }
 
@@ -490,6 +465,54 @@ async function telaKMPublicar(mes) {
   document.getElementById('copiar').onclick = () => navigator.clipboard.writeText(link);
   document.getElementById('pub').onclick = async (e) => { e.target.disabled = true; try { await D.publicarKM(mes); document.getElementById('msg').innerHTML = '<span class="st ok">✓ publicado</span>'; } catch (err) { document.getElementById('msg').innerHTML = erro(err); } e.target.disabled = false; };
   ligarTopo((m) => `#/km/publicar/${m}`);
+}
+
+// ---------------------------------------------------------------- Montadores (em validação, dados locais do navegador)
+async function topoMontadores(aba, mes, titulo) {
+  const registros = await dadosMontadores(), meses = [...new Set(registros.map((r) => r.data?.slice(0, 7)).filter(Boolean))].sort().reverse();
+  if (!meses.includes(mes)) meses.unshift(mes);
+  const topo = `<h1>Montadores — ${V.E(titulo)}</h1><p class="sub">${V.seletorMes(meses, mes)} <span class="badge">DADOS LOCAIS · EM VALIDAÇÃO</span></p>${V.abasMontadores(aba, mes)}`;
+  return { topo, registros };
+}
+
+async function telaMontadoresResumo(mes) {
+  const {topo, registros} = await topoMontadores('resumo', mes, V.nomeMes(mes));
+  html(V.paginaMontadoresResumo(calcularMontadores(registros, mes), {mes, topo}));
+  ligarTopo((m) => `#/montadores/resumo/${m}`);
+}
+
+async function telaMontadoresUnidade(base, mes) {
+  const {topo, registros} = await topoMontadores(base, mes, `${base} · ${V.nomeMes(mes)}`);
+  html(V.paginaMontadoresUnidade(base, calcularMontadores(registros, mes)[base] || [], {mes, topo}));
+  ligarTopo((m) => `#/montadores/${base}/${m}`);
+}
+
+async function telaMontadoresImportar() {
+  const mes = mesAtual(), {topo} = await topoMontadores('importar', mes, 'Importar acompanhamento oficial');
+  const antes = await dadosMontadores();
+  html(`${topo}<p>Importe o acompanhamento mensal oficial (.XLSX ou .XLSM) que contém as abas de dados ocultas <b>DA</b> e <b>DL</b>. Os dados desta primeira versão ficam somente neste navegador.</p>
+<div class="modelo-box"><label>ARQUIVO OFICIAL DE MONTADORES<br><input type="file" id="arqMontadores" accept=".xlsx,.xlsm"></label><button class="btn" id="importarMontadores">IMPORTAR</button></div>
+<p id="statusMontadores" class="small">${antes.length ? `${V.fi(antes.length)} registros já estão salvos neste navegador. Uma nova importação substitui o conjunto anterior.` : 'Nenhum arquivo importado neste navegador.'}</p>`);
+  document.getElementById('importarMontadores').onclick = async (e) => {
+    const file = document.getElementById('arqMontadores').files?.[0]; if (!file) { document.getElementById('statusMontadores').textContent = 'Escolha o acompanhamento oficial.'; return; }
+    e.target.disabled = true; const out = document.getElementById('statusMontadores'); out.textContent = 'Lendo as abas DA e DL…';
+    try {
+      const rows = await importarMontadoresLocal(file), dates = rows.map((r) => r.data).sort();
+      out.innerHTML = `<span class="st ok">${V.fi(rows.length)} registros importados de ${V.E(file.name)} · ${V.fdata(dates[0])} a ${V.fdata(dates.at(-1))}. Salvos neste navegador.</span>`;
+    } catch (err) { out.innerHTML = erro(err); }
+    e.target.disabled = false;
+  };
+}
+
+async function telaMontadoresExportar(mes) {
+  const {topo} = await topoMontadores('exportar', mes, `Exportar · ${V.nomeMes(mes)}`);
+  html(`${topo}<p>Use o modelo oficial de Montadores. Ele fica guardado neste navegador e pode ser substituído quando houver uma nova versão. A exportação gera uma cópia com os dados atualizados.</p>
+<div class="modelo-box"><label>MODELO OFICIAL (.XLSX OU .XLSM)<br><input type="file" id="modeloMontadores" accept=".xlsx,.xlsm"></label><span id="modeloStatus" class="small"></span></div>
+<p><button class="btn" id="exportar" disabled>EXPORTAR ${V.nomeMes(mes)}</button></p><p class="small">O acompanhamento precisa ter abas DA e DL. Dados e modelo permanecem locais neste navegador.</p>`);
+  conectarModeloExportacao({ id:'montadores', inputId:'modeloMontadores', statusId:'modeloStatus', botaoId:'exportar', executar: async (modelo) => {
+    await exportarMontadores(modelo, mes, await dadosMontadores());
+  }});
+  ligarTopo((m) => `#/montadores/exportar/${m}`);
 }
 
 // ---------------------------------------------------------------- painel principal e acessos (admin)
@@ -574,6 +597,15 @@ async function rotear() {
       if (sub === 'parametros') return await telaKMParametros(mesP(p[2]) || mesAtual());
       if (sub === 'publicar') return await telaKMPublicar(mesP(p[2]) || mesAtual());
       if (sub === 'motoristas') return await telaKMMotoristas(p[2], mesP(p[3]) || mesAtual());
+    }
+    if (p[0] === 'montadores') {
+      cabecalhoSite('Montadores');
+      if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
+      const sub = p[1], mes = mesP(p[2]) || mesAtual();
+      if (!sub || sub === 'resumo') return await telaMontadoresResumo(mes);
+      if (['NORTE','SUL','CBAR','CCRT'].includes(sub)) return await telaMontadoresUnidade(sub, mes);
+      if (sub === 'importar') return await telaMontadoresImportar();
+      if (sub === 'exportar') return await telaMontadoresExportar(mes);
     }
     cabecalhoSite('');
     if (!estado.admin) {

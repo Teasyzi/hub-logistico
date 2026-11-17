@@ -67,15 +67,42 @@ export function grafico(dias, campo, corS, meta, rotulo, fmt = fi, fmtBarra = fk
   s += `<line x1="${pl}" x2="${w - pr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--axis)"/>`;
   if (meta) {
     s += `<line x1="${pl}" x2="${w - pr}" y1="${y(meta).toFixed(1)}" y2="${y(meta).toFixed(1)}" stroke="var(--ink2)" stroke-dasharray="6 4" stroke-width="1.5"/>`
-      + `<text x="${w - pr}" y="${(y(meta) - 5).toFixed(1)}" text-anchor="end" style="fill:var(--ink2);font-weight:600">${E(rotulo)} ${fmt(meta)}</text>`;
+      + `<text x="${pl + 5}" y="${(y(meta) - 5).toFixed(1)}" text-anchor="start" style="fill:var(--ink2);font-weight:600">${E(rotulo)} ${fmt(meta)}</text>`;
   }
+  return s + '</svg>';
+}
+
+export function graficoVendidoRetorno(dias, altura = 270) {
+  const pts = dias.filter((d) => d.volume_vendido_cxu || d.retorno_cxu);
+  if (!pts.length) return '<p class="small">Sem dados de volume neste período.</p>';
+  const w = 1000, pl = 52, pr = 12, pt = 24, pb = 30;
+  const max = Math.max(1, ...pts.flatMap((d) => [d.volume_vendido_cxu || 0, d.retorno_cxu || 0])) * 1.12;
+  const band = (w - pl - pr) / pts.length, bw = Math.min(24, band * 0.32);
+  const y = (v) => pt + (altura - pt - pb) * (1 - v / max);
+  let s = `<div class="grafico-legenda"><span><i class="vendido"></i>VENDIDO (BRUTO)</span><span><i class="retorno"></i>RETORNO</span></div><svg viewBox="0 0 ${w} ${altura}" width="100%" role="img" aria-label="Comparativo diário de volume vendido e retorno em caixa unitária">`;
+  for (let k = 0; k <= 4; k++) {
+    const v = (max * k) / 4, yy = y(v);
+    s += `<line x1="${pl}" x2="${w-pr}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/><text x="${pl-6}" y="${(yy+4).toFixed(1)}" text-anchor="end">${fk(v)}</text>`;
+  }
+  const step = Math.max(1, Math.ceil(pts.length / 16));
+  pts.forEach((d, i) => {
+    const cx = pl + band * (i + 0.5), sold = d.volume_vendido_cxu || 0, returned = d.retorno_cxu || 0;
+    const x1 = cx - bw - 2, x2 = cx + 2;
+    s += `<rect x="${x1.toFixed(1)}" y="${y(sold).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, y(0)-y(sold)).toFixed(1)}" rx="2" fill="var(--brand)"><title>${fdata(d.data)} · vendido bruto: ${fi(sold)} CX UNIT</title></rect>`
+      + `<rect x="${x2.toFixed(1)}" y="${y(returned).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, y(0)-y(returned)).toFixed(1)}" rx="2" fill="var(--s2)"><title>${fdata(d.data)} · retorno: ${fi(returned)} CX UNIT</title></rect>`;
+    if (pts.length <= 16) {
+      s += `<text class="val" x="${(x1+bw/2).toFixed(1)}" y="${(y(sold)-5).toFixed(1)}" text-anchor="middle">${fk(sold)}</text>`;
+      if (returned) s += `<text class="val" x="${(x2+bw/2).toFixed(1)}" y="${(y(returned)-5).toFixed(1)}" text-anchor="middle">${fk(returned)}</text>`;
+    }
+    if (i % step === 0 || i === pts.length - 1) s += `<text x="${cx.toFixed(1)}" y="${altura-8}" text-anchor="middle">${fdata(d.data)}</text>`;
+  });
   return s + '</svg>';
 }
 
 // ---------------------------------------------------------------- painel principal (só admin)
 export function painelPrincipal() {
   const acomp = [['Montagem de cargas (DLs)', '#/montagem', 'ativo · Barreiras e Juazeiro'], ['KPI Distribuição e Logística', null, 'próxima fase'],
-    ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', null, 'planejado'], ['Montadores', null, 'planejado'],
+    ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', null, 'planejado'], ['Montadores', '#/montadores', 'em validação · dados locais'],
     ['Perdas de estoque', null, 'planejado'], ['KM planejado × realizado', '#/km', 'em validação · 4 unidades'], ['Retorno por motivo', null, 'planejado'],
     ['Fill rate', null, 'planejado'], ['Gestão à vista', null, 'planejado'], ['Custos de descarga', null, 'planejado']];
   return `<h1>Painel principal</h1><p class="sub">Acompanhamentos do Hub. Cada um tem link próprio para enviar por e-mail; quem recebe vê só aquele acompanhamento.</p>
@@ -99,10 +126,10 @@ function blocoDL(c, m, ctx) {
   return `<div class="bloco"><div class="faixa"><span>${ROTULO[c]}</span><a class="btn sec" style="padding:3px 10px" href="#/montagem/${c}/${m.mes}">Detalhe diário →</a></div><div class="corpo">${aviso}
 <div class="chips"><span class="chip">Dias úteis<b>${fi(r.dias_uteis)}</b></span><span class="chip">Trabalhados<b>${r.dias_trabalhados}</b></span><span class="chip">Restantes<b>${fi(r.dias_restantes)}</b></span></div>
 <div class="g2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px">
-<div class="tw"><table class="kv"><tr><th colspan="2">VOLUME (cx unit)</th></tr>
+<div class="tw"><table class="kv"><tr><th colspan="2">VOLUME (CX UNIT)</th></tr>
 ${linha('Volume AA', fi(r.volume_aa))}${linha('Meta', fi(r.meta_volume))}${linha('Dia anterior (pré-venda)', fi(r.dia_anterior))}
 ${linha('ACM mês', fi(r.acm), 'dest')}${linha('Tendência vs meta', tend(fi(r.tendencia), r.tend_vs_meta), 'dest')}</table></div>
-<div class="tw"><table class="kv"><tr><th colspan="2">FATURAMENTO (tarifa ${fd(r.tarifa, 2)})</th></tr>
+<div class="tw faturamento"><table class="kv"><caption class="tarifa">TARIFA R$ ${fd(r.tarifa, 2)}</caption><tr><th colspan="2">FATURAMENTO</th></tr>
 ${linha('Faturamento AA', fr(r.faturamento_aa))}${linha('Meta', fr(r.meta_faturamento))}${linha('Dia anterior (pré-venda)', fr(r.fat_dia_anterior))}
 ${linha('ACM mês', fr(r.fat_acm), 'dest')}${linha('Tendência vs meta', tend(fr(r.fat_tendencia), r.fat_tend_vs_meta), 'dest')}</table></div></div>
 <h2>Montagem de cargas</h2>
@@ -123,13 +150,12 @@ ${mont('Notas (entregas) por carga', fd(pv?.entregas_carga), fd(med.entregas_car
 }
 
 export function paginaResumo(ms, ctx) {
-  return `${ctx.topo}<div class="g2">${Object.keys(UNIDADES).map((c) => blocoDL(c, ms[c], ctx)).join('')}</div>${legenda()}`;
+  return `${ctx.topo}<div class="g2 montagem-resumo">${Object.keys(UNIDADES).map((c) => blocoDL(c, ms[c], ctx)).join('')}</div>${legenda()}`;
 }
 
 // ---------------------------------------------------------------- Montagem: detalhe diário da DL
 export function paginaDetalhe(c, m, mot, ctx) {
   const r = m.resumo, t = m.total, med = m.media, rp = m.reprog, corS = cor(c);
-  const metaDia = r.meta_volume && r.dias_uteis ? r.meta_volume / r.dias_uteis : null;
   const dias = m.dias.filter((d) => d.cx_unit || d.entregas);
   const pv = m.prevenda?.data;
   const origem = { resumo: '', legado: '', manual: ' <span class="tag" title="editado à mão">m</span>' };
@@ -176,7 +202,7 @@ ${lb({ ...t, tx_reprog: null }, 'tot', 'TOTAL', { rp_cubos: rp.rp_cubos, rp_uc_t
  <div class="tile"><div class="l">% reprog. volume (PES)</div><div class="v">${fp(rp.pct)}</div><div class="d">${status(rp.pct == null ? null : rp.pct <= rp.meta, folga, folga)}</div></div>
 </div>
 <p class="small">${editar}</p>
-<h2>Cx unit por dia</h2><div class="card">${grafico(m.dias, 'cx_unit', corS, metaDia, 'meta diária')}</div>
+<h2>Cx unit por dia · vendido e retorno</h2><div class="card">${graficoVendidoRetorno(m.dias)}</div>
 <h2>Volume e montagem</h2>${tabA}
 <h2>Reprogramação</h2>${tabB}
 <h2>Retorno</h2><div class="card">${grafico(m.dias, 'ret_vol', corS, META_PES.ret_vol, 'meta PES', (v) => fp(v, 1), (v) => fp(v, 1))}</div>
@@ -235,6 +261,41 @@ export function abasKM(ativa, mes, admin) {
   const adm = admin ? [['importar', 'Importar', '#/km/importar'], ['parametros', 'Parâmetros', `#/km/parametros/${mes}`], ['publicar', 'Publicar', `#/km/publicar/${mes}`], ['exportar', 'Exportar', `#/km/exportar/${mes}`]] : [];
   return `<nav class="abas">${a.map(([k,t,h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
     + `${adm.map(([k,t,h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
+}
+
+export function abasMontadores(ativa, mes) {
+  const abas = [['resumo','Resumo',`#/montadores/resumo/${mes}`], ['NORTE','CB Norte',`#/montadores/NORTE/${mes}`], ['SUL','CB Sul',`#/montadores/SUL/${mes}`],
+    ['CBAR','Barreiras',`#/montadores/CBAR/${mes}`], ['CCRT','Juazeiro',`#/montadores/CCRT/${mes}`], ['importar','Importar','#/montadores/importar'], ['exportar','Exportar',`#/montadores/exportar/${mes}`]];
+  return `<nav class="abas">${abas.map(([k,t,h]) => `<a class="${k === ativa ? 'on' : ''} ${['importar','exportar'].includes(k) ? 'adm' : ''}" href="${h}">${['importar','exportar'].includes(k) ? '⚙ ' : ''}${t}</a>`).join('')}</nav>`;
+}
+
+const unidadeMontador = { NORTE:'CB NORTE', SUL:'CB SUL', CBAR:'BARREIRAS — LOG I', CCRT:'JUAZEIRO — LOG II' };
+const moeda = (n) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n || 0);
+function tabelaMontadores(rows) {
+  return `<div class="tw scroll"><table class="montadores-ranking"><thead><tr><th>#</th><th class="t">Montador</th><th>Produtividade média<br>(CX/H)</th><th>Meta 350</th><th>Caixas</th><th>Dias</th><th>Média CX/DIA</th><th>Erros</th><th>Gratificação</th></tr></thead><tbody>${rows.length ? rows.map((p,i)=>`<tr><td>${i+1}</td><td class="t">${E(p.nome)}</td><td>${fd(p.mediaCxHora,1)}</td><td>${status(p.mediaCxHora >= 350,'META ATINGIDA','ABAIXO DA META')}</td><td>${fi(p.caixas)}</td><td>${fi(p.dias)}</td><td>${fd(p.mediaCaixasDia,1)}</td><td>${fi(p.erros)}</td><td>${moeda(p.gratificacao)}</td></tr>`).join('') : '<tr><td colspan="9" class="t">Sem dados importados para este período.</td></tr>'}</tbody></table></div>`;
+}
+
+function matrizMontadores(rows, mes) {
+  const dias = new Date(+mes.slice(0,4), +mes.slice(5,7), 0).getDate();
+  const th = Array.from({length:dias},(_,i)=>`<th>${i+1}</th>`).join('');
+  const linhas = rows.map((p)=>{
+    const porDia = Object.fromEntries(p.diario.map((d)=>[+d.data.slice(-2),d]));
+    return `<tr><td class="t">${E(p.nome)}</td>${Array.from({length:dias},(_,i)=>`<td>${porDia[i+1] ? fd(porDia[i+1].cxHora,0) : '–'}</td>`).join('')}</tr>`;
+  }).join('');
+  return `<div class="tw scroll"><table class="matriz-dia"><thead><tr><th class="t">Montador · CX/H</th>${th}</tr></thead><tbody>${linhas || `<tr><td colspan="${dias+1}" class="t">Sem produção no mês.</td></tr>`}</tbody></table></div>`;
+}
+
+export function paginaMontadoresResumo(porBase, {mes, topo}) {
+  const cards = Object.entries(unidadeMontador).map(([base,nome])=>{
+    const rows = porBase[base] || [], caixas = rows.reduce((s,p)=>s+p.caixas,0), media = rows.length ? rows.reduce((s,p)=>s+p.mediaCxHora,0)/rows.length : null;
+    return `<section class="bloco"><div class="faixa">${nome}<a class="btn sec" href="#/montadores/${base}/${mes}">DETALHES →</a></div><div class="corpo"><div class="tiles"><div class="tile"><div class="l">Montadores</div><div class="v">${fi(rows.length)}</div></div><div class="tile"><div class="l">Caixas</div><div class="v">${fi(caixas)}</div></div><div class="tile"><div class="l">Média cx/h</div><div class="v">${fd(media,1)}</div></div></div><h2>TOP 5 DO MÊS</h2>${tabelaMontadores(rows.slice(0,5))}</div></section>`;
+  }).join('');
+  return `${topo}<p class="sub">RESULTADOS DE MONTADORES · ${E(nomeMes(mes))}. PRODUTIVIDADE MÉDIA CALCULADA NOS DIAS COM PRODUÇÃO.</p><div class="grid">${cards}</div>`;
+}
+
+export function paginaMontadoresUnidade(base, rows, {mes, topo}) {
+  const caixas = rows.reduce((s,p)=>s+p.caixas,0), dias = rows.reduce((s,p)=>s+p.dias,0), erros = rows.reduce((s,p)=>s+p.erros,0), grat = rows.reduce((s,p)=>s+p.gratificacao,0);
+  return `${topo}<div class="tiles"><div class="tile"><div class="l">Montadores</div><div class="v">${fi(rows.length)}</div></div><div class="tile"><div class="l">Caixas no mês</div><div class="v">${fi(caixas)}</div></div><div class="tile"><div class="l">Dias trabalhados somados</div><div class="v">${fi(dias)}</div></div><div class="tile"><div class="l">Erros</div><div class="v">${fi(erros)}</div></div><div class="tile"><div class="l">Gratificação estimada</div><div class="v">${moeda(grat)}</div><div class="d">R$ 0,003 por caixa</div></div></div><h2>RANKING · ${E(unidadeMontador[base])}</h2>${tabelaMontadores(rows)}<h2>PRODUTIVIDADE DIÁRIA · CX/H</h2>${matrizMontadores(rows, mes)}`;
 }
 
 export function paginaKMResumo(resultado, { mes, admin, topo }) {

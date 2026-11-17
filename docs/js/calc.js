@@ -50,6 +50,7 @@ export function calcular({ mes, venda, retorno, plan, par, prevendaData }) {
     const d = {
       data: k, dia_semana: DIAS_SEMANA[new Date(k + 'T12:00:00Z').getUTCDay()],
       vol_cxf: C, entregas: D, cargas: E, cubos: F, ocupacao: G, cx_unit: H, reprog_uc: I, reprog_cli: J,
+      volume_vendido_cxu: v.cxu, retorno_cxu: rt.cxu,
       tx_reprog: I != null ? div(I, H) : null,
       cubos_carga: tem ? div(F, E) : null, cx_carga: tem ? div(H, E) : null,
       entregas_carga: tem && D ? div(D, E) : null,
@@ -76,6 +77,7 @@ export function calcular({ mes, venda, retorno, plan, par, prevendaData }) {
   const total = Object.fromEntries(CAMPOS.map((c) => [c, soma(c)]));
   const vendaU = Object.values(V).reduce((a, x) => a + x.cxu, 0);
   total.venda_cxu = vendaU;
+  total.retorno_cxu = Object.values(R).reduce((a, x) => a + x.cxu, 0);
   total.ret_ext_cxu = Object.values(R).reduce((a, x) => a + x.ext_u, 0);
   total.ret_vol = div(total.ret_ext_cxu, vendaU);
   total.ret_cli = div(Object.values(sCont).reduce((a, b) => a + b, 0), total.entregas);

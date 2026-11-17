@@ -12,7 +12,7 @@ import { db, auth } from './firebase.js';
 import {
   collection, doc, getDoc, getDocs, query, where, writeBatch, setDoc, addDoc, serverTimestamp, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { calcular, motivos } from './calc.js';
+import { calcular, motivos } from './calc.js?v=20261117-4';
 import { placarPES } from './pes.js';
 import { calcularKM, agregadoPublicado, UNIDADES_KM } from './km.js';
 

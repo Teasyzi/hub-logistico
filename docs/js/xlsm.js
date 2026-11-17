@@ -10,11 +10,15 @@ function parseXml(s) {
   return d;
 }
 
+function documentoDe(node) {
+  return node?.nodeType === 9 ? node : node?.ownerDocument;
+}
+
 export async function abrirModeloXlsm(file) {
   if (!globalThis.JSZip) throw new Error('O componente de exportação XLSM não carregou. Atualize a página e tente novamente.');
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const wbFile = zip.file('xl/workbook.xml'), relFile = zip.file('xl/_rels/workbook.xml.rels');
-  if (!wbFile || !relFile || !zip.file('xl/vbaProject.bin')) throw new Error('Selecione o modelo oficial XLSM com macros.');
+  if (!wbFile || !relFile) throw new Error('Selecione um modelo Excel válido (.xlsx ou .xlsm).');
   const [wbXml, relXml] = await Promise.all([wbFile.async('string'), relFile.async('string')]);
   return { zip, workbook: parseXml(wbXml), relations: parseXml(relXml) };
 }
@@ -44,10 +48,34 @@ function indiceColuna(ref) {
   return n;
 }
 
+function nomeColuna(n) {
+  let s = '';
+  while (n) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+
+function atualizarDimensao(ws) {
+  const refs = [...ws.getElementsByTagNameNS(MAIN, 'c')].map((c) => c.getAttribute('r')?.match(/^([A-Z]+)(\d+)$/)).filter(Boolean);
+  if (!refs.length) return;
+  const col = Math.max(...refs.map((r) => indiceColuna(`${r[1]}1`))), row = Math.max(...refs.map((r) => Number(r[2])));
+  let dimension = ws.getElementsByTagNameNS(MAIN, 'dimension')[0];
+  if (!dimension) {
+    dimension = documentoDe(ws).createElementNS(MAIN, 'dimension');
+    ws.documentElement.insertBefore(dimension, ws.documentElement.firstChild);
+  }
+  dimension.setAttribute('ref', `A1:${nomeColuna(col)}${row}`);
+}
+
 function criarCelulaXlsm(ws, ref) {
-  const doc = ws.ownerDocument, rowNum = ref.match(/\d+$/)[0];
-  const row = [...ws.getElementsByTagNameNS(MAIN, 'row')].find((r) => r.getAttribute('r') === rowNum);
-  if (!row) throw new Error(`O modelo não tem a linha ${rowNum}.`);
+  const doc = documentoDe(ws), rowNum = ref.match(/\d+$/)[0];
+  let row = [...ws.getElementsByTagNameNS(MAIN, 'row')].find((r) => r.getAttribute('r') === rowNum);
+  if (!row) {
+    const data = ws.getElementsByTagNameNS(MAIN, 'sheetData')[0];
+    if (!data) throw new Error('A folha do modelo não possui sheetData.');
+    row = doc.createElementNS(MAIN, 'row'); row.setAttribute('r', rowNum);
+    const next = [...data.getElementsByTagNameNS(MAIN, 'row')].find((r) => Number(r.getAttribute('r')) > Number(rowNum));
+    if (next) data.insertBefore(row, next); else data.appendChild(row);
+  }
   const targetCol = indiceColuna(ref);
   const cells = [...row.getElementsByTagNameNS(MAIN, 'c')];
   const modelo = cells.find((c) => indiceColuna(c.getAttribute('r')) === targetCol - 1)
@@ -72,7 +100,7 @@ export function definirNumeroXlsm(ws, ref, valor) {
   const n = Number(valor);
   if (!Number.isFinite(n)) throw new Error(`Valor inválido para ${ref}.`);
   c.setAttribute('t', 'n');
-  const v = ws.ownerDocument.createElementNS(MAIN, 'v'); v.textContent = String(n); c.appendChild(v);
+  const v = documentoDe(ws).createElementNS(MAIN, 'v'); v.textContent = String(n); c.appendChild(v);
 }
 
 export function definirNumeroSeExistirXlsm(ws, ref, valor) {
@@ -82,16 +110,35 @@ export function definirNumeroSeExistirXlsm(ws, ref, valor) {
   return true;
 }
 
+export function definirNumeroPreservandoFormulaXlsm(ws, ref, valor) {
+  const c = encontrarCelula(ws, ref);
+  if (!c || c.getElementsByTagNameNS(MAIN, 'f').length) return false;
+  definirNumeroXlsm(ws, ref, valor);
+  return true;
+}
+
 export function definirNumeroCriandoXlsm(ws, ref, valor) {
   if (!encontrarCelula(ws, ref)) criarCelulaXlsm(ws, ref);
   definirNumeroXlsm(ws, ref, valor);
 }
 
+export function limparCelulaXlsm(ws, ref) {
+  const c = encontrarCelula(ws, ref);
+  if (!c) return false;
+  limparConteudo(c); c.removeAttribute('t'); return true;
+}
+
+export function definirTextoCriandoXlsm(ws, ref, valor) {
+  if (!encontrarCelula(ws, ref)) criarCelulaXlsm(ws, ref);
+  definirTextoXlsm(ws, ref, valor);
+}
+
 export function definirTextoXlsm(ws, ref, valor) {
   const c = encontrarCelula(ws, ref);
   if (!c) throw new Error(`O modelo não tem a célula ${ref}.`);
+  const doc = documentoDe(ws);
   limparConteudo(c); c.setAttribute('t', 'inlineStr');
-  const is = ws.ownerDocument.createElementNS(MAIN, 'is'), t = ws.ownerDocument.createElementNS(MAIN, 't');
+  const is = doc.createElementNS(MAIN, 'is'), t = doc.createElementNS(MAIN, 't');
   t.textContent = String(valor); is.appendChild(t); c.appendChild(is);
 }
 
@@ -103,12 +150,13 @@ export function definirTextoSeExistirXlsm(ws, ref, valor) {
 }
 
 export async function baixarModeloXlsm(modelo, planilhas, nomeArquivo) {
-  for (const { path, xml } of planilhas) modelo.zip.file(path, new XMLSerializer().serializeToString(xml));
+  for (const { path, xml } of planilhas) { atualizarDimensao(xml); modelo.zip.file(path, new XMLSerializer().serializeToString(xml)); }
   let calc = modelo.workbook.getElementsByTagNameNS(MAIN, 'calcPr')[0];
   if (!calc) { calc = modelo.workbook.createElementNS(MAIN, 'calcPr'); modelo.workbook.documentElement.appendChild(calc); }
   calc.setAttribute('calcMode', 'auto'); calc.setAttribute('fullCalcOnLoad', '1'); calc.setAttribute('forceFullCalc', '1');
   modelo.zip.file('xl/workbook.xml', new XMLSerializer().serializeToString(modelo.workbook));
-  const blob = await modelo.zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.ms-excel.sheet.macroEnabled.12', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+  const xlsx = nomeArquivo.toLowerCase().endsWith('.xlsx');
+  const blob = await modelo.zip.generateAsync({ type: 'blob', mimeType: xlsx ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/vnd.ms-excel.sheet.macroEnabled.12', compression: 'DEFLATE', compressionOptions: { level: 6 } });
   const url = URL.createObjectURL(blob), a = document.createElement('a');
   a.href = url; a.download = nomeArquivo; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
