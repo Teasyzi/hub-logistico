@@ -107,6 +107,8 @@ table.pes td:nth-child(4){font-size:12.5px}
 .montagem-resumo{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .montagem-resumo .faixa{font-size:13px}
 .tw.faturamento{position:relative;overflow:visible}
+.faturamento .kv{border-collapse:separate;border-spacing:0}
+.faturamento .kv tr:first-child th{border-radius:7px 7px 0 0}
 .tarifa{position:absolute;top:-14px;right:10px;z-index:1;color:var(--good);font-size:9px;font-weight:700;line-height:1;letter-spacing:.25px;text-align:right;padding:0;white-space:nowrap}
 .faturamento .kv td{padding-top:5.5px;padding-bottom:5.5px}
 .modelo-box{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:var(--section);border:1px solid var(--border);border-radius:8px;margin:10px 0}
