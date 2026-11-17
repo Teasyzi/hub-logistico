@@ -48,10 +48,10 @@ Fórmulas: `SUMIFS(DA!H, DA!J = dia, DA!L = base, DA!K = montador)`; gratificaç
 - Bom candidato a fase inicial: entrada única e regra simples.
 
 ## Estado da implementação no Hub (2026-11-17)
-- Importa tanto a planilha mensal oficial que contém `DA` e `DL` quanto vários relatórios diários `AAAA-MM-DD-listas-trabalhadas.xlsx` em um único lote. Cada lote diário recebe a unidade selecionada, substitui somente os registros daquela unidade e daquelas datas e preserva outros dias/unidades.
+- Importa tanto a planilha mensal oficial que contém `DA` e `DL` quanto vários relatórios diários `AAAA-MM-DD-listas-trabalhadas.xlsx` em um único lote. Cada lote diário recebe a unidade selecionada, substitui somente os registros daquela unidade e daquelas datas e preserva outros dias/unidades. Importe o cadastro oficial antes das listas para reconhecer logins e conferir a unidade.
 - Valida no relatório diário o nome da aba e os cabeçalhos, a data do nome do arquivo, posições sequenciais, logins únicos, campos obrigatórios, contagens inteiras/não negativas e a ordem decrescente de caixas/hora. Um lote com erro ou datas repetidas não altera os dados salvos.
-- Quando já existe um cadastro mensal `DA`/`DL` neste navegador, o login é conferido contra a unidade cadastrada e o nome completo do cadastro prevalece.
+- Quando já existe um cadastro mensal `DA`/`DL` neste navegador, o login é conferido contra a unidade cadastrada e o nome completo do cadastro prevalece. Logins novos pedem confirmação, ficam em observação no detalhamento e não entram nos rankings até constarem em `DA`/`DL`.
 - Importações, nomes e modelos ficam apenas no IndexedDB do navegador usado para importar; a tela e rotas são administrativas. Não sincroniza esses dados ao Firebase.
 - A média de CX/H considera dias com produção; a meta é 350 CX/H e a gratificação estimada é caixas × R$ 0,003.
-- A aba Resumo foi removida. Cada aba de unidade mostra o relatório diário com Posição, Montador, Login, Caixas, Caixas/Hora, Erros, Paletes, Misto, LP Duplo, Container e Gaveta; de-para, observações, evolução por dia da semana e gráficos ainda podem ser complementados.
+- A aba Resumo foi removida. Cada unidade abre com rankings de caixas no mês e CX/H no último dia, seguidos de uma matriz com os dias nas linhas e montadores nas colunas. Diaristas e logins em observação ficam fora dos rankings, mas aparecem no detalhamento; erros, paletes, misto, LP Duplo, container e gaveta ficam disponíveis no detalhe diário.
 - Os modelos de exportação de Montagem, PES, KM e Montadores podem ser guardados localmente no mesmo navegador e trocados escolhendo outro arquivo.

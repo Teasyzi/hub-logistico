@@ -95,7 +95,7 @@ svg text{fill:var(--muted);font-size:11px}svg text.val{fill:var(--ink);font-size
 .legenda span{display:inline-flex;align-items:center;gap:4px}.legenda i{width:12px;height:12px;border-radius:3px;display:inline-block}
 .grafico-legenda{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 5px;color:var(--ink2);font-size:11px;font-weight:700;letter-spacing:.25px}
 .grafico-legenda span{display:inline-flex;align-items:center;gap:6px}.grafico-legenda i{width:12px;height:12px;border-radius:3px;display:inline-block}
-.grafico-legenda i.vendido{background:var(--brand)}.grafico-legenda i.retorno{background:var(--s2)}
+.grafico-legenda i.vendido{background:var(--brand)}.grafico-legenda i.retorno{height:3px;border-radius:2px;background:var(--s2);position:relative}.grafico-legenda i.retorno:after{content:"";position:absolute;right:3px;top:-3px;width:7px;height:7px;border:2px solid var(--s2);border-radius:50%;background:var(--surface)}
 /* PES: um DL por linha, tabela sem quebra nos números, mais respiro */
 .pes-dls{display:grid;gap:18px;max-width:1100px}
 .pes-resumo{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;margin:4px 0 12px}
@@ -117,6 +117,8 @@ table.pes td:nth-child(4){font-size:12.5px}
 .montadores-planilha{min-width:1120px}.montadores-planilha th,.montadores-planilha td{white-space:nowrap}
 .montadores-planilha th:nth-child(2),.montadores-planilha td:nth-child(2){min-width:210px}
 .montadores-planilha th:nth-child(3),.montadores-planilha td:nth-child(3){min-width:100px}
+.montadores-rankings{align-items:start;margin:12px 0}.montadores-rankings .bloco{min-width:0}.montadores-matriz{min-width:max-content}.montadores-matriz th,.montadores-matriz td{min-width:82px;white-space:nowrap}.montadores-matriz th.grp{max-width:190px;overflow:hidden;text-overflow:ellipsis}.montadores-matriz th.sticky,.montadores-matriz td:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}.montadores-matriz thead th.sticky{z-index:3;background:var(--brand);color:var(--brand-ink)}
+.km-matriz{min-width:1500px}.km-matriz th,.km-matriz td{white-space:nowrap}.km-matriz td.pv{background:var(--pv)!important}
 .modelo-box{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:var(--section);border:1px solid var(--border);border-radius:8px;margin:10px 0}
 .modelo-box label{font-weight:700;text-transform:uppercase;letter-spacing:.2px}
 .modelo-box input[type=file]{max-width:100%}

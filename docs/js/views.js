@@ -1,6 +1,5 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
 import { UNIDADES } from './dados.js';
-import { UNIDADES_KM } from './km.js';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -73,29 +72,32 @@ export function grafico(dias, campo, corS, meta, rotulo, fmt = fi, fmtBarra = fk
 }
 
 export function graficoVendidoRetorno(dias, altura = 270) {
-  const pts = dias.filter((d) => d.volume_vendido_cxu || d.retorno_cxu);
+  const pts = dias.filter((d) => d.volume_vendido_cxu || d.retorno_cxu).map((d) => ({
+    ...d, indiceRetorno: d.volume_vendido_cxu > 0 ? (d.retorno_cxu || 0) / d.volume_vendido_cxu : null,
+  }));
   if (!pts.length) return '<p class="small">Sem dados de volume neste período.</p>';
-  const w = 1000, pl = 52, pr = 12, pt = 24, pb = 30;
-  const max = Math.max(1, ...pts.flatMap((d) => [d.volume_vendido_cxu || 0, d.retorno_cxu || 0])) * 1.12;
-  const band = (w - pl - pr) / pts.length, bw = Math.min(24, band * 0.42), br = bw * 0.62;
-  const y = (v) => pt + (altura - pt - pb) * (1 - v / max);
-  let s = `<div class="grafico-legenda"><span><i class="vendido"></i>VENDIDO (BRUTO)</span><span><i class="retorno"></i>RETORNO</span></div><svg viewBox="0 0 ${w} ${altura}" width="100%" role="img" aria-label="Comparativo diário de volume vendido e retorno em caixa unitária">`;
+  const w = 1000, pl = 58, pr = 54, pt = 26, pb = 34, base = altura - pb, topo = pt;
+  const maxVolume = Math.max(1, ...pts.map((d) => d.volume_vendido_cxu || 0)) * 1.12;
+  const maxIndice = Math.max(0.05, Math.ceil(Math.max(0, ...pts.map((d) => d.indiceRetorno || 0)) * 20) / 20);
+  const band = (w - pl - pr) / pts.length, bw = Math.min(32, band * 0.55);
+  const yVol = (v) => topo + (base - topo) * (1 - v / maxVolume);
+  const yPct = (v) => base - (base - topo) * (v / maxIndice);
+  let s = `<div class="grafico-legenda"><span><i class="vendido"></i>VENDIDO (CX UNIT)</span><span><i class="retorno"></i>ÍNDICE DE RETORNO (% DO VENDIDO)</span></div><svg viewBox="0 0 ${w} ${altura}" width="100%" role="img" aria-label="Volume vendido diário e índice de retorno sobre o vendido">`;
   for (let k = 0; k <= 4; k++) {
-    const v = (max * k) / 4, yy = y(v);
-    s += `<line x1="${pl}" x2="${w-pr}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/><text x="${pl-6}" y="${(yy+4).toFixed(1)}" text-anchor="end">${fk(v)}</text>`;
+    const v = (maxVolume * k) / 4, yy = yVol(v), pct = maxIndice * k / 4;
+    s += `<line x1="${pl}" x2="${w-pr}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/><text x="${pl-7}" y="${(yy+4).toFixed(1)}" text-anchor="end">${fk(v)}</text><text x="${w-pr+7}" y="${(yy+4).toFixed(1)}" text-anchor="start">${fp(pct,0)}</text>`;
   }
-  const step = Math.max(1, Math.ceil(pts.length / 16));
+  const pontos = [], passoData = Math.max(1, Math.ceil(pts.length / 16));
   pts.forEach((d, i) => {
     const cx = pl + band * (i + 0.5), sold = d.volume_vendido_cxu || 0, returned = d.retorno_cxu || 0;
-    const xs = cx - bw / 2, xr = cx - br / 2;
-    s += `<rect x="${xs.toFixed(1)}" y="${y(sold).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, y(0)-y(sold)).toFixed(1)}" rx="2" fill="var(--brand)"><title>${fdata(d.data)} · vendido bruto: ${fi(sold)} CX UNIT</title></rect>`
-      + `<rect x="${xr.toFixed(1)}" y="${y(returned).toFixed(1)}" width="${br.toFixed(1)}" height="${Math.max(1, y(0)-y(returned)).toFixed(1)}" rx="2" fill="var(--s2)" fill-opacity="0.78"><title>${fdata(d.data)} · retorno: ${fi(returned)} CX UNIT</title></rect>`;
-    if (pts.length <= 16) {
-      s += `<text class="val" x="${cx.toFixed(1)}" y="${(y(sold)-5).toFixed(1)}" text-anchor="middle">${fk(sold)}</text>`;
-      if (returned) s += `<text class="val" x="${(cx+bw/2+4).toFixed(1)}" y="${(y(returned)-4).toFixed(1)}" text-anchor="start">${fk(returned)}</text>`;
-    }
-    if (i % step === 0 || i === pts.length - 1) s += `<text x="${cx.toFixed(1)}" y="${altura-8}" text-anchor="middle">${fdata(d.data)}</text>`;
+    s += `<rect x="${(cx-bw/2).toFixed(1)}" y="${yVol(sold).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, base-yVol(sold)).toFixed(1)}" rx="2" fill="var(--brand)"><title>${fdata(d.data)} · vendido: ${fi(sold)} CX UNIT</title></rect>`;
+    if (d.indiceRetorno != null) pontos.push({ cx, y: yPct(d.indiceRetorno), data: d.data, valor: d.indiceRetorno, retorno: returned, vendido: sold });
+    if (i % passoData === 0 || i === pts.length - 1) s += `<text x="${cx.toFixed(1)}" y="${altura-9}" text-anchor="middle">${fdata(d.data)}</text>`;
   });
+  if (pontos.length) {
+    s += `<polyline points="${pontos.map((p) => `${p.cx.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}" fill="none" stroke="var(--s2)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s += pontos.map((p) => `<circle cx="${p.cx.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="var(--surface)" stroke="var(--s2)" stroke-width="2"><title>${fdata(p.data)} · índice de retorno: ${fp(p.valor)} · ${fi(p.retorno)} / ${fi(p.vendido)} CX UNIT</title></circle>`).join('');
+  }
   return s + '</svg>';
 }
 
@@ -273,33 +275,58 @@ export function abasMontadores(ativa, mes) {
 
 const unidadeMontador = { NORTE:'CB NORTE', SUL:'CB SUL', CBAR:'BARREIRAS — LOG I', CCRT:'JUAZEIRO — LOG II' };
 export function paginaMontadoresUnidade(base, rows, {mes, topo}) {
-  const dias = new Map();
-  for (const p of rows) for (const d of p.diario) {
-    const list = dias.get(d.data) || []; list.push(d); dias.set(d.data, list);
-  }
-  const colunas = [['posicao','Posição'],['nome','Montador'],['login','Login'],['caixas','Caixas'],['cxHora','Caixas/Hora'],['erros','Erros'],
-    ['paletes','Paletes'],['misto','Misto'],['lpDuplo','LP Duplo'],['container','Container'],['gaveta','Gaveta']];
-  const relatorios = [...dias.entries()].sort(([a],[b]) => b.localeCompare(a)).map(([data, registros]) => {
-    registros.sort((a,b) => (a.posicao ?? Number.MAX_SAFE_INTEGER) - (b.posicao ?? Number.MAX_SAFE_INTEGER) || b.cxHora - a.cxHora);
-    const linhas = registros.map((d,i) => `<tr><td>${fi(d.posicao ?? i+1)}</td><td class="t">${E(d.nome)}</td><td class="t">${E(d.login)}</td><td>${fi(d.caixas)}</td><td>${fd(d.cxHora,2)}</td><td>${fi(d.erros)}</td><td>${d.paletes == null ? '–' : fi(d.paletes)}</td><td>${d.misto == null ? '–' : fi(d.misto)}</td><td>${d.lpDuplo == null ? '–' : fi(d.lpDuplo)}</td><td>${d.container == null ? '–' : fi(d.container)}</td><td>${d.gaveta == null ? '–' : fi(d.gaveta)}</td></tr>`).join('');
-    return `<section class="montadores-dia"><div class="faixa">${data.slice(8,10)}/${data.slice(5,7)}/${data.slice(0,4)} <span class="badge">${fi(registros.length)} montadores</span></div><div class="tw scroll"><table class="montadores-planilha"><thead><tr>${colunas.map(([,n],i) => `<th${i===1 || i===2 ? ' class="t"' : ''}>${n}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody></table></div></section>`;
-  }).join('');
-  return `${topo}<p class="sub">RELATÓRIOS DIÁRIOS · ${E(unidadeMontador[base])} · ${E(nomeMes(mes))}</p>${relatorios || '<div class="aviso">Nenhuma lista diária importada para esta unidade e este mês.</div>'}`;
+  const diarista = (p) => p.diario.some((d) => d.diarista) || [p.nome,p.login,p.tipo,p.vinculo,p.categoria].some((v) => /diarista/i.test(String(v || '')));
+  const rankings = rows.filter((p) => !diarista(p) && !p.observacao);
+  const todosDias = rows.flatMap((p) => p.diario), ultimaData = todosDias.map((d) => d.data).sort().at(-1);
+  const porMes = [...rankings].sort((a,b) => b.caixas-a.caixas || b.mediaCxHora-a.mediaCxHora);
+  const porUltimoDia = rankings.map((p) => ({...p, ultimo: p.diario.find((d) => d.data === ultimaData)})).filter((p) => p.ultimo)
+    .sort((a,b) => b.ultimo.cxHora-a.ultimo.cxHora || b.ultimo.caixas-a.ultimo.caixas);
+  const tabelaRanking = (lista, valor) => `<div class="tw scroll"><table><thead><tr><th>#</th><th class="t">Montador</th><th>Login</th><th>${valor}</th><th>${valor === 'Caixas no mês' ? 'Dias' : 'Caixas no último dia'}</th></tr></thead><tbody>${lista.map((p,i) => `<tr><td>${i+1}</td><td class="t">${E(p.nome)}</td><td class="t">${E(p.login)}</td><td>${valor === 'Caixas no mês' ? fi(p.caixas) : fd(p.ultimo.cxHora,2)}</td><td>${valor === 'Caixas no mês' ? fi(p.dias) : fi(p.ultimo.caixas)}</td></tr>`).join('') || `<tr><td class="t" colspan="5">Sem dados neste período.</td></tr>`}</tbody></table></div>`;
+  const ordenados = [...rows].sort((a,b) => b.caixas-a.caixas || a.nome.localeCompare(b.nome,'pt-BR'));
+  const datas = [...new Set(todosDias.map((d) => d.data))].sort();
+  const porPessoaDia = new Map();
+  for (const p of rows) for (const d of p.diario) porPessoaDia.set(`${p.login}|${d.data}`, d);
+  const cabecalho = ordenados.map((p) => `<th class="grp" colspan="2" title="${E(p.login)}">${E(p.nome)}${diarista(p) ? ' · diarista' : p.observacao ? ' · observação' : ''}</th>`).join('');
+  const subCabecalho = ordenados.map(() => '<th>Caixas</th><th>CX/H</th>').join('');
+  const mediaDia = (data) => { const vals = ordenados.map((p) => porPessoaDia.get(`${p.login}|${data}`)?.cxHora).filter((v) => v != null); return vals.length ? vals.reduce((a,b) => a+b,0)/vals.length : null; };
+  const corpo = datas.map((data) => `<tr><td class="t">${fdata(data)}</td>${ordenados.map((p) => {
+    const d = porPessoaDia.get(`${p.login}|${data}`);
+    const dica = d ? `title="Erros ${fi(d.erros)} · Paletes ${fi(d.paletes)} · Misto ${fi(d.misto)} · LP Duplo ${fi(d.lpDuplo)} · Container ${fi(d.container)} · Gaveta ${fi(d.gaveta)}"` : '';
+    return `<td ${dica}>${d ? fi(d.caixas) : '–'}</td><td ${dica} class="${d && d.cxHora >= 350 ? 'c-ok' : ''}">${d ? fd(d.cxHora,2) : '–'}</td>`;
+  }).join('')}<td>${fd(mediaDia(data),2)}</td></tr>`).join('');
+  const rodapeCaixas = ordenados.map((p) => `<td>${fi(p.caixas)}</td><td>–</td>`).join('');
+  const rodapeMedia = ordenados.map((p) => `<td>–</td><td>${fd(p.mediaCxHora,2)}</td>`).join('');
+  const detalhamento = `<div class="tw scroll"><table class="montadores-matriz"><thead><tr><th rowspan="2" class="t sticky">Dia</th>${cabecalho}<th rowspan="2">Média do dia</th></tr><tr>${subCabecalho}</tr></thead><tbody>${corpo || `<tr><td class="t" colspan="${ordenados.length*2+2}">Sem dados diários neste período.</td></tr>`}<tr class="tot"><td class="t">Caixas no mês</td>${rodapeCaixas}<td>–</td></tr><tr class="med"><td class="t">Média CX/H no mês</td>${rodapeMedia}<td>–</td></tr></tbody></table></div>`;
+  const observados = rows.filter((p) => p.observacao);
+  const avisos = [rows.some(diarista) ? 'Diaristas aparecem no detalhamento e ficam fora dos rankings.' : '',
+    observados.length ? `Logins em observação — não constam em DA/DL e não entram nos rankings: ${observados.map((p) => `${E(p.login)} (${E(p.nome)})`).join(', ')}.` : ''].filter(Boolean).join(' ');
+  return `${topo}<p class="sub">${E(unidadeMontador[base])} · ${E(nomeMes(mes))}</p><div class="g2 montadores-rankings"><section class="bloco"><div class="faixa">Ranking do mês · caixas</div><div class="corpo">${tabelaRanking(porMes,'Caixas no mês')}</div></section><section class="bloco"><div class="faixa">Último dia com montagem · ${ultimaData ? fdata(ultimaData) : '–'} · CX/H</div><div class="corpo">${tabelaRanking(porUltimoDia,'CX/H')}</div></section></div>${avisos ? `<div class="aviso">${avisos}</div>` : ''}<h2>Detalhamento diário por montador</h2><p class="small">Caixas e CX/H por dia. Passe o mouse sobre o valor para consultar erros, paletes, misto, LP duplo, container e gaveta. Verde indica pelo menos 350 CX/H.</p>${detalhamento}`;
 }
 
 export function paginaKMResumo(resultado, { mes, admin, topo }) {
-  const blocos = Object.entries(resultado.unidades).map(([c, u]) => {
-    const t = u.totais, corS = `var(--s${UNIDADES_KM[c].cor})`;
+  const unidades = Object.entries(resultado.unidades), datas = [...new Set(unidades.flatMap(([,u]) => u.dias.map((d) => d.data)))].sort();
+  const celulas = (d, futuro = false) => `<td class="${futuro ? 'pv' : ''}">${fi(d?.planejado ?? 0)}</td><td class="${futuro ? 'pv' : ''}">${fi(d?.realizado ?? 0)}</td><td class="${futuro ? 'pv' : ''}">${fi(d?.diferenca ?? 0)}</td><td class="${futuro ? 'pv' : ''}">${fp(d?.dispersao)}</td>`;
+  const grupos = unidades.map(([,u]) => `<th class="grp" colspan="4">${E(u.nome)}</th>`).join('');
+  const sub = unidades.map(() => '<th>Planejado (km)</th><th>Realizado (km)</th><th>Diferença (km)</th><th>Dispersão</th>').join('');
+  const porData = Object.fromEntries(unidades.map(([c,u]) => [c,Object.fromEntries(u.dias.map((d) => [d.data,d]))]));
+  const corpo = datas.map((data) => {
+    const futuro = unidades.length > 0 && unidades.every(([c]) => porData[c][data]?.acumulado);
+    return `<tr><td class="t">${fdata(data)}${futuro ? ' *' : ''}</td>${unidades.map(([c]) => { const d = porData[c][data]; return celulas(d, d?.acumulado); }).join('')}</tr>`;
+  }).join('');
+  const acumulado = unidades.map(([,u]) => celulas(u.totais)).join('');
+  const secoes = unidades.map(([c,u]) => {
     if (!u.temDados) return `<section class="bloco"><div class="faixa">${E(u.nome)}</div><div class="corpo"><div class="aviso">Sem dados de KM em ${nomeMes(mes)}.</div>${admin ? '<a class="btn sec" href="#/km/importar">Importar arquivos</a>' : ''}</div></section>`;
-    const linhas = u.dias.map((d) => `<tr class="${d.acumulado ? 'pv' : ''}"><td class="t">${fdata(d.data)}${d.acumulado ? ' *' : ''}</td><td>${fi(d.planejado)}</td><td>${fi(d.realizado)}</td><td class="${corSinal(d.diferenca)}">${fi(d.diferenca)}</td><td>${fp(d.dispersao)}</td><td>${fr(t.cpk == null ? null : d.diferenca * t.cpk)}</td></tr>`).join('');
-    const statusMeta = status(t.dentroMeta, `dentro de ±${fp(t.meta,0)}`, `fora de ±${fp(t.meta,0)}`);
+    const t = u.totais, meta = status(t.dentroMeta, `dentro de ±${fp(t.meta,0)}`, `fora de ±${fp(t.meta,0)}`);
+    const linhas = u.dias.map((d) => `<tr class="${d.acumulado ? 'pv' : ''}"><td class="t">${fdata(d.data)}${d.acumulado ? ' *' : ''}</td>${celulas(d)}</tr>`).join('');
+    const detalhe = unidades.length > 1
+      ? `<p><a class="btn sec" href="#/km/${c}/${mes}">Detalhe diário →</a></p>`
+      : `<div class="tw scroll"><table class="diario km"><thead><tr><th class="t">Dia</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Dispersão</th></tr></thead><tbody>${linhas}<tr class="tot"><td class="t">ACUMULADO</td>${celulas(t)}</tr></tbody></table></div><p class="small">* Depois do último abastecimento lançado. CPK usado no custo: ${fr(t.cpk)}/km.</p>`;
     return `<section class="bloco"><div class="faixa">${E(u.nome)}${admin && ['NORTE','SUL'].includes(c) ? ` <a class="btn sec" href="#/km/motoristas/${c}/${mes}">Motoristas/placas →</a>` : ''}</div><div class="corpo">
-<p><a class="btn sec" href="#/km/${c}/${mes}">Detalhe diário →</a></p><div class="tiles"><div class="tile"><div class="l">Planejado até ${t.ultimoDia ? fdata(t.ultimoDia) : '–'}</div><div class="v">${fi(t.planejado)} km</div></div><div class="tile"><div class="l">Realizado</div><div class="v">${fi(t.realizado)} km</div></div><div class="tile"><div class="l">Diferença · dispersão</div><div class="v">${fi(t.diferenca)} km · ${fp(t.dispersao)}</div><div class="d">${statusMeta}</div></div><div class="tile"><div class="l">Custo da dispersão</div><div class="v">${fr(t.custo)}</div></div></div>
-<h2>Planejado por dia</h2>${grafico(u.dias, 'planejado', corS, null, '', fi)}<h2>Realizado por dia</h2>${grafico(u.dias, 'realizado', corS, null, '', fi)}
-<div class="tw scroll"><table class="diario km"><thead><tr><th class="t">Dia</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Dispersão</th><th>Custo</th></tr></thead><tbody>${linhas}<tr class="tot"><td class="t">ACUMULADO</td><td>${fi(t.planejado)}</td><td>${fi(t.realizado)}</td><td>${fi(t.diferenca)}</td><td>${fp(t.dispersao)}</td><td>${fr(t.custo)}</td></tr></tbody></table></div>
-<p class="small">* Dia posterior ao último abastecimento lançado; não entra no acumulado. CPK: ${fr(t.cpk)}/km.</p></div></section>`;
+<div class="tiles"><div class="tile"><div class="l">Planejado até ${u.ultimoDia ? fdata(u.ultimoDia) : '–'}</div><div class="v">${fi(t.planejado)} km</div></div><div class="tile"><div class="l">Realizado</div><div class="v">${fi(t.realizado)} km</div></div><div class="tile"><div class="l">Diferença · dispersão</div><div class="v">${fi(t.diferenca)} km · ${fp(t.dispersao)}</div><div class="d">${meta}</div></div><div class="tile"><div class="l">Custo da dispersão</div><div class="v">${fr(t.custo)}</div></div></div>
+${detalhe}</div></section>`;
   }).join('<div style="height:16px"></div>');
-  return `${topo}<p class="sub">KM planejado × realizado · acumulado até o último abastecimento lançado em cada unidade.</p>${blocos}`;
+  const resumo = unidades.length > 1 ? `<h2>Relatório diário por unidade</h2><div class="tw scroll"><table class="diario km km-matriz"><thead><tr><th rowspan="2" class="t">Dia</th>${grupos}</tr><tr>${sub}</tr></thead><tbody>${corpo}<tr class="tot"><td class="t">ACUMULADO</td>${acumulado}</tr></tbody></table></div><p class="small">* Os campos em cinza são posteriores ao último abastecimento informado naquela unidade e ficam fora do acumulado.</p>` : '';
+  return `${topo}<p class="sub">KM planejado × realizado · visão diária no formato do relatório de quilometragem.</p>${resumo}${secoes}`;
 }
 
 export function paginaKMMotoristas(u, { mes, topo }) {
