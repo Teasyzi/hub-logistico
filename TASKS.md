@@ -13,8 +13,13 @@ tags: []
 # HubLogistico — Tarefas
 
 ## Em andamento
+- [x] Adicionar exportação para Montagem, PES e KM usando uma rotina XLSM compartilhada e modelos escolhidos localmente. Plano/padrão: [[2026-11-16 Exportar planilhas oficiais]].
+- [ ] Abrir os arquivos exportados de Montagem, PES e KM no Excel; conferir fórmulas/macros e comparar com planilhas oficiais antes do envio diário.
+- [ ] Confirmar que as versões dos modelos de Montagem e KM extraídas do ZIP ainda são as vigentes.
+- [ ] Exigir a aba Exportar e o mapeamento do modelo oficial como critério de conclusão de qualquer acompanhamento novo.
 - [ ] Usar o PES no site: preencher a Digitação de nov/26 e publicar junto com a Montagem.
-- [ ] Usar o site no dia a dia (importar → conferir → publicar) em paralelo à planilha da Montagem e anotar divergências.
+- [ ] Usar o site apenas para teste e conferência, mantendo a planilha oficial como arquivo diário enviado até a validação completa.
+- [ ] Fase KM: validar os parsers e totais contra as planilhas de outubro/novembro antes de publicar o site ([[2026-11-16 KM plano]]).
 
 ## Concluído em 2026-11-16
 - [x] Site v2 revisado pelo usuário: aprovado sem ajustes.

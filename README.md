@@ -50,6 +50,8 @@ Ferramenta de análise usada no levantamento: [[XLSX Inspector (Python)]].
 ## Próximas etapas
 - [ ] Usar o Hub em paralelo à planilha da Montagem por alguns dias (importar a cada nova exportação).
 - [x] Fase 2: PES Logístico no site, `#/pes/resumo/AAAA-MM` (2026-11-16). Design e plano em `DESIGN/`. Seletor de tema no cabeçalho.
+- [ ] Fase KM em validação: resumo diário, importação de `KMs.txt`/planilhas de rotas, parâmetros, publicação e exportação XLSM preparados; validar os parsers e comparar com fechamentos reais. Design e plano em `DESIGN/`.
+- [x] Exportar Montagem, PES e KM para uma cópia local dos respectivos modelos XLSM; conferir cada modelo no Excel antes de usar no fluxo diário.
 - [ ] Próxima fase do [[12_PROJECTS/Active/HubLogistico/IMPLEMENTATION_PLAN|Plano]]: Cargas em aberto (fase 3).
 
 ## Por onde começar a ler

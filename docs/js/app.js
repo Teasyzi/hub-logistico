@@ -9,6 +9,9 @@ import { lerArquivo, num } from './importar.js';
 import * as V from './views.js';
 import { diasDoMes } from './calc.js';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
+import { exportarPES } from './exportar_pes.js';
+import { exportarMontagem } from './exportar_montagem.js';
+import { exportarKM } from './exportar_km.js';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho' };
@@ -78,6 +81,27 @@ async function telaDetalhe(c, mes) {
   html(ms[c] ? V.paginaDetalhe(c, ms[c], mots[c], { admin: estado.admin, topo }) : `${topo}<p>Sem dados de ${V.E(D.UNIDADES[c].nome)} em ${V.nomeMes(mes)}.</p>`);
   if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
   ligarTopo((m) => `#/montagem/${c}/${m}`);
+}
+
+async function telaMontagemExportar(mes) {
+  const topo = await topoMontagem('exportar', mes, `Exportar planilha · ${V.nomeMes(mes)}`);
+  html(`${topo}<p>Escolha uma cópia do modelo oficial XLSM da Montagem. O Hub atualiza o resumo e os valores diários das duas unidades e baixa uma nova planilha; o modelo selecionado permanece no seu computador.</p>
+<p><label>Modelo oficial da Montagem (.xlsm)<br><input type="file" id="modeloMontagem" accept=".xlsm"></label></p>
+<p><button class="btn" id="exportar" disabled>Exportar ${V.nomeMes(mes)}</button> <span id="msg"></span></p>
+<p class="small">A exportação usa os dados atuais do rascunho e pede ao Excel para recalcular as fórmulas ao abrir.</p>`);
+  const input = document.getElementById('modeloMontagem'), botao = document.getElementById('exportar');
+  input.onchange = () => { botao.disabled = !input.files?.[0]; };
+  botao.onclick = async () => {
+    const modelo = input.files?.[0]; if (!modelo) return;
+    botao.disabled = true;
+    try {
+      const resultados = Object.fromEntries(await Promise.all(Object.keys(D.UNIDADES).map(async (c) => [c, (await D.calcularAoVivo(c, mes)).resultado])));
+      await exportarMontagem(modelo, mes, resultados);
+      document.getElementById('msg').innerHTML = '<span class="st ok">Planilha baixada.</span>';
+    } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
+    botao.disabled = false;
+  };
+  ligarTopo((m) => `#/montagem/exportar/${m}`);
 }
 
 // ---------------------------------------------------------------- telas do administrador (dentro do acompanhamento)
@@ -306,9 +330,166 @@ async function telaPESPublicar(mes) {
   });
 }
 
+async function telaPESExportar(mes) {
+  const topo = await topoPES('exportar', mes, `Exportar planilha · ${V.nomeMes(mes)}`);
+  html(`${topo}<p>Escolha uma cópia do modelo oficial PES XLSM. O Hub preenche os dados de Barreiras e Juazeiro e baixa uma nova planilha; o arquivo escolhido fica no seu computador.</p>
+<p><label>Modelo oficial PES (.xlsm)<br><input type="file" id="modeloPES" accept=".xlsm"></label></p>
+<p><button class="btn" id="exportar" disabled>Exportar ${V.nomeMes(mes)}</button> <span id="msg"></span></p>
+<p class="small">Use a planilha de outubro como modelo se o arquivo do mês atual ainda não estiver disponível. O Hub mantém as macros e fórmulas existentes e pede ao Excel para recalcular ao abrir.</p>`);
+  const input = document.getElementById('modeloPES'), botao = document.getElementById('exportar');
+  input.onchange = () => { botao.disabled = !input.files?.[0]; };
+  botao.onclick = async () => {
+    const modelo = input.files?.[0];
+    if (!modelo) return;
+    botao.disabled = true;
+    try {
+      const cs = ['CBAR', 'CCRT'];
+      const placares = Object.fromEntries(await Promise.all(cs.map(async (c) => [c, await D.placarAoVivo(c, mes)])));
+      await exportarPES(modelo, mes, placares);
+      document.getElementById('msg').innerHTML = '<span class="st ok">Planilha baixada.</span>';
+    } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
+    botao.disabled = false;
+  };
+  ligarTopo((m) => `#/pes/exportar/${m}`);
+}
+
 async function mesPadraoPES() {
   if (estado.admin) return mesAtual();
   return (await D.mesesPESPublicados())[0] || mesAtual();
+}
+
+// ---------------------------------------------------------------- KM planejado × realizado
+async function topoKM(aba, mes, titulo, comMes = true) {
+  let ctrl = '';
+  if (comMes) {
+    const meses = new Set(estado.admin ? [mesAtual(), mes] : await D.mesesKMPublicados());
+    meses.add(mes);
+    ctrl = V.seletorMes([...meses].sort().reverse(), mes);
+    if (estado.admin && ['resumo', 'NORTE', 'SUL', 'CBAR', 'CCRT'].includes(aba)) {
+      ctrl += ` · <select id="selModo"><option value="rascunho" ${estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
+    }
+  }
+  return `<h1>KM planejado × realizado — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasKM(aba, mes, estado.admin)}`;
+}
+
+async function resultadoKM(mes) {
+  if (estado.admin && estado.modo === 'rascunho') return D.calcularKMAoVivo(mes);
+  const unidades = {};
+  let publicadoEm = null;
+  for (const c of ['NORTE', 'SUL', 'CBAR', 'CCRT']) {
+    const x = await D.lerKMPublicado(c, mes);
+    if (x) { unidades[c] = x.placar; publicadoEm ||= x.publicadoEm; }
+  }
+  return { mes, unidades, publicadoEm };
+}
+
+async function telaKMResumo(mes) {
+  html('<p class="small">Calculando KM…</p>');
+  const topo = await topoKM('resumo', mes, V.nomeMes(mes));
+  const resultado = await resultadoKM(mes);
+  const faltam = Object.values(resultado.unidades).some((u) => !u.temDados);
+  html(`${V.paginaKMResumo(resultado, { mes, admin: estado.admin, topo })}${faltam ? `<div class="aviso">${estado.admin && estado.modo === 'rascunho' ? 'Ainda não há dados importados para todas as unidades neste mês.' : `O KM de ${V.nomeMes(mes)} ainda não foi publicado.`}</div>` : ''}`);
+  if (resultado.publicadoEm) document.getElementById('pubinfo').textContent = `· publicado em ${resultado.publicadoEm.toLocaleString('pt-BR')}`;
+  ligarTopo((m) => `#/km/resumo/${m}`);
+}
+
+async function telaKMExportar(mes) {
+  const topo = await topoKM('exportar', mes, `Exportar planilha · ${V.nomeMes(mes)}`);
+  html(`${topo}<p>Escolha uma cópia do modelo oficial XLSM do KM. O Hub atualiza a análise diária das quatro unidades e baixa uma nova planilha; o modelo selecionado permanece no seu computador.</p>
+<p><label>Modelo oficial do KM (.xlsm)<br><input type="file" id="modeloKM" accept=".xlsm"></label></p>
+<p><button class="btn" id="exportar" disabled>Exportar ${V.nomeMes(mes)}</button> <span id="msg"></span></p>
+<p class="small">A exportação usa os dados atuais do rascunho e pede ao Excel para recalcular as fórmulas ao abrir.</p>`);
+  const input = document.getElementById('modeloKM'), botao = document.getElementById('exportar');
+  input.onchange = () => { botao.disabled = !input.files?.[0]; };
+  botao.onclick = async () => {
+    const modelo = input.files?.[0]; if (!modelo) return;
+    botao.disabled = true;
+    try {
+      const resultado = await D.calcularKMAoVivo(mes);
+      await exportarKM(modelo, mes, resultado);
+      document.getElementById('msg').innerHTML = '<span class="st ok">Planilha baixada.</span>';
+    } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
+    botao.disabled = false;
+  };
+  ligarTopo((m) => `#/km/exportar/${m}`);
+}
+
+async function telaKMUnidade(unidade, mes) {
+  const full = await resultadoKM(mes), u = full.unidades[unidade];
+  if (!u) { const topo = await topoKM(unidade, mes, `${unidade} · ${V.nomeMes(mes)}`); html(`${topo}<div class="aviso">Não há dados de KM para esta unidade neste mês.</div>`); ligarTopo((m) => `#/km/${unidade}/${m}`); return; }
+  const topo = await topoKM(unidade, mes, `${u.nome} · ${V.nomeMes(mes)}`);
+  html(V.paginaKMResumo({ mes, unidades: { [unidade]: u } }, { mes, admin: estado.admin, topo }));
+  ligarTopo((m) => `#/km/${unidade}/${m}`);
+}
+
+async function telaKMMotoristas(unidade, mes) {
+  if (!['NORTE', 'SUL'].includes(unidade)) return html('<div class="aviso">O detalhe por motorista está disponível apenas para CB Norte e CB Sul.</div>');
+  const full = await D.calcularKMAoVivo(mes), u = full.unidades[unidade];
+  const topo = await topoKM('motoristas', mes, `Motoristas · ${V.nomeMes(mes)}`);
+  if (!u?.temDados) { html(`${topo}<div class="aviso">Sem dados de KM para ${V.E(unidade)} neste mês.</div>`); ligarTopo((m) => `#/km/motoristas/${unidade}/${m}`); return; }
+  html(V.paginaKMMotoristas(u, { mes, topo }));
+  ligarTopo((m) => `#/km/motoristas/${unidade}/${m}`);
+}
+
+async function telaKMImportar() {
+  const mes = mesP(location.hash.split('/')[3]) || mesAtual(), topo = await topoKM('importar', mes, 'Importar arquivos', false);
+  html(`${topo}<p class="sub">TXT de abastecimentos e planilhas de rotas. Os dados são lidos neste navegador; nomes e placas ficam restritos à área administrativa.</p>
+<label>Mês das abas de montagem sem mês/ano <input id="mesImport" type="month" value="${mes}"></label> <label>Unidade para Resumo: <select id="unidadeImport"><option value="AUTO">Detectar pelo arquivo</option><option value="CBAR">Barreiras</option><option value="CCRT">Juazeiro</option></select></label>
+<div class="drop" id="drop"><p>Arraste KMs.txt e as planilhas de rotas aqui ou selecione os arquivos</p><input type="file" id="arqs" multiple accept=".txt,.xls,.xlsx,.xlsm"></div><div id="res"></div>`);
+  const drop = document.getElementById('drop');
+  const processar = async (files) => {
+    let rows = '';
+    for (const f of files) {
+      try {
+        const x = await lerArquivo(f, { mes: document.getElementById('mesImport').value, unidade: document.getElementById('unidadeImport').value });
+        let n = 0, tipo = x.tipo;
+        if (x.tipo === 'km_abastecimentos') n = await D.gravarAbastecimentosKM(x.linhas);
+        else if (['km_rotas', 'km_resumo', 'km_historico'].includes(x.tipo)) n = await D.gravarRotasKM(x.rotas);
+        else throw new Error('Formato não reconhecido como arquivo de KM.');
+        await D.registrarImportacao({ arquivo: f.name, tipo, linhas: n, periodo: document.getElementById('mesImport').value });
+        rows += `<tr><td class="t">${V.E(f.name)}</td><td>${V.E(tipo)}</td><td>${n}</td><td class="st ok">Importado</td></tr>`;
+      } catch (e) { rows += `<tr><td class="t">${V.E(f.name)}</td><td colspan="3" class="st no">${V.E(e.message)}</td></tr>`; }
+    }
+    document.getElementById('res').innerHTML = `<h2>Resultado da importação</h2><div class="tw"><table><thead><tr><th class="t">Arquivo</th><th>Tipo</th><th>Linhas</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><p><a class="btn" href="#/km/resumo/${document.getElementById('mesImport').value}">Conferir rascunho</a></p>`;
+  };
+  document.getElementById('arqs').onchange = (e) => processar(e.target.files);
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); processar(e.dataTransfer.files); };
+}
+
+async function telaKMParametros(mes) {
+  const topo = await topoKM('parametros', mes, `Parâmetros · ${V.nomeMes(mes)}`), cs = ['NORTE', 'SUL', 'CBAR', 'CCRT'];
+  const pars = Object.fromEntries(await Promise.all(cs.map(async (c) => [c, await D.lerParametrosKM(c, mes)])));
+  const padrao = mes === '2026-11' ? { NORTE: 2.46, SUL: 2.09, CBAR: 2.07, CCRT: 4.19 } : {};
+  const numTxt = (v) => v == null ? '' : String(v).replace('.', ',');
+  const linhas = cs.map((c) => `<tr><td class="t">${V.E(c)}</td><td><input type="text" data-c="${c}" data-k="cpk" value="${V.E(numTxt(pars[c].cpk ?? padrao[c]))}"></td><td><input type="text" data-c="${c}" data-k="meta" value="${V.E(numTxt((pars[c].meta ?? 0.05) * 100))}" placeholder="5"></td><td><textarea data-c="${c}" data-k="idaVolta" rows="3" placeholder="MOTORISTA=km, um por linha">${V.E(Object.entries(pars[c].idaVolta || {}).map(([k,v]) => `${k}=${numTxt(v)}`).join('\n'))}</textarea></td></tr>`).join('');
+  html(`${topo}<p class="sub">CPK em R$/km, meta percentual em % (ex.: 5), e ida e volta como MOTORISTA=km, uma regra por linha. A ida e volta é aplicada uma vez por motorista/placa no dia.</p><div class="tw"><table><thead><tr><th class="t">Unidade</th><th>CPK</th><th>Meta ± %</th><th>Ida e volta por motorista</th></tr></thead><tbody>${linhas}</tbody></table></div><p><button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>`);
+  document.getElementById('salvar').onclick = async (e) => {
+    e.target.disabled = true;
+    try {
+      for (const c of cs) {
+        const v = { idaVolta: {} };
+        document.querySelectorAll(`[data-c="${c}"]`).forEach((i) => {
+          if (i.dataset.k === 'idaVolta') for (const line of i.value.split(/\r?\n/)) { const [k, x] = line.split('='); if (k?.trim() && x?.trim()) v.idaVolta[k.trim().toLocaleUpperCase('pt-BR')] = num(x); }
+          else if (i.value.trim()) v[i.dataset.k] = num(i.value);
+        });
+        if (v.meta > 1) v.meta /= 100;
+        await D.gravarParametrosKM(c, mes, v);
+      }
+      document.getElementById('msg').innerHTML = '<span class="st ok">Salvo</span>';
+    } catch (err) { document.getElementById('msg').innerHTML = erro(err); }
+    e.target.disabled = false;
+  };
+  ligarTopo((m) => `#/km/parametros/${m}`);
+}
+
+async function telaKMPublicar(mes) {
+  const topo = await topoKM('publicar', mes, `Publicar · ${V.nomeMes(mes)}`), link = `${location.origin}${location.pathname}#/km/resumo/${mes}`;
+  html(`${topo}<p>Publica os totais diários por unidade. Nomes de motoristas e placas não são incluídos.</p><p><a class="btn sec" href="#/km/resumo/${mes}">Conferir antes</a> <button class="btn" id="pub">Publicar KM ${V.nomeMes(mes)}</button> <span id="msg"></span></p><h2>Link para enviar por e-mail</h2><p><input type="text" readonly value="${V.E(link)}" style="width:100%;max-width:640px"> <button class="btn sec" id="copiar">Copiar</button></p>`);
+  document.getElementById('copiar').onclick = () => navigator.clipboard.writeText(link);
+  document.getElementById('pub').onclick = async (e) => { e.target.disabled = true; try { await D.publicarKM(mes); document.getElementById('msg').innerHTML = '<span class="st ok">✓ publicado</span>'; } catch (err) { document.getElementById('msg').innerHTML = erro(err); } e.target.disabled = false; };
+  ligarTopo((m) => `#/km/publicar/${m}`);
 }
 
 // ---------------------------------------------------------------- painel principal e acessos (admin)
@@ -370,6 +551,7 @@ async function rotear() {
       if (sub === 'importar') return await telaImportar();
       if (sub === 'parametros') return await telaParametros(mesP(p[2]) || mesAtual());
       if (sub === 'publicar') return await telaPublicar(mesP(p[2]) || mesAtual());
+      if (sub === 'exportar') return await telaMontagemExportar(mesP(p[2]) || mesAtual());
       if (sub === 'planejamento' && D.UNIDADES[p[2]]) return await telaPlanejamento(p[2], mesP(p[3]) || mesAtual());
     }
     if (p[0] === 'pes') {
@@ -379,6 +561,19 @@ async function rotear() {
       if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
       if (sub === 'digitacao') return await telaPESDigitacao(mesP(p[2]) || mesAtual());
       if (sub === 'publicar') return await telaPESPublicar(mesP(p[2]) || mesAtual());
+      if (sub === 'exportar') return await telaPESExportar(mesP(p[2]) || mesAtual());
+    }
+    if (p[0] === 'km') {
+      cabecalhoSite('KM planejado × realizado');
+      const sub = p[1];
+      if (!sub || sub === 'resumo') return await telaKMResumo(mesP(p[2]) || mesAtual());
+      if (sub === 'exportar') return await telaKMExportar(mesP(p[2]) || mesAtual());
+      if (['NORTE', 'SUL', 'CBAR', 'CCRT'].includes(sub)) return await telaKMUnidade(sub, mesP(p[2]) || mesAtual());
+      if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
+      if (sub === 'importar') return await telaKMImportar();
+      if (sub === 'parametros') return await telaKMParametros(mesP(p[2]) || mesAtual());
+      if (sub === 'publicar') return await telaKMPublicar(mesP(p[2]) || mesAtual());
+      if (sub === 'motoristas') return await telaKMMotoristas(p[2], mesP(p[3]) || mesAtual());
     }
     cabecalhoSite('');
     if (!estado.admin) {

@@ -34,6 +34,14 @@ service cloud.firestore {
       allow read: if admin() || leitor();
       allow write: if admin();
     }
+    match /km_publicado/{id} {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
+    match /meta/publicacoes_km {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
     match /meta/acesso {
       allow read, write: if admin();
     }
@@ -44,5 +52,7 @@ service cloud.firestore {
     match /estado/{id}       { allow read, write: if admin(); }
     match /importacao/{id}   { allow read, write: if admin(); }
     match /pes/{id}          { allow read, write: if admin(); }
+    match /km_dados/{id}     { allow read, write: if admin(); }
+    match /km_parametro/{id} { allow read, write: if admin(); }
   }
 }

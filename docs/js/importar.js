@@ -1,5 +1,5 @@
 // Leitura das planilhas no navegador (SheetJS, global XLSX) — porte de code/hub/importar.py.
-// Só números e códigos saem daqui: nomes de clientes e motoristas são descartados.
+// Montagem descarta nomes; KM mantém motorista/placa apenas em dados administrativos protegidos.
 
 export function num(v) {
   if (v == null || v === '') return 0;
@@ -74,7 +74,15 @@ function abaCom(wb, coluna) {
 
 export function detectar(wb) {
   const abas = new Set(wb.SheetNames);
-  if (abas.has('Resumo Geral') && abas.has('Paradas')) return 'resumo';
+  if (abas.has('Planejado Norte') || abas.has('Planejado Sul') || abas.has('Planejado Barreiras') || abas.has('Planejado Juazeiro')) return 'km_historico';
+  if ([...abas].some((n) => /MONTAGEM.*CARGAS/i.test(n)) || [...abas].some((n) => /^(\d{1,2}|\d{1,2}-\d{1,2})$/.test(n))) return 'km_rotas';
+  if (abas.has('Resumo Geral')) {
+    const ws = wb.Sheets['Resumo Geral'], ls = linhas(ws);
+    if (ls.slice(8).some((r) => normKM(r?.[1]) === 'carga') && valorCelula(ws, 'C8') != null) return 'km_resumo';
+  }
+  if (abas.has('Resumo Geral') && abas.has('Paradas')) {
+    return 'resumo';
+  }
   if (['RESUMO', 'BARREIRAS', 'JUAZEIRO', 'Venda Barreiras'].every((a) => abas.has(a))) return 'montagem';
   if (abas.has('BARREIRAS') && abas.has('JUAZEIRO') && !abas.has('Venda Barreiras')
       && linhas(wb.Sheets.BARREIRAS).some((l) => l && l.some((v) => String(v ?? '').trim() === 'VOLUME UC TOTAL'))) return 'reprog';
@@ -85,6 +93,130 @@ export function detectar(wb) {
     if (cab.includes('Taxa Ocupação') && cab.includes('Cxs Unitaria')) return 'venda';
   }
   return null;
+}
+
+const normKM = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
+const centroKM = (s) => ({ 'matriz': 'NORTE', 'filial ii': 'SUL', 'filial i': 'CBAR', 'filial iii': 'CCRT' })[normKM(s)] || null;
+const categoriaMotorista = (s) => /freteiro/i.test(String(s || '')) ? 'FRETEIRO'
+  : /generico/i.test(normKM(s)) ? 'MOTORISTA GENERICO' : /extra/i.test(normKM(s)) ? 'EXTRA' : 'NORMAL';
+
+// TXT de abastecimentos: tabulado e exportado em Windows-1252/latin-1.
+export function lerKMsTXT(textoArquivo) {
+  const ls = String(textoArquivo).replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim());
+  if (ls.length < 2) throw new Error('Arquivo de KM vazio ou sem linhas de dados.');
+  const cab = ls[0].split('\t').map(normKM);
+  const idx = (f) => cab.findIndex((c) => f.test(c));
+  const col = {
+    placa: idx(/^placa$/), data: idx(/^data abastec/), km: idx(/^km s percorridos$|^kms percorridos$|^km percorridos$/),
+    local: idx(/^n local atual$|^local atual$/), motorista: idx(/^nome motorista$|^motorista$/),
+  };
+  if (col.data < 0 || col.km < 0 || col.local < 0) throw new Error('Não reconheci as colunas Data Abastec, Km\'s Percorridos e N. local atual no TXT.');
+  const saida = [];
+  for (const l of ls.slice(1)) {
+    const a = l.split('\t'), unidade = centroKM(a[col.local]);
+    const data = iso(a[col.data]);
+    if (!unidade || !data || !a[col.placa]?.trim()) continue; // ignora o total final, sem placa
+    const km = num(a[col.km]);
+    if (km < 0) continue;
+    const abastecimento = { unidade, data, km };
+    if (unidade === 'NORTE' || unidade === 'SUL') {
+      abastecimento.placa = a[col.placa].trim().toUpperCase();
+      if (col.motorista >= 0 && a[col.motorista]?.trim()) abastecimento.motorista = a[col.motorista].trim();
+    }
+    saida.push(abastecimento);
+  }
+  return saida;
+}
+
+const valorCelula = (ws, ref) => ws?.[ref]?.v ?? null;
+function dataAbaKM(nome, mes) {
+  const m = String(nome).match(/^(\d{1,2})(?:[-.](\d{1,2}))?$/);
+  if (!m) return null;
+  const mm = m[2] || mes?.slice(5, 7), aa = mes?.slice(0, 4);
+  return mm && aa ? `${aa}-${String(mm).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}` : null;
+}
+
+// Montagens Norte/Sul: os campos são lidos por posição porque os rótulos da Sul estão deslocados.
+export function lerRotasMontagemKM(wb, mes) {
+  const saida = [];
+  let unidadeArquivo = null;
+  for (const nome of wb.SheetNames) {
+    const ws = wb.Sheets[nome], data = dataAbaKM(nome, mes);
+    if (!data) continue;
+    const ls = linhas(ws);
+    const cab = (ls[3] || []).map(normKM);
+    const norte = /NORTE/i.test(nome) || (!/SUL/i.test(nome) && cab.some((x) => /^km$/.test(x)) && cab.indexOf('km') === 8);
+    const sul = /SUL/i.test(nome) || (!norte && cab.indexOf('km') === 13);
+    if (!norte && !sul) continue;
+    const unidade = norte ? 'NORTE' : 'SUL';
+    if (unidadeArquivo && unidadeArquivo !== unidade) throw new Error('O arquivo mistura abas Norte e Sul; importe cada arquivo separadamente.');
+    unidadeArquivo = unidade;
+    for (const r of ls.slice(4)) {
+      const km = num(r[norte ? 8 : 13]);
+      if (!km || !r[2]) continue;
+      saida.push({ unidade: norte ? 'NORTE' : 'SUL', data, area: texto(r[1]), placa: String(r[2]).trim().toUpperCase(), motorista: texto(r[4]), km, idaVolta: null });
+    }
+  }
+  if (!saida.length) throw new Error('Não encontrei as rotas Norte/Sul. Confira as abas diárias e selecione o mês de referência.');
+  return saida;
+}
+
+function lerResumoKM(wb, unidade) {
+  const ws = wb.Sheets['Resumo Geral'];
+  if (!ws) throw new Error('Resumo Geral não encontrado.');
+  const ls = linhas(ws), data = iso(valorCelula(ws, 'C8'));
+  if (!data) throw new Error('A data do Resumo não está em C8.');
+  const saida = [];
+  for (const r of ls.slice(10)) {
+    const motorista = texto(r[4]), km = num(r[10]);
+    const categoria = categoriaMotorista(motorista);
+    if (!texto(r[1]) || !km) continue;
+    // Não guardar crachá/veículo para BA/JN. O nome fica restrito ao admin para lookup de ida e volta;
+    // ele não é usado para atribuir abastecimentos nem aparece no detalhe/público.
+    saida.push({ unidade, data, area: texto(r[5]), motorista, categoria, km, idaVolta: null });
+  }
+  return saida;
+}
+
+export function lerPlanejamentoHistoricoKM(wb) {
+  const centroAba = { 'Planejado Norte': 'NORTE', 'Planejado Sul': 'SUL', 'Planejado Barreiras': 'CBAR', 'Planejado Juazeiro': 'CCRT' };
+  const saida = [];
+  for (const [aba, unidade] of Object.entries(centroAba)) {
+    const ws = wb.Sheets[aba];
+    if (!ws) continue;
+    const ls = linhas(ws);
+    const ix = ls.findIndex((r) => {
+      if (!r) return false;
+      const cells = r.map(normKM);
+      return cells.includes('data') && cells.some((v) => /^(km|km rota|km planejado|distancia planejada|km total)$/.test(v));
+    });
+    if (ix < 0) continue;
+    const cab = ls[ix].map(normKM), find = (...re) => cab.findIndex((v) => re.some((x) => x.test(v)));
+    const idata = find(/^data$/), ikm = find(/^km$|km rota|distancia planejada|km planejado/), iTotal = find(/km total/);
+    const iplaca = find(/^placa$/), imot = find(/motorista/), iarea = find(/area/), iveic = find(/veiculo/), icarga = find(/carga|rom/), iida = find(/ida e volta|ida volta/);
+    if (idata < 0 || (ikm < 0 && iTotal < 0)) continue;
+    for (const r of ls.slice(ix + 1)) {
+      const data = iso(r[idata]), kmRota = num(r[ikm >= 0 ? ikm : iTotal]);
+      if (!data || !kmRota) continue;
+      const motorista = texto(imot >= 0 ? r[imot] : null);
+      saida.push({ unidade, data, area: texto(iarea >= 0 ? r[iarea] : null), ...(unidade === 'NORTE' || unidade === 'SUL'
+        ? { placa: texto(iplaca >= 0 ? r[iplaca] : null), motorista, veiculo: texto(iveic >= 0 ? r[iveic] : null), carga: texto(icarga >= 0 ? r[icarga] : null) }
+        : { motorista, categoria: categoriaMotorista(motorista) }), km: kmRota, idaVolta: iida >= 0 ? num(r[iida]) : null });
+    }
+  }
+  if (!saida.length) throw new Error('Não encontrei linhas de planejamento reconhecíveis na planilha histórica.');
+  return saida;
+}
+
+export function lerPlanejamentoKM(wb, mes, unidadeSelecionada = null) {
+  const nomes = wb.SheetNames.map(normKM);
+  if (nomes.includes('resumo geral')) {
+    const textoWB = wb.SheetNames.map((n) => linhas(wb.Sheets[n]).flat().filter(Boolean).join(' ')).join(' ').toLocaleUpperCase('pt-BR');
+    const unidade = /JUAZEIRO|CCRT|FILIAL III/.test(textoWB) ? 'CCRT' : /BARREIRAS|CBAR|FILIAL I/.test(textoWB) ? 'CBAR' : unidadeSelecionada;
+    if (!unidade) throw new Error('Não identifiquei Barreiras ou Juazeiro no conteúdo do Resumo.');
+    return lerResumoKM(wb, unidade);
+  }
+  return lerRotasMontagemKM(wb, mes);
 }
 
 export function lerVenda(ws) {
@@ -163,7 +295,11 @@ export function lerReprogLegada(wb) {
   return out;
 }
 
-export async function lerArquivo(file) {
+export async function lerArquivo(file, opcoes = {}) {
+  if (/\.txt$/i.test(file.name)) {
+    const textoArquivo = new TextDecoder('windows-1252').decode(await file.arrayBuffer());
+    return { tipo: 'km_abastecimentos', linhas: lerKMsTXT(textoArquivo) };
+  }
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array', cellDates: false, cellFormula: false, cellStyles: false });
   const tipo = detectar(wb);
@@ -172,5 +308,7 @@ export async function lerArquivo(file) {
   if (tipo === 'resumo') return { tipo, plan: lerResumo(wb) };
   if (tipo === 'montagem') return { tipo, ...lerMontagemLegada(wb) };
   if (tipo === 'reprog') return { tipo, reprog: lerReprogLegada(wb) };
+  if (tipo === 'km_rotas' || tipo === 'km_resumo') return { tipo, rotas: lerPlanejamentoKM(wb, opcoes.mes, opcoes.unidade === 'AUTO' ? null : opcoes.unidade) };
+  if (tipo === 'km_historico') return { tipo, rotas: lerPlanejamentoHistoricoKM(wb) };
   return { tipo: null };
 }

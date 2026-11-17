@@ -14,6 +14,9 @@ tags: []
 
 ## [Não lançado]
 ### Adicionado
+- Fase KM: resumo por unidade, detalhe diário, tela de parâmetros, importação TXT/XLSX, publicação sem nomes/placas e regras Firestore locais. Código aguarda validação com planilhas reais antes do deploy.
+- Exportação de Montagem, PES e KM para cópias XLSM dos modelos oficiais, com rotina compartilhada no navegador; abas Exportar disponíveis para o administrador.
+- Plano de implementação KM em `DESIGN/2026-11-16 KM plano.md`.
 ### Alterado
 ### Corrigido
 

@@ -1,5 +1,6 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
 import { UNIDADES } from './dados.js';
+import { UNIDADES_KM } from './km.js';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -38,7 +39,7 @@ export const legenda = () => `<div class="legenda">
 // abas internas do acompanhamento Montagem
 export function abasMontagem(ativa, mes, admin) {
   const a = [['resumo', 'Resumo', `#/montagem/resumo/${mes}`], ['CBAR', 'Barreiras', `#/montagem/CBAR/${mes}`], ['CCRT', 'Juazeiro', `#/montagem/CCRT/${mes}`]];
-  const adm = admin ? [['importar', 'Importar', '#/montagem/importar'], ['parametros', 'Parâmetros', `#/montagem/parametros/${mes}`], ['publicar', 'Publicar', `#/montagem/publicar/${mes}`]] : [];
+  const adm = admin ? [['importar', 'Importar', '#/montagem/importar'], ['parametros', 'Parâmetros', `#/montagem/parametros/${mes}`], ['publicar', 'Publicar', `#/montagem/publicar/${mes}`], ['exportar', 'Exportar', `#/montagem/exportar/${mes}`]] : [];
   return `<nav class="abas">${a.map(([k, t, h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
     + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
 }
@@ -75,7 +76,7 @@ export function grafico(dias, campo, corS, meta, rotulo, fmt = fi, fmtBarra = fk
 export function painelPrincipal() {
   const acomp = [['Montagem de cargas (DLs)', '#/montagem', 'ativo · Barreiras e Juazeiro'], ['KPI Distribuição e Logística', null, 'próxima fase'],
     ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', null, 'planejado'], ['Montadores', null, 'planejado'],
-    ['Perdas de estoque', null, 'planejado'], ['KM planejado × realizado', null, 'planejado'], ['Retorno por motivo', null, 'planejado'],
+    ['Perdas de estoque', null, 'planejado'], ['KM planejado × realizado', '#/km', 'em validação · 4 unidades'], ['Retorno por motivo', null, 'planejado'],
     ['Fill rate', null, 'planejado'], ['Gestão à vista', null, 'planejado'], ['Custos de descarga', null, 'planejado']];
   return `<h1>Painel principal</h1><p class="sub">Acompanhamentos do Hub. Cada um tem link próprio para enviar por e-mail; quem recebe vê só aquele acompanhamento.</p>
 <div class="grid">${acomp.map(([n, h, s]) => `<div class="bloco"><div class="faixa">${E(n)}</div><div class="corpo"><p class="small">${s}</p>
@@ -185,7 +186,7 @@ ${lb({ ...t, tx_reprog: null }, 'tot', 'TOTAL', { rp_cubos: rp.rp_cubos, rp_uc_t
 // ---------------------------------------------------------------- PES Logístico
 export function abasPES(ativa, mes, admin) {
   const a = [['resumo', 'Placar', `#/pes/resumo/${mes}`]];
-  const adm = admin ? [['digitacao', 'Digitação', `#/pes/digitacao/${mes}`], ['publicar', 'Publicar', `#/pes/publicar/${mes}`]] : [];
+  const adm = admin ? [['digitacao', 'Digitação', `#/pes/digitacao/${mes}`], ['publicar', 'Publicar', `#/pes/publicar/${mes}`], ['exportar', 'Exportar', `#/pes/exportar/${mes}`]] : [];
   return `<nav class="abas">${a.map(([k, t, h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
     + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
 }
@@ -225,4 +226,33 @@ export function paginaPES(placares, { mes, admin, topo }) {
   return `${topo}<p class="sub">Programa de Excelência Solar — resultados logísticos. Ponto cheio só se bater a meta. Os 4 percentuais de retorno e reprogramação vêm da Montagem de Cargas do mês; os demais são digitados.</p>
 <div class="pes-dls">${Object.keys(UNIDADES).map((c) => blocoPES(c, placares[c], mes, admin)).join('')}</div>
 <p class="small">vs meta: ▼ abaixo ou ▲ acima da meta no acumulado do mês, em cx unit ou clientes.</p>`;
+}
+
+// ---------------------------------------------------------------- KM planejado × realizado
+export function abasKM(ativa, mes, admin) {
+  const a = [['resumo', 'Resumo', `#/km/resumo/${mes}`], ['NORTE', 'CB NORTE', `#/km/NORTE/${mes}`], ['SUL', 'CB SUL', `#/km/SUL/${mes}`],
+    ['CBAR', 'BARREIRAS', `#/km/CBAR/${mes}`], ['CCRT', 'JUAZEIRO', `#/km/CCRT/${mes}`]];
+  const adm = admin ? [['importar', 'Importar', '#/km/importar'], ['parametros', 'Parâmetros', `#/km/parametros/${mes}`], ['publicar', 'Publicar', `#/km/publicar/${mes}`], ['exportar', 'Exportar', `#/km/exportar/${mes}`]] : [];
+  return `<nav class="abas">${a.map(([k,t,h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
+    + `${adm.map(([k,t,h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
+}
+
+export function paginaKMResumo(resultado, { mes, admin, topo }) {
+  const blocos = Object.entries(resultado.unidades).map(([c, u]) => {
+    const t = u.totais, corS = `var(--s${UNIDADES_KM[c].cor})`;
+    if (!u.temDados) return `<section class="bloco"><div class="faixa">${E(u.nome)}</div><div class="corpo"><div class="aviso">Sem dados de KM em ${nomeMes(mes)}.</div>${admin ? '<a class="btn sec" href="#/km/importar">Importar arquivos</a>' : ''}</div></section>`;
+    const linhas = u.dias.map((d) => `<tr class="${d.acumulado ? 'pv' : ''}"><td class="t">${fdata(d.data)}${d.acumulado ? ' *' : ''}</td><td>${fi(d.planejado)}</td><td>${fi(d.realizado)}</td><td class="${corSinal(d.diferenca)}">${fi(d.diferenca)}</td><td>${fp(d.dispersao)}</td><td>${fr(t.cpk == null ? null : d.diferenca * t.cpk)}</td></tr>`).join('');
+    const statusMeta = status(t.dentroMeta, `dentro de ±${fp(t.meta,0)}`, `fora de ±${fp(t.meta,0)}`);
+    return `<section class="bloco"><div class="faixa">${E(u.nome)}${admin && ['NORTE','SUL'].includes(c) ? ` <a class="btn sec" href="#/km/motoristas/${c}/${mes}">Motoristas/placas →</a>` : ''}</div><div class="corpo">
+<p><a class="btn sec" href="#/km/${c}/${mes}">Detalhe diário →</a></p><div class="tiles"><div class="tile"><div class="l">Planejado até ${t.ultimoDia ? fdata(t.ultimoDia) : '–'}</div><div class="v">${fi(t.planejado)} km</div></div><div class="tile"><div class="l">Realizado</div><div class="v">${fi(t.realizado)} km</div></div><div class="tile"><div class="l">Diferença · dispersão</div><div class="v">${fi(t.diferenca)} km · ${fp(t.dispersao)}</div><div class="d">${statusMeta}</div></div><div class="tile"><div class="l">Custo da dispersão</div><div class="v">${fr(t.custo)}</div></div></div>
+<h2>Planejado por dia</h2>${grafico(u.dias, 'planejado', corS, null, '', fi)}<h2>Realizado por dia</h2>${grafico(u.dias, 'realizado', corS, null, '', fi)}
+<div class="tw scroll"><table class="diario km"><thead><tr><th class="t">Dia</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Dispersão</th><th>Custo</th></tr></thead><tbody>${linhas}<tr class="tot"><td class="t">ACUMULADO</td><td>${fi(t.planejado)}</td><td>${fi(t.realizado)}</td><td>${fi(t.diferenca)}</td><td>${fp(t.dispersao)}</td><td>${fr(t.custo)}</td></tr></tbody></table></div>
+<p class="small">* Dia posterior ao último abastecimento lançado; não entra no acumulado. CPK: ${fr(t.cpk)}/km.</p></div></section>`;
+  }).join('<div style="height:16px"></div>');
+  return `${topo}<p class="sub">KM planejado × realizado · acumulado até o último abastecimento lançado em cada unidade.</p>${blocos}`;
+}
+
+export function paginaKMMotoristas(u, { mes, topo }) {
+  const rows = u.motoristas.map((x) => `<tr><td class="t">${E(x.motorista)}</td><td>${E(x.placa || '–')}</td><td>${fi(x.planejado)}</td><td>${fi(x.realizado)}</td><td>${fi(x.realizado-x.planejado)}</td><td>${fi(x.semRota || 0)}</td></tr>`).join('');
+  return `${topo}<p><a href="#/km/resumo/${mes}">← Resumo</a></p><h2>Detalhe por motorista e placa · ${E(u.nome)}</h2><div class="tw scroll"><table><thead><tr><th class="t">Motorista</th><th>Placa</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Abast. sem rota</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="t">Sem rotas ou abastecimentos.</td></tr>'}</tbody></table></div><p class="small">Somente CB Norte e CB Sul têm atribuição por placa e dia. Nomes e placas ficam restritos ao administrador.</p>`;
 }

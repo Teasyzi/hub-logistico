@@ -23,6 +23,15 @@ tags: []
 | RF-06 | Cadastros únicos de unidade, pessoa (aliases), veículo e produto (código Solar ↔ CB, fator de conversão) | média | nenhum de-para duplicado entre módulos |
 | RF-07 | Exportar para Excel as visões que ainda são enviadas a terceiros (ex.: PES, fechamento) | média | arquivo gerado com o mesmo layout de envio |
 | RF-08 | Log de importação com arquivo, hash, linhas e erros | média | toda linha de fato rastreável até o arquivo |
+| RF-09 | Exportar cada acompanhamento do site para uma cópia do respectivo modelo oficial, durante a fase de testes | alta | cada acompanhamento existente tem ação **Exportar** que atualiza e baixa a planilha oficial; novos acompanhamentos só são concluídos quando têm esse fluxo |
+
+### Padrão obrigatório de exportação
+- A pessoa seleciona o modelo oficial vigente no próprio acompanhamento; o site atualiza uma cópia local e baixa o arquivo pronto para conferência/envio.
+- Manter o mesmo fluxo de uso em todos os acompanhamentos. Compartilhar a rotina técnica sempre que o formato permitir; cada acompanhamento mantém apenas seu mapeamento de abas/células.
+- Preservar abas, fórmulas, formatos e macros do modelo, atualizando somente os campos mapeados. Não substituir o arquivo original.
+- Não enviar modelos para Firebase ou GitHub. A exportação acontece no navegador; arquivos com macros não são executados pelo Hub.
+- A planilha continua sendo o arquivo diário oficial até a validação completa do site.
+- Critério para concluir uma nova área: incluir a aba **Exportar**, o modelo mapeado e uma comparação com arquivo oficial validado.
 
 ## Requisitos não funcionais
 | ID | Atributo | Requisito mensurável |

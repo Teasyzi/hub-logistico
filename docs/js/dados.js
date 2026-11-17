@@ -14,6 +14,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { calcular, motivos } from './calc.js';
 import { placarPES } from './pes.js';
+import { calcularKM, agregadoPublicado, UNIDADES_KM } from './km.js';
 
 export const UNIDADES = {
   CBAR: { nome: 'DL Barreiras', cor: 1 },
@@ -226,6 +227,79 @@ export async function lerPESPublicado(centro, mes) {
 
 export async function mesesPESPublicados() {
   return (await getDoc(doc(db, 'meta', 'publicacoes_pes'))).data()?.meses || [];
+}
+
+// ---------------------------------------------------------------- KM planejado × realizado
+const refKM = (unidade, mes) => doc(db, 'km_dados', `${unidade}_${mes}`);
+export async function lerDadosKM(mes) {
+  const unidades = Object.keys(UNIDADES_KM);
+  const docs = await Promise.all(unidades.map((c) => getDoc(refKM(c, mes))));
+  const rotas = [], abastecimentos = [];
+  docs.forEach((snap, i) => {
+    const d = snap.data() || {}, c = unidades[i];
+    rotas.push(...(d.rotas || []).map((r) => ({ ...r, unidade: c })));
+    abastecimentos.push(...(d.abastecimentos || []).map((a) => ({ ...a, unidade: c })));
+  });
+  const parametros = Object.fromEntries(await Promise.all(unidades.map(async (c) => [c, await lerParametrosKM(c, mes)])));
+  return { rotas, abastecimentos, parametros };
+}
+
+async function gravarParcialKM(unidade, mes, tipo, linhas) {
+  const ref = refKM(unidade, mes), atual = (await getDoc(ref)).data() || {};
+  const base = atual[tipo] || [];
+  const sig = (x) => tipo === 'rotas' ? `${x.data}|${x.placa || x.veiculo || ''}|${x.motorista || ''}|${x.carga || ''}|${x.categoria || ''}`
+    : `${x.data}|${x.placa || ''}|${x.km}|${x.local || ''}`;
+  const incoming = new Set(linhas.map(sig));
+  const datas = new Set(linhas.map((x) => x.data));
+  const keep = tipo === 'rotas' ? base.filter((x) => !datas.has(x.data))
+    : base.filter((x) => !incoming.has(sig(x)));
+  await setDoc(ref, { unidade, mes, [tipo]: [...keep, ...linhas], atualizado: serverTimestamp() }, { merge: true });
+}
+
+export async function gravarRotasKM(linhas) {
+  const grupos = new Map();
+  for (const r of linhas) { const k = `${r.unidade}|${r.data.slice(0, 7)}`; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(r); }
+  for (const [k, rs] of grupos) { const [c, m] = k.split('|'); await gravarParcialKM(c, m, 'rotas', rs); }
+  return linhas.length;
+}
+
+export async function gravarAbastecimentosKM(linhas) {
+  const grupos = new Map();
+  for (const a of linhas) { const k = `${a.unidade}|${a.data.slice(0, 7)}`; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a); }
+  for (const [k, as] of grupos) { const [c, m] = k.split('|'); await gravarParcialKM(c, m, 'abastecimentos', as); }
+  return linhas.length;
+}
+
+export async function lerParametrosKM(unidade, mes) {
+  return (await getDoc(doc(db, 'km_parametro', `${unidade}_${mes}`))).data()?.valores || {};
+}
+export async function gravarParametrosKM(unidade, mes, valores) {
+  await setDoc(doc(db, 'km_parametro', `${unidade}_${mes}`), { unidade, mes, valores, atualizado: serverTimestamp() });
+}
+
+export async function calcularKMAoVivo(mes) {
+  const dados = await lerDadosKM(mes);
+  return calcularKM({ mes, ...dados });
+}
+
+export async function publicarKM(mes) {
+  const resultado = await calcularKMAoVivo(mes), agregado = agregadoPublicado(resultado);
+  if (!Object.values(resultado.unidades).some((u) => u.temDados)) throw new Error('Não há dados de KM importados para publicar neste mês.');
+  for (const [c, placar] of Object.entries(agregado)) {
+    await setDoc(doc(db, 'km_publicado', `${c}_${mes}`), { unidade: c, mes, placar: JSON.stringify(placar), publicadoEm: serverTimestamp() });
+  }
+  const ref = doc(db, 'meta', 'publicacoes_km'), meses = new Set((await getDoc(ref)).data()?.meses || []);
+  meses.add(mes);
+  await setDoc(ref, { meses: [...meses].sort().reverse(), atualizado: serverTimestamp() }, { merge: true });
+}
+
+export async function lerKMPublicado(unidade, mes) {
+  const d = (await getDoc(doc(db, 'km_publicado', `${unidade}_${mes}`))).data();
+  if (!d) return null;
+  return { placar: JSON.parse(d.placar), publicadoEm: d.publicadoEm?.toDate?.(), por: d.por };
+}
+export async function mesesKMPublicados() {
+  return (await getDoc(doc(db, 'meta', 'publicacoes_km'))).data()?.meses || [];
 }
 
 export async function souAdmin(uid) {
