@@ -109,12 +109,16 @@ export async function gravarParametros(centro, mes, valores, origem) {
 }
 
 export async function registrarImportacao(info) {
-  await addDoc(collection(db, 'importacao'), { ...info, por: auth.currentUser?.email || null, em: serverTimestamp() });
+  const acompanhamento = info.acompanhamento || (String(info.tipo || '').startsWith('km_') ? 'km' : 'montagem');
+  await addDoc(collection(db, 'importacao'), { ...info, acompanhamento, por: auth.currentUser?.email || null, em: serverTimestamp() });
 }
 
-export async function ultimasImportacoes(n = 30) {
-  const s = await getDocs(query(collection(db, 'importacao'), orderBy('em', 'desc'), limit(n)));
-  return s.docs.map((d) => d.data());
+export async function ultimasImportacoes(acompanhamento = 'montagem', n = 30) {
+  const s = await getDocs(query(collection(db, 'importacao'), orderBy('em', 'desc'), limit(300)));
+  return s.docs.map((d) => d.data()).filter((r) => {
+    const modulo = r.acompanhamento || (String(r.tipo || '').startsWith('km_') ? 'km' : 'montagem');
+    return modulo === acompanhamento;
+  }).slice(0, n);
 }
 
 async function doMes(col, centro, mes) {

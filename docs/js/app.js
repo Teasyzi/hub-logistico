@@ -4,9 +4,9 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261117-5';
+import * as D from './dados.js?v=20261117-6';
 import { lerArquivo, num } from './importar.js';
-import * as V from './views.js?v=20261117-4';
+import * as V from './views.js?v=20261117-5';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -17,33 +17,73 @@ import { importarMontadoresLocal, dadosMontadores, calcularMontadores } from './
 import { exportarMontadores } from './exportar_montadores.js?v=20261117-3';
 
 const $app = document.getElementById('app');
-const estado = { user: null, admin: false, modo: 'rascunho' };
+const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
+const adminNaTela = () => estado.admin && !estado.visualizarComoVisitante;
 const mesAtual = () => new Date().toISOString().slice(0, 7);
 const html = (h) => { $app.innerHTML = h; };
 const erro = (e) => `<div class="erro">${V.E(e?.message || e)}</div>`;
 const mesP = (s) => (/^\d{4}-\d{2}$/.test(s || '') ? s : null);
+const quandoImportou = (r) => r.em?.toDate ? r.em.toDate().toLocaleString('pt-BR') : '';
+
+function historicoMontagem(importacoes) {
+  const linhas = importacoes.length ? importacoes.map((r) => `<tr><td class="t">${quandoImportou(r)}</td><td class="t">${V.E(r.arquivo)}</td>
+<td class="t">${V.E(r.tipo)}</td><td class="t">${V.E(r.centro || '')}</td><td>${r.linhas ?? ''}</td><td class="t">${V.E(r.periodo || '')}</td><td class="t">${V.E(r.por || '')}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="t small">Ainda não há importações da Montagem.</td></tr>';
+  return `<div class="tw scroll"><table><thead><tr><th class="t">Quando</th><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Centro</th><th>Linhas</th><th class="t">Período / data</th><th class="t">Por</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+}
+
+function historicoKM(importacoes) {
+  const linhas = importacoes.length ? importacoes.map((r) => `<tr><td class="t">${quandoImportou(r)}</td><td class="t">${V.E(r.arquivo)}</td>
+<td class="t">${V.E(r.tipo)}</td><td>${r.linhas ?? ''}</td><td class="t">${V.E(r.periodo || '')}</td><td class="t">${V.E(r.por || '')}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="t small">Ainda não há importações de KM.</td></tr>';
+  return `<div class="tw scroll"><table><thead><tr><th class="t">Quando</th><th class="t">Arquivo</th><th class="t">Tipo</th><th>Linhas</th><th class="t">Período</th><th class="t">Por</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+}
 
 function cabecalhoSite(titulo) {
   document.getElementById('nav').innerHTML = titulo ? `<span>· ${V.E(titulo)}</span>` : '';
+  const adminVisivel = adminNaTela();
   document.getElementById('usuario').innerHTML = estado.user
-    ? `${estado.admin ? '<a href="#/">Painel principal</a> · ' : ''}${V.E(estado.user.email)}${estado.admin ? ' <span class="tag" style="color:inherit;border-color:currentColor">admin</span>' : ''} · <a href="#" id="sair">sair</a>` : '';
+    ? `${adminVisivel ? '<a href="#/">Painel principal</a> · ' : ''}${V.E(estado.user.email)}${adminVisivel ? ' <span class="tag" style="color:inherit;border-color:currentColor">admin</span>' : estado.visualizarComoVisitante ? ' <span class="badge pub">VISITANTE</span>' : ''} · <a href="#" id="sair">sair</a>` : '';
   document.getElementById('sair')?.addEventListener('click', (e) => { e.preventDefault(); signOut(auth); });
+  document.getElementById('modoVisitante')?.remove();
+  if (estado.admin) {
+    const b = document.createElement('button'); b.id = 'modoVisitante'; b.className = 'btn sec';
+    b.style.cssText = 'margin-left:auto;padding:4px 9px;font-size:11px';
+    b.textContent = estado.visualizarComoVisitante ? 'VOLTAR AO ADMIN' : 'VER COMO VISITANTE';
+    b.title = estado.visualizarComoVisitante ? 'Sair da visualização pública' : 'Ocultar controles de administrador e ver a última publicação';
+    document.querySelector('header').insertBefore(b, document.querySelector('.tema'));
+    b.onclick = () => {
+      if (!estado.visualizarComoVisitante) {
+        estado.rotaAdminAntesDaVisita = location.hash;
+        estado.modoAntesDaVisita = estado.modo;
+        estado.visualizarComoVisitante = true; estado.modo = 'publicado';
+        const p = (location.hash.replace(/^#/, '') || '/').split('/').filter(Boolean), mes = p.map(mesP).find(Boolean) || mesAtual();
+        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : `#/montagem/resumo/${mes}`;
+        if (location.hash === destino) rotear(); else location.hash = destino;
+      } else {
+        estado.visualizarComoVisitante = false; estado.modo = estado.modoAntesDaVisita || 'rascunho';
+        const destino = estado.rotaAdminAntesDaVisita || '#/';
+        estado.rotaAdminAntesDaVisita = null;
+        if (location.hash === destino) rotear(); else location.hash = destino;
+      }
+    };
+  }
 }
 
 // ---------------------------------------------------------------- topo do acompanhamento Montagem
 async function topoMontagem(aba, mes, titulo, comMes = true) {
   let ctrl = '';
   if (comMes) {
-    const meses = estado.admin ? await D.mesesComDados() : await D.mesesPublicados();
+    const meses = adminNaTela() ? await D.mesesComDados() : await D.mesesPublicados();
     if (!meses.includes(mes)) meses.unshift(mes);
     ctrl = V.seletorMes(meses, mes);
-    if (estado.admin && ['resumo', 'CBAR', 'CCRT'].includes(aba)) {
+    if (adminNaTela() && ['resumo', 'CBAR', 'CCRT'].includes(aba)) {
       ctrl += ` · <select id="selModo"><option value="rascunho" ${estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho (dados atuais)</option>`
         + `<option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado (o que os leitores veem)</option></select> `
         + (estado.modo === 'rascunho' ? '<span class="badge">rascunho</span>' : '<span class="badge pub">publicado</span>');
     }
   }
-  return `<h1>Montagem de Cargas — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasMontagem(aba, mes, estado.admin)}`;
+  return `<h1>Montagem de Cargas — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasMontagem(aba, mes, adminNaTela())}`;
 }
 
 function ligarTopo(rotaMes) {
@@ -55,9 +95,13 @@ async function dadosDoMes(mes) {
   const ms = {}, mots = {};
   let pubEm = null;
   for (const c of Object.keys(D.UNIDADES)) {
-    if (estado.admin && estado.modo === 'rascunho') {
+    if (adminNaTela() && estado.modo === 'rascunho') {
       const x = await D.calcularAoVivo(c, mes);
-      ms[c] = x.resultado.dias.some((d) => d.cx_unit || d.entregas) ? x.resultado : null;
+      ms[c] = x.resultado.dias.some((d) => {
+        const campos = [d.volume_vendido_cxu, d.retorno_cxu, d.vol_cxf, d.cx_unit, d.entregas, d.cargas,
+          d.cubos, d.ocupacao, d.reprog_uc, d.reprog_cli, d.rp_cubos, d.rp_uc_total, d.rp_reprog, d.rp_cli];
+        return d.origem_plan != null || campos.some((v) => v != null && Number(v) !== 0);
+      }) ? x.resultado : null;
       mots[c] = x.motivos;
     } else {
       const p = await D.lerPublicado(c, mes);
@@ -72,7 +116,7 @@ async function telaResumo(mes) {
   html('<p class="small">Calculando…</p>');
   const topo = await topoMontagem('resumo', mes, `Resumo · ${V.nomeMes(mes)}`);
   const { ms, pubEm } = await dadosDoMes(mes);
-  html(V.paginaResumo(ms, { mes, admin: estado.admin, topo }));
+  html(V.paginaResumo(ms, { mes, admin: adminNaTela(), topo }));
   if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
   ligarTopo((m) => `#/montagem/resumo/${m}`);
 }
@@ -81,7 +125,7 @@ async function telaDetalhe(c, mes) {
   html('<p class="small">Calculando…</p>');
   const topo = await topoMontagem(c, mes, `${D.UNIDADES[c].nome} · ${V.nomeMes(mes)}`);
   const { ms, mots, pubEm } = await dadosDoMes(mes);
-  html(ms[c] ? V.paginaDetalhe(c, ms[c], mots[c], { admin: estado.admin, topo }) : `${topo}<p>Sem dados de ${V.E(D.UNIDADES[c].nome)} em ${V.nomeMes(mes)}.</p>`);
+  html(ms[c] ? V.paginaDetalhe(c, ms[c], mots[c], { admin: adminNaTela(), topo }) : `${topo}<p>Sem dados de ${V.E(D.UNIDADES[c].nome)} em ${V.nomeMes(mes)}.</p>`);
   if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
   ligarTopo((m) => `#/montagem/${c}/${m}`);
 }
@@ -101,16 +145,14 @@ async function telaMontagemExportar(mes) {
 // ---------------------------------------------------------------- telas do administrador (dentro do acompanhamento)
 async function telaImportar() {
   const topo = await topoMontagem('importar', mesAtual(), 'Importar planilhas', false);
-  const ult = await D.ultimasImportacoes();
-  const hist = ult.map((r) => `<tr><td class="t">${r.em?.toDate ? r.em.toDate().toLocaleString('pt-BR') : ''}</td><td class="t">${V.E(r.arquivo)}</td>
-<td class="t">${V.E(r.tipo)}</td><td class="t">${V.E(r.centro || '')}</td><td>${r.linhas ?? ''}</td><td class="t">${V.E(r.periodo || '')}</td><td class="t">${V.E(r.por || '')}</td></tr>`).join('');
+  const hist = historicoMontagem(await D.ultimasImportacoes('montagem'));
   html(`${topo}
 <p class="sub">Arquivos do dia: <b>VOLUMES DE VENDAS/RETORNOS</b> (Barreiras), <b>ZSD0092/ZSD0090</b> (Juazeiro) e os 2 <b>Resumos de Planejamento</b>.
 Histórico: planilhas antigas "MM - Montagem de Cargas" e "Reprogramação DL's". Os arquivos são lidos neste navegador; só números e códigos vão para o banco.</p>
 <div class="aviso">Resumo de Planejamento: salve sem habilitar a edição para não recalcular a data (C8). Confira a data detectada no resultado.</div>
 <div class="drop" id="drop"><p>Arraste os arquivos aqui ou</p><input type="file" id="arqs" multiple accept=".xls,.xlsx,.xlsm"></div>
 <div id="res"></div>
-<h2>Últimas importações</h2><div class="tw scroll"><table><thead><tr><th class="t">Quando</th><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Centro</th><th>Linhas</th><th class="t">Período / data</th><th class="t">Por</th></tr></thead><tbody>${hist}</tbody></table></div>`);
+<h2>Últimas importações da Montagem</h2><div id="histMontagem">${hist}</div>`);
   const drop = document.getElementById('drop');
   const processar = async (files) => {
     const out = document.getElementById('res');
@@ -140,7 +182,7 @@ Histórico: planilhas antigas "MM - Montagem de Cargas" e "Reprogramação DL's"
         } else if (x.tipo === 'reprog') {
           r.linhas = await D.completarReprog(x.reprog); r.centro = 'CBAR,CCRT';
         }
-        if (x.tipo) await D.registrarImportacao(r);
+        if (x.tipo) await D.registrarImportacao({ ...r, acompanhamento: 'montagem' });
         linhasRes += `<tr><td class="t">${V.E(f.name)}</td><td class="t">${x.tipo ? '✓ ' + V.E(r.tipo) : '✕ não reconhecido'}</td><td class="t">${V.E(r.centro)}</td><td>${r.linhas}</td><td class="t">${V.E(r.periodo)}</td></tr>`;
       } catch (e) {
         linhasRes += `<tr><td class="t">${V.E(f.name)}</td><td class="t" colspan="4">✕ erro: ${V.E(e.message)}</td></tr>`;
@@ -148,6 +190,7 @@ Histórico: planilhas antigas "MM - Montagem de Cargas" e "Reprogramação DL's"
     }
     out.innerHTML = `<h2>Resultado</h2><div class="tw scroll"><table><thead><tr><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Centro</th><th>Linhas</th><th class="t">Período / data</th></tr></thead><tbody>${linhasRes}</tbody></table></div>
 <p><a class="btn" href="#/montagem/resumo/${mesAtual()}">Conferir rascunho</a> <a class="btn sec" href="#/montagem/publicar/${mesAtual()}">Publicar</a></p>`;
+    document.getElementById('histMontagem').innerHTML = historicoMontagem(await D.ultimasImportacoes('montagem'));
   };
   document.getElementById('arqs').addEventListener('change', (e) => processar(e.target.files));
   drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
@@ -234,15 +277,15 @@ async function telaPublicar(mes) {
 
 // ---------------------------------------------------------------- acompanhamento PES Logístico
 async function topoPES(aba, mes, titulo, comModo = false) {
-  const meses = estado.admin ? await D.mesesComDados() : await D.mesesPESPublicados();
+  const meses = adminNaTela() ? await D.mesesComDados() : await D.mesesPESPublicados();
   if (!meses.includes(mes)) meses.unshift(mes);
   let ctrl = V.seletorMes(meses, mes);
-  if (estado.admin && comModo) {
+  if (adminNaTela() && comModo) {
     ctrl += ` · <select id="selModo"><option value="rascunho" ${estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho (dados atuais)</option>`
       + `<option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado (o que os leitores veem)</option></select> `
       + (estado.modo === 'rascunho' ? '<span class="badge">rascunho</span>' : '<span class="badge pub">publicado</span>');
   }
-  return `<h1>PES Logístico — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasPES(aba, mes, estado.admin)}`;
+  return `<h1>PES Logístico — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasPES(aba, mes, adminNaTela())}`;
 }
 
 async function telaPESResumo(mes) {
@@ -251,14 +294,14 @@ async function telaPESResumo(mes) {
   const placares = {};
   let pubEm = null;
   for (const c of Object.keys(D.UNIDADES)) {
-    if (estado.admin && estado.modo === 'rascunho') placares[c] = await D.placarAoVivo(c, mes);
+    if (adminNaTela() && estado.modo === 'rascunho') placares[c] = await D.placarAoVivo(c, mes);
     else {
       const p = await D.lerPESPublicado(c, mes);
       placares[c] = p?.placar || null;
       if (p?.publicadoEm) pubEm = p.publicadoEm;
     }
   }
-  html(V.paginaPES(placares, { mes, admin: estado.admin, topo }));
+  html(V.paginaPES(placares, { mes, admin: adminNaTela(), topo }));
   if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
   ligarTopo((m) => `#/pes/resumo/${m}`);
 }
@@ -338,7 +381,7 @@ async function telaPESExportar(mes) {
 }
 
 async function mesPadraoPES() {
-  if (estado.admin) return mesAtual();
+  if (adminNaTela()) return mesAtual();
   return (await D.mesesPESPublicados())[0] || mesAtual();
 }
 
@@ -346,18 +389,18 @@ async function mesPadraoPES() {
 async function topoKM(aba, mes, titulo, comMes = true) {
   let ctrl = '';
   if (comMes) {
-    const meses = new Set(estado.admin ? [mesAtual(), mes] : await D.mesesKMPublicados());
+    const meses = new Set(adminNaTela() ? [mesAtual(), mes] : await D.mesesKMPublicados());
     meses.add(mes);
     ctrl = V.seletorMes([...meses].sort().reverse(), mes);
-    if (estado.admin && ['resumo', 'NORTE', 'SUL', 'CBAR', 'CCRT'].includes(aba)) {
+    if (adminNaTela() && ['resumo', 'NORTE', 'SUL', 'CBAR', 'CCRT'].includes(aba)) {
       ctrl += ` · <select id="selModo"><option value="rascunho" ${estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
     }
   }
-  return `<h1>KM planejado × realizado — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasKM(aba, mes, estado.admin)}`;
+  return `<h1>KM planejado × realizado — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasKM(aba, mes, adminNaTela())}`;
 }
 
 async function resultadoKM(mes) {
-  if (estado.admin && estado.modo === 'rascunho') return D.calcularKMAoVivo(mes);
+  if (adminNaTela() && estado.modo === 'rascunho') return D.calcularKMAoVivo(mes);
   const unidades = {};
   let publicadoEm = null;
   for (const c of ['NORTE', 'SUL', 'CBAR', 'CCRT']) {
@@ -372,7 +415,7 @@ async function telaKMResumo(mes) {
   const topo = await topoKM('resumo', mes, V.nomeMes(mes));
   const resultado = await resultadoKM(mes);
   const faltam = Object.values(resultado.unidades).some((u) => !u.temDados);
-  html(`${V.paginaKMResumo(resultado, { mes, admin: estado.admin, topo })}${faltam ? `<div class="aviso">${estado.admin && estado.modo === 'rascunho' ? 'Ainda não há dados importados para todas as unidades neste mês.' : `O KM de ${V.nomeMes(mes)} ainda não foi publicado.`}</div>` : ''}`);
+  html(`${V.paginaKMResumo(resultado, { mes, admin: adminNaTela(), topo })}${faltam ? `<div class="aviso">${adminNaTela() && estado.modo === 'rascunho' ? 'Ainda não há dados importados para todas as unidades neste mês.' : `O KM de ${V.nomeMes(mes)} ainda não foi publicado.`}</div>` : ''}`);
   if (resultado.publicadoEm) document.getElementById('pubinfo').textContent = `· publicado em ${resultado.publicadoEm.toLocaleString('pt-BR')}`;
   ligarTopo((m) => `#/km/resumo/${m}`);
 }
@@ -393,7 +436,7 @@ async function telaKMUnidade(unidade, mes) {
   const full = await resultadoKM(mes), u = full.unidades[unidade];
   if (!u) { const topo = await topoKM(unidade, mes, `${unidade} · ${V.nomeMes(mes)}`); html(`${topo}<div class="aviso">Não há dados de KM para esta unidade neste mês.</div>`); ligarTopo((m) => `#/km/${unidade}/${m}`); return; }
   const topo = await topoKM(unidade, mes, `${u.nome} · ${V.nomeMes(mes)}`);
-  html(V.paginaKMResumo({ mes, unidades: { [unidade]: u } }, { mes, admin: estado.admin, topo }));
+  html(V.paginaKMResumo({ mes, unidades: { [unidade]: u } }, { mes, admin: adminNaTela(), topo }));
   ligarTopo((m) => `#/km/${unidade}/${m}`);
 }
 
@@ -408,9 +451,11 @@ async function telaKMMotoristas(unidade, mes) {
 
 async function telaKMImportar() {
   const mes = mesP(location.hash.split('/')[3]) || mesAtual(), topo = await topoKM('importar', mes, 'Importar arquivos', false);
+  const hist = historicoKM(await D.ultimasImportacoes('km'));
   html(`${topo}<p class="sub">TXT de abastecimentos e planilhas de rotas. Os dados são lidos neste navegador; nomes e placas ficam restritos à área administrativa.</p>
 <label>Mês das abas de montagem sem mês/ano <input id="mesImport" type="month" value="${mes}"></label> <label>Unidade para Resumo: <select id="unidadeImport"><option value="AUTO">Detectar pelo arquivo</option><option value="CBAR">Barreiras</option><option value="CCRT">Juazeiro</option></select></label>
-<div class="drop" id="drop"><p>Arraste KMs.txt e as planilhas de rotas aqui ou selecione os arquivos</p><input type="file" id="arqs" multiple accept=".txt,.xls,.xlsx,.xlsm"></div><div id="res"></div>`);
+<div class="drop" id="drop"><p>Arraste KMs.txt e as planilhas de rotas aqui ou selecione os arquivos</p><input type="file" id="arqs" multiple accept=".txt,.xls,.xlsx,.xlsm"></div><div id="res"></div>
+<h2>Últimas importações de KM</h2><div id="histKM">${hist}</div>`);
   const drop = document.getElementById('drop');
   const processar = async (files) => {
     let rows = '';
@@ -421,11 +466,12 @@ async function telaKMImportar() {
         if (x.tipo === 'km_abastecimentos') n = await D.gravarAbastecimentosKM(x.linhas);
         else if (['km_rotas', 'km_resumo', 'km_historico'].includes(x.tipo)) n = await D.gravarRotasKM(x.rotas);
         else throw new Error('Formato não reconhecido como arquivo de KM.');
-        await D.registrarImportacao({ arquivo: f.name, tipo, linhas: n, periodo: document.getElementById('mesImport').value });
+        await D.registrarImportacao({ arquivo: f.name, tipo, linhas: n, periodo: document.getElementById('mesImport').value, acompanhamento: 'km' });
         rows += `<tr><td class="t">${V.E(f.name)}</td><td>${V.E(tipo)}</td><td>${n}</td><td class="st ok">Importado</td></tr>`;
       } catch (e) { rows += `<tr><td class="t">${V.E(f.name)}</td><td colspan="3" class="st no">${V.E(e.message)}</td></tr>`; }
     }
     document.getElementById('res').innerHTML = `<h2>Resultado da importação</h2><div class="tw"><table><thead><tr><th class="t">Arquivo</th><th>Tipo</th><th>Linhas</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><p><a class="btn" href="#/km/resumo/${document.getElementById('mesImport').value}">Conferir rascunho</a></p>`;
+    document.getElementById('histKM').innerHTML = historicoKM(await D.ultimasImportacoes('km'));
   };
   document.getElementById('arqs').onchange = (e) => processar(e.target.files);
   drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
@@ -557,7 +603,7 @@ function telaLogin() {
 
 // ---------------------------------------------------------------- rotas
 async function mesPadrao() {
-  if (estado.admin) return mesAtual();
+  if (adminNaTela()) return mesAtual();
   return (await D.mesesPublicados())[0] || mesAtual();
 }
 
@@ -570,7 +616,7 @@ async function rotear() {
       const sub = p[1];
       if (sub === 'CBAR' || sub === 'CCRT') return await telaDetalhe(sub, mesP(p[2]) || await mesPadrao());
       if (!sub || sub === 'resumo') return await telaResumo(mesP(p[2]) || await mesPadrao());
-      if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
+      if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
       if (sub === 'importar') return await telaImportar();
       if (sub === 'parametros') return await telaParametros(mesP(p[2]) || mesAtual());
       if (sub === 'publicar') return await telaPublicar(mesP(p[2]) || mesAtual());
@@ -581,7 +627,7 @@ async function rotear() {
       cabecalhoSite('PES Logístico');
       const sub = p[1];
       if (!sub || sub === 'resumo') return await telaPESResumo(mesP(p[2]) || await mesPadraoPES());
-      if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
+      if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
       if (sub === 'digitacao') return await telaPESDigitacao(mesP(p[2]) || mesAtual());
       if (sub === 'publicar') return await telaPESPublicar(mesP(p[2]) || mesAtual());
       if (sub === 'exportar') return await telaPESExportar(mesP(p[2]) || mesAtual());
@@ -590,9 +636,12 @@ async function rotear() {
       cabecalhoSite('KM planejado × realizado');
       const sub = p[1];
       if (!sub || sub === 'resumo') return await telaKMResumo(mesP(p[2]) || mesAtual());
-      if (sub === 'exportar') return await telaKMExportar(mesP(p[2]) || mesAtual());
+      if (sub === 'exportar') {
+        if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
+        return await telaKMExportar(mesP(p[2]) || mesAtual());
+      }
       if (['NORTE', 'SUL', 'CBAR', 'CCRT'].includes(sub)) return await telaKMUnidade(sub, mesP(p[2]) || mesAtual());
-      if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
+      if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
       if (sub === 'importar') return await telaKMImportar();
       if (sub === 'parametros') return await telaKMParametros(mesP(p[2]) || mesAtual());
       if (sub === 'publicar') return await telaKMPublicar(mesP(p[2]) || mesAtual());
@@ -600,7 +649,7 @@ async function rotear() {
     }
     if (p[0] === 'montadores') {
       cabecalhoSite('Montadores');
-      if (!estado.admin) return html('<p>Área restrita ao administrador.</p>');
+      if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
       const sub = p[1], mes = mesP(p[2]) || mesAtual();
       if (!sub || sub === 'resumo') return await telaMontadoresResumo(mes);
       if (['NORTE','SUL','CBAR','CCRT'].includes(sub)) return await telaMontadoresUnidade(sub, mes);
@@ -608,7 +657,7 @@ async function rotear() {
       if (sub === 'exportar') return await telaMontadoresExportar(mes);
     }
     cabecalhoSite('');
-    if (!estado.admin) {
+    if (!adminNaTela()) {
       return html('<div class="card"><h1>Hub Logístico</h1><p>Abra o acompanhamento pelo link que você recebeu por e-mail.</p></div>');
     }
     if (p[0] === 'acessos') return await telaAcessos();
@@ -624,6 +673,7 @@ window.addEventListener('hashchange', rotear);
 onAuthStateChanged(auth, async (u) => {
   estado.user = u;
   estado.admin = u ? await D.souAdmin(u.uid) : false;
+  estado.visualizarComoVisitante = false; estado.rotaAdminAntesDaVisita = null;
   estado.modo = estado.admin ? 'rascunho' : 'publicado';
   rotear();
 });

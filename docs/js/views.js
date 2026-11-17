@@ -77,7 +77,7 @@ export function graficoVendidoRetorno(dias, altura = 270) {
   if (!pts.length) return '<p class="small">Sem dados de volume neste período.</p>';
   const w = 1000, pl = 52, pr = 12, pt = 24, pb = 30;
   const max = Math.max(1, ...pts.flatMap((d) => [d.volume_vendido_cxu || 0, d.retorno_cxu || 0])) * 1.12;
-  const band = (w - pl - pr) / pts.length, bw = Math.min(24, band * 0.32);
+  const band = (w - pl - pr) / pts.length, bw = Math.min(24, band * 0.42), br = bw * 0.62;
   const y = (v) => pt + (altura - pt - pb) * (1 - v / max);
   let s = `<div class="grafico-legenda"><span><i class="vendido"></i>VENDIDO (BRUTO)</span><span><i class="retorno"></i>RETORNO</span></div><svg viewBox="0 0 ${w} ${altura}" width="100%" role="img" aria-label="Comparativo diário de volume vendido e retorno em caixa unitária">`;
   for (let k = 0; k <= 4; k++) {
@@ -87,12 +87,12 @@ export function graficoVendidoRetorno(dias, altura = 270) {
   const step = Math.max(1, Math.ceil(pts.length / 16));
   pts.forEach((d, i) => {
     const cx = pl + band * (i + 0.5), sold = d.volume_vendido_cxu || 0, returned = d.retorno_cxu || 0;
-    const x1 = cx - bw - 2, x2 = cx + 2;
-    s += `<rect x="${x1.toFixed(1)}" y="${y(sold).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, y(0)-y(sold)).toFixed(1)}" rx="2" fill="var(--brand)"><title>${fdata(d.data)} · vendido bruto: ${fi(sold)} CX UNIT</title></rect>`
-      + `<rect x="${x2.toFixed(1)}" y="${y(returned).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, y(0)-y(returned)).toFixed(1)}" rx="2" fill="var(--s2)"><title>${fdata(d.data)} · retorno: ${fi(returned)} CX UNIT</title></rect>`;
+    const xs = cx - bw / 2, xr = cx - br / 2;
+    s += `<rect x="${xs.toFixed(1)}" y="${y(sold).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, y(0)-y(sold)).toFixed(1)}" rx="2" fill="var(--brand)"><title>${fdata(d.data)} · vendido bruto: ${fi(sold)} CX UNIT</title></rect>`
+      + `<rect x="${xr.toFixed(1)}" y="${y(returned).toFixed(1)}" width="${br.toFixed(1)}" height="${Math.max(1, y(0)-y(returned)).toFixed(1)}" rx="2" fill="var(--s2)" fill-opacity="0.78"><title>${fdata(d.data)} · retorno: ${fi(returned)} CX UNIT</title></rect>`;
     if (pts.length <= 16) {
-      s += `<text class="val" x="${(x1+bw/2).toFixed(1)}" y="${(y(sold)-5).toFixed(1)}" text-anchor="middle">${fk(sold)}</text>`;
-      if (returned) s += `<text class="val" x="${(x2+bw/2).toFixed(1)}" y="${(y(returned)-5).toFixed(1)}" text-anchor="middle">${fk(returned)}</text>`;
+      s += `<text class="val" x="${cx.toFixed(1)}" y="${(y(sold)-5).toFixed(1)}" text-anchor="middle">${fk(sold)}</text>`;
+      if (returned) s += `<text class="val" x="${(cx+bw/2+4).toFixed(1)}" y="${(y(returned)-4).toFixed(1)}" text-anchor="start">${fk(returned)}</text>`;
     }
     if (i % step === 0 || i === pts.length - 1) s += `<text x="${cx.toFixed(1)}" y="${altura-8}" text-anchor="middle">${fdata(d.data)}</text>`;
   });
@@ -156,7 +156,11 @@ export function paginaResumo(ms, ctx) {
 // ---------------------------------------------------------------- Montagem: detalhe diário da DL
 export function paginaDetalhe(c, m, mot, ctx) {
   const r = m.resumo, t = m.total, med = m.media, rp = m.reprog, corS = cor(c);
-  const dias = m.dias.filter((d) => d.cx_unit || d.entregas);
+  const dias = m.dias.filter((d) => {
+    const campos = [d.volume_vendido_cxu, d.retorno_cxu, d.vol_cxf, d.cx_unit, d.entregas, d.cargas,
+      d.cubos, d.reprog_uc, d.reprog_cli, d.rp_cubos, d.rp_uc_total, d.rp_reprog, d.rp_cli];
+    return d.origem_plan != null || d.ocupacao != null || campos.some((x) => x != null && Number(x) !== 0);
+  });
   const pv = m.prevenda?.data;
   const origem = { resumo: '', legado: '', manual: ' <span class="tag" title="editado à mão">m</span>' };
   const dia = (d) => `${d.dia_semana} ${fdata(d.data)}${origem[d.origem_plan] || ''}`;
@@ -171,13 +175,12 @@ export function paginaDetalhe(c, m, mot, ctx) {
 <tr><th>Vol plan cx fís</th><th>Cx unit plan</th><th>Cubos</th><th class="sep">Entregas</th><th>Cargas</th><th>Tx ocup.</th><th class="sep">Cubos</th><th>Cx unit</th><th>Entregas</th><th class="sep">Cubos</th><th>Cx unit</th></tr></thead>
 <tbody>${dias.map((d) => la(d, cls(d))).join('')}</tbody>${la({ ...t, ...nulos }, 'tot', 'TOTAL')}${la(med, 'med', 'MÉDIA')}</table></div>`;
 
-  // B) reprogramação: montagem (todas as categorias) e PES (só REPROG)
-  const lb = (d, k, rot, x = {}) => `<tr class="${k}"><td>${rot ?? dia(d)}</td><td>${fi(d.reprog_uc)}</td><td>${fi(d.reprog_cli)}</td><td>${fp(d.tx_reprog, 1)}</td>
-<td class="sep">${fd(x.rp_cubos ?? d.rp_cubos)}</td><td>${fi(x.rp_uc_total ?? d.rp_uc_total)}</td><td>${fd(x.rp_reprog ?? d.rp_reprog)}</td>
+  // B) Reprogramação do PES, considerando apenas a categoria REPROG.
+  const lb = (d, k, rot, x = {}) => `<tr class="${k}"><td>${rot ?? dia(d)}</td><td class="sep">${fd(x.rp_cubos ?? d.rp_cubos)}</td><td>${fi(x.rp_uc_total ?? d.rp_uc_total)}</td><td>${fd(x.rp_reprog ?? d.rp_reprog)}</td>
 <td class="${corMeta(x.pct ?? d.rp_pct, META_PES.reprog_vol)}">${fp(x.pct ?? d.rp_pct)}</td><td>${fi(x.rp_cli ?? d.rp_cli)}</td>
 <td class="${corMeta(x.pct_cli ?? d.rp_pct_cli, META_PES.reprog_cli)}">${fp(x.pct_cli ?? d.rp_pct_cli)}</td></tr>`;
-  const tabB = `<div class="tw"><table class="diario"><thead><tr><th rowspan="2" class="t">Dia</th><th colspan="3" class="grp">Montagem (REPROG + AGEND + PERNOITE)</th><th colspan="6" class="grp">Reprogramação DL's / PES (só REPROG) — meta ≤ ${fp(rp.meta, 0)}</th></tr>
-<tr><th>Vol reprog</th><th>Cli reprog</th><th>Tx reprog</th><th class="sep">Cubos</th><th>UC total</th><th>Reprog (cx)</th><th>% vol.</th><th>Clientes</th><th>% cli.</th></tr></thead>
+  const tabB = `<div class="tw"><table class="diario"><thead><tr><th rowspan="2" class="t">Dia</th><th colspan="6" class="grp">Reprogramação DL's / PES — meta ≤ ${fp(rp.meta, 0)}</th></tr>
+<tr><th class="sep">Cubos</th><th>UC total</th><th>Reprog (cx)</th><th>% vol.</th><th>Clientes</th><th>% cli.</th></tr></thead>
 <tbody>${dias.map((d) => lb(d, cls(d))).join('')}</tbody>
 ${lb({ ...t, tx_reprog: null }, 'tot', 'TOTAL', { rp_cubos: rp.rp_cubos, rp_uc_total: rp.rp_uc_total, rp_reprog: rp.rp_reprog, pct: rp.pct, rp_cli: rp.rp_cli, pct_cli: rp.pct_cli })}</table></div>`;
 
@@ -205,8 +208,7 @@ ${lb({ ...t, tx_reprog: null }, 'tot', 'TOTAL', { rp_cubos: rp.rp_cubos, rp_uc_t
 <h2>Cx unit por dia · vendido e retorno</h2><div class="card">${graficoVendidoRetorno(m.dias)}</div>
 <h2>Volume e montagem</h2>${tabA}
 <h2>Reprogramação</h2>${tabB}
-<h2>Retorno</h2><div class="card">${grafico(m.dias, 'ret_vol', corS, META_PES.ret_vol, 'meta PES', (v) => fp(v, 1), (v) => fp(v, 1))}</div>
-<div class="g2" style="margin-top:14px">${tabC}${tabM}</div>${legenda()}`;
+<h2>Indicadores e motivos de retorno</h2><div class="g2" style="margin-top:14px">${tabC}${tabM}</div>${legenda()}`;
 }
 
 // ---------------------------------------------------------------- PES Logístico
