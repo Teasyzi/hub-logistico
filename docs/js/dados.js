@@ -63,7 +63,7 @@ export async function gravarPlan(lista, origem) {
     const ref = doc(db, 'planejamento', `${p.centro}_${p.data}`);
     const atual = (await getDoc(ref)).data();
     if (atual && (PESO[atual.origem] || 0) > PESO[origem]) continue;
-    ops.push([ref, { ...p, mes: p.data.slice(0, 7), origem }, { merge: true }]);
+    ops.push([ref, { ...p, mes: p.data.slice(0, 7), origem, atualizado: serverTimestamp() }, { merge: true }]);
   }
   await gravarEmLotes(ops);
   if (origem === 'resumo') {
@@ -105,7 +105,17 @@ export async function gravarParametros(centro, mes, valores, origem) {
     if (origem === 'planilha' && o[k] === 'manual') continue;  // edição manual vence o histórico
     if (x == null) { delete v[k]; delete o[k]; } else { v[k] = x; o[k] = origem; }
   }
-  await setDoc(doc(db, 'parametro', `${centro}_${mes}`), { centro, mes, valores: v, origem: o });
+  await setDoc(doc(db, 'parametro', `${centro}_${mes}`), { centro, mes, valores: v, origem: o, atualizado: serverTimestamp() });
+}
+
+export async function ultimaAtualizacaoMontagem(mes) {
+  const [planejamento, parametros] = await Promise.all([
+    getDocs(query(collection(db, 'planejamento'), where('mes', '==', mes))),
+    Promise.all(Object.keys(UNIDADES).map((c) => getDoc(doc(db, 'parametro', `${c}_${mes}`)))),
+  ]);
+  const datas = [...planejamento.docs.map((s) => s.data()?.atualizado?.toDate?.()),
+    ...parametros.map((s) => s.data()?.atualizado?.toDate?.())];
+  return datas.filter(Boolean).sort((a, b) => b - a)[0] || null;
 }
 
 export async function registrarImportacao(info) {
@@ -133,7 +143,7 @@ export async function lerPlanMes(centro, mes) {
 export async function salvarPlanManual(centro, mes, porDia) {
   const ops = [];
   for (const [data, vals] of Object.entries(porDia)) {
-    ops.push([doc(db, 'planejamento', `${centro}_${data}`), { ...vals, centro, data, mes, origem: 'manual' }, { merge: true }]);
+    ops.push([doc(db, 'planejamento', `${centro}_${data}`), { ...vals, centro, data, mes, origem: 'manual', atualizado: serverTimestamp() }, { merge: true }]);
   }
   await gravarEmLotes(ops);
 }
@@ -199,8 +209,13 @@ export async function lerDigPES(centro, mes) {
 
 export async function gravarDigPES(centro, mes, dig) {
   await setDoc(doc(db, 'pes', `${centro}_${mes}`), {
-    centro, mes, valores: dig.valores || {}, metas: dig.metas || {}, solar: dig.solar || {},
+    centro, mes, valores: dig.valores || {}, metas: dig.metas || {}, solar: dig.solar || {}, atualizado: serverTimestamp(),
   });
+}
+
+export async function ultimaAtualizacaoPES(mes) {
+  const docs = await Promise.all(Object.keys(UNIDADES).map((c) => getDoc(doc(db, 'pes', `${c}_${mes}`))));
+  return docs.map((s) => s.data()?.atualizado?.toDate?.()).filter(Boolean).sort((a, b) => b - a)[0] || null;
 }
 
 // Rascunho do admin: Montagem ao vivo (a mesma da área Montagem) + digitação
@@ -279,6 +294,15 @@ export async function lerParametrosKM(unidade, mes) {
 }
 export async function gravarParametrosKM(unidade, mes, valores) {
   await setDoc(doc(db, 'km_parametro', `${unidade}_${mes}`), { unidade, mes, valores, atualizado: serverTimestamp() });
+}
+
+export async function ultimaAtualizacaoKM(mes) {
+  const unidades = Object.keys(UNIDADES_KM);
+  const docs = await Promise.all(unidades.flatMap((c) => [
+    getDoc(doc(db, 'km_dados', `${c}_${mes}`)),
+    getDoc(doc(db, 'km_parametro', `${c}_${mes}`)),
+  ]));
+  return docs.map((s) => s.data()?.atualizado?.toDate?.()).filter(Boolean).sort((a, b) => b - a)[0] || null;
 }
 
 export async function calcularKMAoVivo(mes) {

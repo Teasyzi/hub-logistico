@@ -49,6 +49,7 @@ export const importarMontadoresLocal = async (file) => {
   return registros;
 };
 export const dadosMontadores = async () => (await lerDadosMontadores()).registros;
+export const atualizacaoMontadores = async () => (await lerDadosMontadores()).atualizado || null;
 
 export function calcularMontadores(registros, mes) {
   const dias = new Map(), pessoas = new Map();

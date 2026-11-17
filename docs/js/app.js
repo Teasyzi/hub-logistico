@@ -4,7 +4,7 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261117-6';
+import * as D from './dados.js?v=20261117-7';
 import { lerArquivo, num } from './importar.js';
 import * as V from './views.js?v=20261117-5';
 import { diasDoMes } from './calc.js?v=20261117-5';
@@ -13,7 +13,7 @@ import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';
 import { conectarModeloExportacao } from './modelos.js?v=20261117-3';
-import { importarMontadoresLocal, dadosMontadores, calcularMontadores } from './montadores.js?v=20261117-3';
+import { importarMontadoresLocal, dadosMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261117-4';
 import { exportarMontadores } from './exportar_montadores.js?v=20261117-3';
 
 const $app = document.getElementById('app');
@@ -24,6 +24,14 @@ const html = (h) => { $app.innerHTML = h; };
 const erro = (e) => `<div class="erro">${V.E(e?.message || e)}</div>`;
 const mesP = (s) => (/^\d{4}-\d{2}$/.test(s || '') ? s : null);
 const quandoImportou = (r) => r.em?.toDate ? r.em.toDate().toLocaleString('pt-BR') : '';
+const textoAtualizacao = (data) => data instanceof Date && Number.isFinite(data.getTime())
+  ? `Última atualização: ${data.toLocaleString('pt-BR')}` : 'Última atualização ainda não registrada';
+const statusAtualizacao = (data = null, id = '') => `<p${id ? ` id="${id}"` : ''} class="status-atualizacao" role="status">${V.E(textoAtualizacao(data))}</p>`;
+
+async function atualizarStatus(data) {
+  const el = document.getElementById('statusAtualizacao');
+  if (el) el.textContent = textoAtualizacao(data);
+}
 
 function historicoMontagem(importacoes) {
   const linhas = importacoes.length ? importacoes.map((r) => `<tr><td class="t">${quandoImportou(r)}</td><td class="t">${V.E(r.arquivo)}</td>
@@ -83,7 +91,25 @@ async function topoMontagem(aba, mes, titulo, comMes = true) {
         + (estado.modo === 'rascunho' ? '<span class="badge">rascunho</span>' : '<span class="badge pub">publicado</span>');
     }
   }
-  return `<h1>Montagem de Cargas — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasMontagem(aba, mes, adminNaTela())}`;
+  const atualizado = adminNaTela() && estado.modo === 'rascunho' ? await ultimaMontagem(mes) : await ultimaPublicacaoMontagem(mes);
+  return `<h1>Montagem de Cargas — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${statusAtualizacao(atualizado, 'statusAtualizacao')}${V.abasMontagem(aba, mes, adminNaTela())}`;
+}
+
+async function ultimaMontagem(mes = mesAtual()) {
+  const [ultimaImportacao, ultimaEdicao] = await Promise.all([
+    D.ultimasImportacoes('montagem', 1), D.ultimaAtualizacaoMontagem(mes),
+  ]);
+  return [ultimaImportacao[0]?.em?.toDate?.(), ultimaEdicao].filter(Boolean).sort((a, b) => b - a)[0] || null;
+}
+
+async function ultimaPublicacaoMontagem(mes) {
+  const publicacoes = await Promise.all(Object.keys(D.UNIDADES).map((c) => D.lerPublicado(c, mes)));
+  return publicacoes.map((p) => p?.publicadoEm).filter(Boolean).sort((a, b) => b - a)[0] || null;
+}
+
+async function ultimaPES(mes) {
+  const fontes = await Promise.all([ultimaMontagem(mes), D.ultimaAtualizacaoPES(mes)]);
+  return fontes.filter(Boolean).sort((a, b) => b - a)[0] || null;
 }
 
 function ligarTopo(rotaMes) {
@@ -117,7 +143,7 @@ async function telaResumo(mes) {
   const topo = await topoMontagem('resumo', mes, `Resumo · ${V.nomeMes(mes)}`);
   const { ms, pubEm } = await dadosDoMes(mes);
   html(V.paginaResumo(ms, { mes, admin: adminNaTela(), topo }));
-  if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
+  await atualizarStatus(adminNaTela() && estado.modo === 'rascunho' ? await ultimaMontagem(mes) : pubEm);
   ligarTopo((m) => `#/montagem/resumo/${m}`);
 }
 
@@ -126,7 +152,7 @@ async function telaDetalhe(c, mes) {
   const topo = await topoMontagem(c, mes, `${D.UNIDADES[c].nome} · ${V.nomeMes(mes)}`);
   const { ms, mots, pubEm } = await dadosDoMes(mes);
   html(ms[c] ? V.paginaDetalhe(c, ms[c], mots[c], { admin: adminNaTela(), topo }) : `${topo}<p>Sem dados de ${V.E(D.UNIDADES[c].nome)} em ${V.nomeMes(mes)}.</p>`);
-  if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
+  await atualizarStatus(adminNaTela() && estado.modo === 'rascunho' ? await ultimaMontagem(mes) : pubEm);
   ligarTopo((m) => `#/montagem/${c}/${m}`);
 }
 
@@ -191,6 +217,7 @@ Histórico: planilhas antigas "MM - Montagem de Cargas" e "Reprogramação DL's"
     out.innerHTML = `<h2>Resultado</h2><div class="tw scroll"><table><thead><tr><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Centro</th><th>Linhas</th><th class="t">Período / data</th></tr></thead><tbody>${linhasRes}</tbody></table></div>
 <p><a class="btn" href="#/montagem/resumo/${mesAtual()}">Conferir rascunho</a> <a class="btn sec" href="#/montagem/publicar/${mesAtual()}">Publicar</a></p>`;
     document.getElementById('histMontagem').innerHTML = historicoMontagem(await D.ultimasImportacoes('montagem'));
+    await atualizarStatus(await ultimaMontagem());
   };
   document.getElementById('arqs').addEventListener('change', (e) => processar(e.target.files));
   drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
@@ -225,6 +252,7 @@ async function telaParametros(mes) {
         if (Object.keys(vals).length) await D.gravarParametros(c, mes, vals, 'manual');
       }
       document.getElementById('msg').innerHTML = '<span class="st ok">✓ salvo</span>';
+      await atualizarStatus(await ultimaMontagem(mes));
     } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
     ev.target.disabled = false;
   });
@@ -253,6 +281,7 @@ async function telaPlanejamento(c, mes) {
     try {
       await D.salvarPlanManual(c, mes, porDia);
       document.getElementById('msg').innerHTML = `<span class="st ok">✓ ${Object.keys(porDia).length} dia(s) salvos</span>`;
+      await atualizarStatus(await ultimaMontagem(mes));
     } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
     ev.target.disabled = false;
   });
@@ -285,7 +314,11 @@ async function topoPES(aba, mes, titulo, comModo = false) {
       + `<option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado (o que os leitores veem)</option></select> `
       + (estado.modo === 'rascunho' ? '<span class="badge">rascunho</span>' : '<span class="badge pub">publicado</span>');
   }
-  return `<h1>PES Logístico — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasPES(aba, mes, adminNaTela())}`;
+  const fontes = adminNaTela() && estado.modo === 'rascunho'
+    ? [await ultimaPES(mes)]
+    : await Promise.all(Object.keys(D.UNIDADES).map(async (c) => (await D.lerPESPublicado(c, mes))?.publicadoEm));
+  const atualizado = fontes.filter(Boolean).sort((a, b) => b - a)[0] || null;
+  return `<h1>PES Logístico — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${statusAtualizacao(atualizado, 'statusAtualizacao')}${V.abasPES(aba, mes, adminNaTela())}`;
 }
 
 async function telaPESResumo(mes) {
@@ -302,7 +335,8 @@ async function telaPESResumo(mes) {
     }
   }
   html(V.paginaPES(placares, { mes, admin: adminNaTela(), topo }));
-  if (pubEm) document.getElementById('pubinfo').textContent = `· publicado em ${pubEm.toLocaleString('pt-BR')}`;
+  const fontes = adminNaTela() && estado.modo === 'rascunho' ? [await ultimaPES(mes)] : [pubEm];
+  await atualizarStatus(fontes.filter(Boolean).sort((a, b) => b - a)[0] || null);
   ligarTopo((m) => `#/pes/resumo/${m}`);
 }
 
@@ -344,6 +378,7 @@ ${tab('solar', INDICADORES_PES, 'Pontuação oficial SOLAR (opcional)', 'Pontos 
         if (JSON.stringify(novos[c]) !== JSON.stringify(digs[c])) { await D.gravarDigPES(c, mes, novos[c]); digs[c] = novos[c]; n++; }
       }
       document.getElementById('msg').innerHTML = `<span class="st ok">✓ ${n ? 'salvo' : 'nada mudou'}</span>`;
+      if (n) await atualizarStatus(await ultimaPES(mes));
     } catch (e) { document.getElementById('msg').innerHTML = erro(e); }
     ev.target.disabled = false;
   });
@@ -396,7 +431,20 @@ async function topoKM(aba, mes, titulo, comMes = true) {
       ctrl += ` · <select id="selModo"><option value="rascunho" ${estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
     }
   }
-  return `<h1>KM planejado × realizado — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${V.abasKM(aba, mes, adminNaTela())}`;
+  const atualizado = adminNaTela() && estado.modo === 'rascunho' ? await ultimaKM(mes) : await ultimaPublicacaoKM(mes);
+  return `<h1>KM planejado × realizado — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${statusAtualizacao(atualizado, 'statusAtualizacao')}${V.abasKM(aba, mes, adminNaTela())}`;
+}
+
+async function ultimaKM(mes = mesAtual()) {
+  const [ultimaImportacao, ultimaEdicao] = await Promise.all([
+    D.ultimasImportacoes('km', 1), D.ultimaAtualizacaoKM(mes),
+  ]);
+  return [ultimaImportacao[0]?.em?.toDate?.(), ultimaEdicao].filter(Boolean).sort((a, b) => b - a)[0] || null;
+}
+
+async function ultimaPublicacaoKM(mes) {
+  const publicacoes = await Promise.all(['NORTE', 'SUL', 'CBAR', 'CCRT'].map((c) => D.lerKMPublicado(c, mes)));
+  return publicacoes.map((p) => p?.publicadoEm).filter(Boolean).sort((a, b) => b - a)[0] || null;
 }
 
 async function resultadoKM(mes) {
@@ -416,7 +464,7 @@ async function telaKMResumo(mes) {
   const resultado = await resultadoKM(mes);
   const faltam = Object.values(resultado.unidades).some((u) => !u.temDados);
   html(`${V.paginaKMResumo(resultado, { mes, admin: adminNaTela(), topo })}${faltam ? `<div class="aviso">${adminNaTela() && estado.modo === 'rascunho' ? 'Ainda não há dados importados para todas as unidades neste mês.' : `O KM de ${V.nomeMes(mes)} ainda não foi publicado.`}</div>` : ''}`);
-  if (resultado.publicadoEm) document.getElementById('pubinfo').textContent = `· publicado em ${resultado.publicadoEm.toLocaleString('pt-BR')}`;
+  await atualizarStatus(adminNaTela() && estado.modo === 'rascunho' ? await ultimaKM(mes) : resultado.publicadoEm);
   ligarTopo((m) => `#/km/resumo/${m}`);
 }
 
@@ -472,6 +520,7 @@ async function telaKMImportar() {
     }
     document.getElementById('res').innerHTML = `<h2>Resultado da importação</h2><div class="tw"><table><thead><tr><th class="t">Arquivo</th><th>Tipo</th><th>Linhas</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><p><a class="btn" href="#/km/resumo/${document.getElementById('mesImport').value}">Conferir rascunho</a></p>`;
     document.getElementById('histKM').innerHTML = historicoKM(await D.ultimasImportacoes('km'));
+    await atualizarStatus(await ultimaKM());
   };
   document.getElementById('arqs').onchange = (e) => processar(e.target.files);
   drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
@@ -499,6 +548,7 @@ async function telaKMParametros(mes) {
         await D.gravarParametrosKM(c, mes, v);
       }
       document.getElementById('msg').innerHTML = '<span class="st ok">Salvo</span>';
+      await atualizarStatus(await ultimaKM(mes));
     } catch (err) { document.getElementById('msg').innerHTML = erro(err); }
     e.target.disabled = false;
   };
@@ -517,7 +567,8 @@ async function telaKMPublicar(mes) {
 async function topoMontadores(aba, mes, titulo) {
   const registros = await dadosMontadores(), meses = [...new Set(registros.map((r) => r.data?.slice(0, 7)).filter(Boolean))].sort().reverse();
   if (!meses.includes(mes)) meses.unshift(mes);
-  const topo = `<h1>Montadores — ${V.E(titulo)}</h1><p class="sub">${V.seletorMes(meses, mes)} <span class="badge">DADOS LOCAIS · EM VALIDAÇÃO</span></p>${V.abasMontadores(aba, mes)}`;
+  const atualizado = await atualizacaoMontadores();
+  const topo = `<h1>Montadores — ${V.E(titulo)}</h1><p class="sub">${V.seletorMes(meses, mes)} <span class="badge">DADOS LOCAIS · EM VALIDAÇÃO</span></p>${statusAtualizacao(atualizado ? new Date(atualizado) : null, 'statusAtualizacao')}${V.abasMontadores(aba, mes)}`;
   return { topo, registros };
 }
 
@@ -545,6 +596,7 @@ async function telaMontadoresImportar() {
     try {
       const rows = await importarMontadoresLocal(file), dates = rows.map((r) => r.data).sort();
       out.innerHTML = `<span class="st ok">${V.fi(rows.length)} registros importados de ${V.E(file.name)} · ${V.fdata(dates[0])} a ${V.fdata(dates.at(-1))}. Salvos neste navegador.</span>`;
+      await atualizarStatus(await atualizacaoMontadores());
     } catch (err) { out.innerHTML = erro(err); }
     e.target.disabled = false;
   };
