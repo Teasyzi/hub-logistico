@@ -4,10 +4,10 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261117-4';
+import * as D from './dados.js?v=20261117-5';
 import { lerArquivo, num } from './importar.js';
 import * as V from './views.js?v=20261117-4';
-import { diasDoMes } from './calc.js?v=20261117-4';
+import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
@@ -166,7 +166,7 @@ async function telaParametros(mes) {
     const o = pars[c].origem[k];
     return `<td><input type="text" inputmode="decimal" data-c="${c}" data-k="${k}" value="${valTxt(pars[c].valores[k])}"></td><td class="t small">${o || (pad != null ? `padrão ${pad}` : '')}</td>`;
   }).join('')}</tr>`).join('');
-  html(`${topo}<p class="sub">Valores digitados à mão (antes no RESUMO da planilha). Vírgula ou ponto como decimal; vazio apaga.</p>
+  html(`${topo}<p class="sub">Valores digitados à mão. Vírgula ou ponto como decimal; ajuste de dias vazio mantém a contagem normal.</p>
 <div class="tw" style="max-width:900px"><table><thead><tr><th class="t">Parâmetro</th>${cs.map((c) => `<th>${V.E(D.UNIDADES[c].nome)}</th><th class="t">origem</th>`).join('')}</tr></thead><tbody>${linhas}</tbody></table></div>
 <p><button class="btn" id="salvar">Salvar</button> <span id="msg"></span></p>`);
   ligarTopo((m) => `#/montagem/parametros/${m}`);

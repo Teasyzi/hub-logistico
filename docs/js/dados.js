@@ -12,7 +12,7 @@ import { db, auth } from './firebase.js';
 import {
   collection, doc, getDoc, getDocs, query, where, writeBatch, setDoc, addDoc, serverTimestamp, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { calcular, motivos } from './calc.js?v=20261117-4';
+import { calcular, motivos } from './calc.js?v=20261117-5';
 import { placarPES } from './pes.js';
 import { calcularKM, agregadoPublicado, UNIDADES_KM } from './km.js';
 
@@ -22,7 +22,7 @@ export const UNIDADES = {
 };
 export const PARAMETROS = {
   dias_uteis: ['Dias úteis', null],
-  dias_trabalhados: ['Dias trabalhados (vazio = calcular)', null],
+  ajuste_dias_trabalhados: ['Ajuste manual de dias trabalhados (vazio = 0; ex.: -1)', null],
   volume_aa: ['Volume cx unit ano anterior (AA)', null],
   meta_volume: ['Meta de volume (cx unit)', null],
   tarifa: ['Tarifa R$ por cx unit', null],

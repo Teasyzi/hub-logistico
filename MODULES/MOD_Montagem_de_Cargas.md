@@ -6,7 +6,7 @@ domain: projects
 status: review
 project: "HubLogistico"
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 summary: "Resumo diário de volume, cargas, ocupação, reprogramação e retorno dos DLs Barreiras e Juazeiro a partir das exportações VOLUMES DE VENDAS e VOLUMES DE RETORNOS; inclui Reprogramação e metas anuais."
 tags: []
 related: []
@@ -62,7 +62,7 @@ Regras do Resumo (confirmadas pelo usuário):
 - O arquivo deve ser aberto **sem habilitar edição** para o C8 não recalcular. O Hub lê o valor salvo e avisa se a data for anterior à última remessa importada.
 - Montagem: Entregas = `G8`, Cargas = `H8`, Tx ocupação = `J8`, Vol reprog = `L8` (= cubos de REPROG + REPROG_AGEND + REPROG_PERNOITE × 1,6), Cli reprog = `M8` (as 3 categorias).
 - Reprogramação DL's: UC total = `N8`, Entregas plan = `G8`; cubos e clientes **só das linhas com Carga = `REPROG`** na aba `Paradas` (sem REPROG_AGEND e REPROG_PERNOITE).
-- A exportação de venda até o dia D já traz as cargas com remessa em D (o dia da pré-venda). Por isso a planilha usa dias trabalhados = dias com entregas − 1.
+- Dias trabalhados contam normalmente os dias com entregas. Ajustes por sábado que não deve contar como dia útil são manuais no parâmetro `Ajuste manual de dias trabalhados` (ex.: `-1` ou `-2`).
 
 ## Implementado no Hub (2026-11-16)
 Código em `12_PROJECTS/Active/HubLogistico/code/` (Python 3, só biblioteca padrão). Ver [[12_PROJECTS/Active/HubLogistico/README|README]] para executar.

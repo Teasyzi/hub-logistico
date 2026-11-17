@@ -4,7 +4,7 @@
 //   venda:   [{transporte, data, cxf, cxu}]
 //   retorno: [{transporte, tipo, data, cli, mot, ext, cxf, cxu}]  (na ordem do arquivo)
 //   plan:    {data: {entregas, cargas, ocupacao, reprog_uc, reprog_cli, uc_total, reprog_so_cubos, reprog_so_cli, origem}}
-//   par:     {dias_uteis, dias_trabalhados, volume_aa, meta_volume, tarifa, faturamento_aa, meta_faturamento, meta_reprog}
+//   par:     {dias_uteis, ajuste_dias_trabalhados, volume_aa, meta_volume, tarifa, faturamento_aa, meta_faturamento, meta_reprog}
 //   prevendaData: 'AAAA-MM-DD' do último Resumo do centro
 
 export const FATOR_CUBO = 1.6;
@@ -69,9 +69,10 @@ export function calcular({ mes, venda, retorno, plan, par, prevendaData }) {
   });
 
   const soma = (c) => dias.reduce((a, x) => a + (x[c] || 0), 0);
-  // [RESUMO D6] = COUNTIF(D10:D40,">0") - 1  (o -1 tira o dia da pré-venda)
+  // Dias trabalhados contam todos os dias com entregas; ajustes de sábado são manuais.
   const comEntrega = dias.filter((x) => (x.entregas || 0) > 0).length;
-  const diasTrab = par.dias_trabalhados != null ? Math.trunc(par.dias_trabalhados) : Math.max(comEntrega - 1, 0);
+  const ajusteDiasTrab = Math.trunc(par.ajuste_dias_trabalhados || 0);
+  const diasTrab = Math.max(comEntrega + ajusteDiasTrab, 0);
   const diasUteis = par.dias_uteis ?? null;
   const CAMPOS = ['vol_cxf', 'entregas', 'cargas', 'cubos', 'cx_unit', 'reprog_uc', 'reprog_cli'];
   const total = Object.fromEntries(CAMPOS.map((c) => [c, soma(c)]));
