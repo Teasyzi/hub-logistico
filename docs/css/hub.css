@@ -117,7 +117,7 @@ table.pes td:nth-child(4){font-size:12.5px}
 .montadores-planilha{min-width:1120px}.montadores-planilha th,.montadores-planilha td{white-space:nowrap}
 .montadores-planilha th:nth-child(2),.montadores-planilha td:nth-child(2){min-width:210px}
 .montadores-planilha th:nth-child(3),.montadores-planilha td:nth-child(3){min-width:100px}
-.montadores-rankings{align-items:start;margin:12px 0}.montadores-rankings .bloco{min-width:0}.montadores-matriz{min-width:max-content}.montadores-matriz th,.montadores-matriz td{min-width:82px;white-space:nowrap}.montadores-matriz th.grp{max-width:190px;overflow:hidden;text-overflow:ellipsis}.montadores-matriz th.sticky,.montadores-matriz td:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}.montadores-matriz thead th.sticky{z-index:3;background:var(--brand);color:var(--brand-ink)}
+.montadores-rankings{align-items:start;margin:12px 0}.montadores-rankings .bloco{min-width:0}.montadores-matriz{min-width:max-content}.montadores-matriz th,.montadores-matriz td{min-width:105px;white-space:nowrap}.montadores-matriz th.grp{max-width:190px;overflow:hidden;text-overflow:ellipsis}.montadores-matriz th.sticky,.montadores-matriz td:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}.montadores-matriz thead th.sticky{z-index:3;background:var(--brand);color:var(--brand-ink)}
 .km-matriz{min-width:1500px}.km-matriz th,.km-matriz td{white-space:nowrap}.km-matriz td.pv{background:var(--pv)!important}
 .modelo-box{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:var(--section);border:1px solid var(--border);border-radius:8px;margin:10px 0}
 .modelo-box label{font-weight:700;text-transform:uppercase;letter-spacing:.2px}

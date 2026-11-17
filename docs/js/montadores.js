@@ -2,6 +2,8 @@ import { salvarDadosMontadores, lerDadosMontadores } from './modelos.js';
 
 const BASES = { 'CB NORTE': 'NORTE', 'CB SUL': 'SUL', 'LOG I - BARREIRAS': 'CBAR', 'LOG II - JUAZEIRO': 'CCRT' };
 const NUM = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+const chaveCadastro = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '');
+const codigoBase = (v) => { const x = String(v || '').trim().toLocaleUpperCase('pt-BR'); return BASES[x] || (Object.values(BASES).includes(x) ? x : null); };
 
 function isoData(v) {
   if (typeof v === 'number') {
@@ -24,13 +26,17 @@ function lerFolha(wb, sheetName) {
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 2, raw: true, defval: null });
   const saida = [];
   for (const row of rows) {
-    const login = row[5], caixas = row[6], cxHora = row[7], erros = row[8], data = isoData(row[9]);
-    const nome = row[10], baseOriginal = String(row[11] || '').trim().toUpperCase();
-    const base = BASES[baseOriginal] || (Object.hasOwn(BASES, baseOriginal) ? BASES[baseOriginal] : baseOriginal);
-    if (!data || !base || !Object.values(BASES).includes(base) || (!login && !nome)) continue;
-    saida.push({ login: String(login || nome).trim(), nome: String(nome || login).trim(), base, data, fonteCadastro: true,
-      diarista: row.some((v) => /diarista/i.test(String(v || ''))),
-      caixas: NUM(caixas), cxHora: NUM(cxHora), erros: NUM(erros) });
+    const sistema = String(row[0] || '').trim(), nomeCompleto = String(row[1] || '').trim(), baseRaw = codigoBase(row[2]), loginRaw = String(row[4] || '').trim();
+    const login = String(row[5] || loginRaw || '').trim(), caixas = row[6], cxHora = row[7], erros = row[8], data = isoData(row[9]);
+    const nome = String(row[10] || nomeCompleto || sistema || login).trim(), base = codigoBase(row[11]) || baseRaw;
+    const diarista = row.some((v) => /diarista/i.test(String(v || '')));
+    if (data && base && (login || nome)) {
+      saida.push({ login: login || nome, nome, sistema, loginOriginal: loginRaw, base, data, fonteCadastro: true, diarista,
+        caixas: NUM(caixas), cxHora: NUM(cxHora), erros: NUM(erros) });
+    } else if (baseRaw && (loginRaw || sistema || nomeCompleto)) {
+      saida.push({ login: loginRaw || sistema || nomeCompleto, nome: nomeCompleto || sistema || loginRaw, sistema, loginOriginal: loginRaw,
+        base: baseRaw, data: null, fonteCadastro: true, cadastroOnly: true, diarista, caixas: 0, cxHora: 0, erros: 0 });
+    }
   }
   return saida;
 }
@@ -133,36 +139,66 @@ export async function importarMontadoresArquivos(files, baseDiaria, confirmarNov
     if (!['NORTE', 'SUL', 'CBAR', 'CCRT'].includes(baseDiaria)) throw new Error('Selecione uma unidade válida para as listas diárias. Nenhum dado foi alterado.');
     const datas = analises.map((a) => a.data);
     if (new Set(datas).size !== datas.length) throw new Error('O lote contém mais de um arquivo para a mesma data. Remova a cópia repetida; nenhum dado foi alterado.');
-    const cadastro = new Map(), temCadastro = dados.registros.some((r) => r.fonteCadastro) || dados.registros.some((r) => r.posicao == null);
+    const cadastro = new Map(), pessoas = new Map(), temCadastro = dados.registros.some((r) => r.fonteCadastro) || dados.registros.some((r) => r.posicao == null);
     for (const r of dados.registros.filter((x) => x.fonteCadastro || (temCadastro && x.posicao == null))) {
       r.fonteCadastro = true;
-      const chave = String(r.login || '').trim().toLocaleLowerCase('pt-BR');
+      const chave = chaveCadastro(r.login || r.loginOriginal || r.sistema || r.nome);
       if (!chave) continue;
-      const pessoa = cadastro.get(chave) || { bases: new Set(), nome: r.nome, diarista: false };
+      const pessoa = pessoas.get(chave) || { chave, login: r.loginOriginal || r.login || r.sistema || r.nome, nome: r.nome, sistema: r.sistema, bases: new Set(), aliases: new Set(), diarista: false };
       if (r.base) pessoa.bases.add(r.base);
       if (!pessoa.nome && r.nome) pessoa.nome = r.nome;
+      for (const alias of [r.login, r.loginOriginal, r.sistema, r.nome]) { const k = chaveCadastro(alias); if (k) pessoa.aliases.add(k); }
       pessoa.diarista ||= r.diarista === true;
-      cadastro.set(chave, pessoa);
+      pessoas.set(chave, pessoa);
+    }
+    for (const pessoa of pessoas.values()) for (const alias of pessoa.aliases) {
+      if (!cadastro.has(alias)) cadastro.set(alias, pessoa);
+      else if (cadastro.get(alias)?.chave !== pessoa.chave) cadastro.set(alias, null);
     }
     const novos = new Map();
     for (const r of analises.flatMap((a) => a.registros)) {
-      const pessoa = cadastro.get(r.login.toLocaleLowerCase('pt-BR'));
+      const candidatos = [cadastro.get(chaveCadastro(r.login)), cadastro.get(chaveCadastro(r.nome))].filter(Boolean);
+      const unicos = [...new Map(candidatos.map((p) => [p.chave, p])).values()];
+      if (unicos.length > 1) throw new Error(`O login ${r.login} e o nome ${r.nome} apontam para cadastros diferentes em DA/DL. Confira o cadastro; nenhum dado foi alterado.`);
+      const pessoa = unicos[0];
       if (!pessoa) {
         r.observacao = true;
-        novos.set(r.login.toLocaleLowerCase('pt-BR'), { login: r.login, nome: r.nome });
+        novos.set(chaveCadastro(r.login), { login: r.login, nome: r.nome });
         continue;
       }
       if (pessoa.bases.size > 1) throw new Error(`O login ${r.login} aparece em mais de uma unidade no cadastro já importado. Confira a planilha oficial; nenhum dado foi alterado.`);
       const unidadeCadastro = [...pessoa.bases][0];
       if (unidadeCadastro && unidadeCadastro !== baseDiaria) throw new Error(`O login ${r.login} está cadastrado em ${unidadeCadastro}, mas o lote foi marcado como ${baseDiaria}. Nenhum dado foi alterado.`);
       r.diarista ||= pessoa.diarista;
+      if (pessoa.login) r.login = pessoa.login;
       if (pessoa.nome) r.nome = String(pessoa.nome).replace(/\s+/g, ' ').trim();
     }
     if (novos.size && !confirmarNovos) return { tipo: 'diaria', necessitaConfirmacao: true, novos: [...novos.values()], arquivos: analises.map(({ arquivo, data, registros: linhas }) => ({ arquivo, data, linhas: linhas.length })) };
     const substituidas = new Set(datas.map((data) => `${baseDiaria}|${data}`));
     const anteriores = dados.registros.filter((r) => !substituidas.has(`${r.base}|${r.data}`));
     registros = [...anteriores, ...analises.flatMap((a) => a.registros)];
-  } else registros = analises[0].registros;
+  } else {
+    const oficial = analises[0].registros, aliasOficial = new Map();
+    for (const p of oficial) for (const alias of [p.login, p.loginOriginal, p.sistema, p.nome]) {
+      const k = chaveCadastro(alias); if (!k) continue;
+      if (!aliasOficial.has(k)) aliasOficial.set(k, p);
+      else if (chaveCadastro(aliasOficial.get(k)?.login) !== chaveCadastro(p.login)) aliasOficial.set(k, null);
+    }
+    const diarios = dados.registros.filter((r) => !r.fonteCadastro && r.posicao != null);
+    for (const r of diarios) {
+      const candidatos = [aliasOficial.get(chaveCadastro(r.login)), aliasOficial.get(chaveCadastro(r.nome))].filter(Boolean);
+      const unicos = [...new Map(candidatos.map((p) => [chaveCadastro(p.login), p])).values()];
+      if (unicos.length > 1) throw new Error(`O login ${r.login} e o nome ${r.nome} apontam para cadastros diferentes em DA/DL. Confira o cadastro; nenhum dado foi alterado.`);
+      const pessoa = unicos[0];
+      if (!pessoa) { r.observacao = true; continue; }
+      const baseCadastro = pessoa.base;
+      if (baseCadastro && baseCadastro !== r.base) throw new Error(`O login ${r.login} está cadastrado em ${baseCadastro}, mas o relatório salvo está em ${r.base}. Nenhum dado foi alterado.`);
+      r.login = pessoa.login || r.login; r.nome = pessoa.nome || r.nome;
+      r.observacao = false; r.diarista ||= pessoa.diarista === true;
+    }
+    const substituidos = new Set(diarios.map((r) => `${r.base}|${r.data}|${chaveCadastro(r.login)}`));
+    registros = [...oficial.filter((r) => !r.data || !substituidos.has(`${r.base}|${r.data}|${chaveCadastro(r.login)}`)), ...diarios];
+  }
   const origem = analises.map((a) => a.arquivo).join(' | ');
   await salvarDadosMontadores(registros, origem);
   return { tipo: analises[0].tipo, base: tipos.has('diaria') ? baseDiaria : null, arquivos: analises.map(({ arquivo, data, registros: linhas }) => ({ arquivo, data: data || '', linhas: linhas.length })), total: analises.reduce((n, a) => n + a.registros.length, 0), registros: registros.length, novos: [...(tipos.has('diaria') ? new Map(analises.flatMap((a) => a.registros).filter((r) => r.observacao).map((r) => [r.login.toLocaleLowerCase('pt-BR'), r.login])).values() : [])] };

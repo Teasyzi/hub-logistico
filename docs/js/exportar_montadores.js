@@ -32,8 +32,8 @@ function preencherFolha(ws, registros) {
 export async function exportarMontadores(file, mes, registros) {
   const modelo = await abrirModeloXlsm(file), planilhas = [];
   const grupos = {
-    DA: registros.filter((r) => ['NORTE', 'SUL'].includes(r.base) && r.data.startsWith(`${mes}-`)),
-    DL: registros.filter((r) => ['CBAR', 'CCRT'].includes(r.base) && r.data.startsWith(`${mes}-`)),
+    DA: registros.filter((r) => ['NORTE', 'SUL'].includes(r.base) && r.data?.startsWith(`${mes}-`)),
+    DL: registros.filter((r) => ['CBAR', 'CCRT'].includes(r.base) && r.data?.startsWith(`${mes}-`)),
   };
   if (!grupos.DA.length && !grupos.DL.length) throw new Error(`Não há dados de Montadores em ${mes}.`);
   for (const nome of ['DA', 'DL']) {

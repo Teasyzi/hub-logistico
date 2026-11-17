@@ -6,15 +6,15 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import * as D from './dados.js?v=20261117-7';
 import { lerArquivo, num } from './importar.js';
-import * as V from './views.js?v=20261117-7';
+import * as V from './views.js?v=20261117-8';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';
 import { conectarModeloExportacao } from './modelos.js?v=20261117-3';
-import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores, temCadastroMontadores } from './montadores.js?v=20261117-7';
-import { exportarMontadores } from './exportar_montadores.js?v=20261117-3';
+import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores, temCadastroMontadores } from './montadores.js?v=20261117-8';
+import { exportarMontadores } from './exportar_montadores.js?v=20261117-4';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
@@ -583,7 +583,7 @@ async function telaMontadoresImportar() {
   const antes = await dadosMontadores();
   html(`${topo}<p>Importe um ou vários relatórios diários <b>listas-trabalhadas</b> (.XLSX), ou uma planilha mensal oficial com as abas <b>DA</b> e <b>DL</b>. Os relatórios diários precisam ter a data no nome (AAAA-MM-DD-listas-trabalhadas.xlsx).</p>
 <div class="modelo-box"><label>ARQUIVOS DE MONTADORES<br><input type="file" id="arqsMontadores" accept=".xlsx,.xlsm" multiple></label><label>UNIDADE DOS RELATÓRIOS DIÁRIOS<br><select id="baseMontadores"><option value="NORTE" selected>CB Norte</option><option value="SUL">CB Sul</option><option value="CBAR">Barreiras</option><option value="CCRT">Juazeiro</option></select></label><button class="btn" id="importarMontadores">IMPORTAR SELECIONADOS</button></div>
-<p class="small">Os relatórios diários não trazem a unidade; ela será aplicada a todas as planilhas do lote. Um lote diário substitui os registros daquela base e das datas selecionadas e preserva os demais dias. Importe primeiro a planilha oficial DA/DL para conferir login, unidade e diaristas; logins fora desse cadastro pedem confirmação, ficam em observação e não entram nos rankings. A planilha mensal oficial é importada sozinha e substitui o conjunto salvo.</p>
+<p class="small">Os relatórios diários não trazem a unidade; ela será aplicada a todas as planilhas do lote. Um lote diário substitui os registros daquela base e das datas selecionadas e preserva os demais dias. Reimporte a planilha oficial DA/DL para atualizar o cadastro de login, nome e unidade; listas diárias já salvas serão preservadas. Logins que ainda não forem encontrados pedem confirmação, ficam em observação e não entram nos rankings.</p>
 <p id="statusMontadores" class="small">${antes.length ? `${V.fi(antes.length)} registros salvos neste navegador.` : 'Nenhum arquivo importado neste navegador.'}</p>`);
   document.getElementById('importarMontadores').onclick = async (e) => {
     const files = document.getElementById('arqsMontadores').files;

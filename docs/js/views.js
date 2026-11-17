@@ -286,21 +286,19 @@ export function paginaMontadoresUnidade(base, rows, {mes, topo}) {
   const datas = [...new Set(todosDias.map((d) => d.data))].sort();
   const porPessoaDia = new Map();
   for (const p of rows) for (const d of p.diario) porPessoaDia.set(`${p.login}|${d.data}`, d);
-  const cabecalho = ordenados.map((p) => `<th class="grp" colspan="2" title="${E(p.login)}">${E(p.nome)}${diarista(p) ? ' · diarista' : p.observacao ? ' · observação' : ''}</th>`).join('');
-  const subCabecalho = ordenados.map(() => '<th>Caixas</th><th>CX/H</th>').join('');
+  const cabecalho = ordenados.map((p) => `<th class="grp" title="${E(p.login)}">${E(p.nome)}${diarista(p) ? ' · diarista' : p.observacao ? ' · observação' : ''}</th>`).join('');
   const mediaDia = (data) => { const vals = ordenados.map((p) => porPessoaDia.get(`${p.login}|${data}`)?.cxHora).filter((v) => v != null); return vals.length ? vals.reduce((a,b) => a+b,0)/vals.length : null; };
   const corpo = datas.map((data) => `<tr><td class="t">${fdata(data)}</td>${ordenados.map((p) => {
     const d = porPessoaDia.get(`${p.login}|${data}`);
     const dica = d ? `title="Erros ${fi(d.erros)} · Paletes ${fi(d.paletes)} · Misto ${fi(d.misto)} · LP Duplo ${fi(d.lpDuplo)} · Container ${fi(d.container)} · Gaveta ${fi(d.gaveta)}"` : '';
-    return `<td ${dica}>${d ? fi(d.caixas) : '–'}</td><td ${dica} class="${d && d.cxHora >= 350 ? 'c-ok' : ''}">${d ? fd(d.cxHora,2) : '–'}</td>`;
+    return `<td ${dica} class="${d && d.cxHora >= 350 ? 'c-ok' : ''}">${d ? fd(d.cxHora,2) : '–'}</td>`;
   }).join('')}<td>${fd(mediaDia(data),2)}</td></tr>`).join('');
-  const rodapeCaixas = ordenados.map((p) => `<td>${fi(p.caixas)}</td><td>–</td>`).join('');
-  const rodapeMedia = ordenados.map((p) => `<td>–</td><td>${fd(p.mediaCxHora,2)}</td>`).join('');
-  const detalhamento = `<div class="tw scroll"><table class="montadores-matriz"><thead><tr><th rowspan="2" class="t sticky">Dia</th>${cabecalho}<th rowspan="2">Média do dia</th></tr><tr>${subCabecalho}</tr></thead><tbody>${corpo || `<tr><td class="t" colspan="${ordenados.length*2+2}">Sem dados diários neste período.</td></tr>`}<tr class="tot"><td class="t">Caixas no mês</td>${rodapeCaixas}<td>–</td></tr><tr class="med"><td class="t">Média CX/H no mês</td>${rodapeMedia}<td>–</td></tr></tbody></table></div>`;
+  const rodapeMedia = ordenados.map((p) => `<td>${fd(p.mediaCxHora,2)}</td>`).join('');
+  const detalhamento = `<div class="tw scroll"><table class="montadores-matriz"><thead><tr><th class="t sticky">Dia</th>${cabecalho}<th>Média do dia</th></tr></thead><tbody>${corpo || `<tr><td class="t" colspan="${ordenados.length+2}">Sem dados diários neste período.</td></tr>`}<tr class="med"><td class="t">Média CX/H no mês</td>${rodapeMedia}<td>–</td></tr></tbody></table></div>`;
   const observados = rows.filter((p) => p.observacao);
   const avisos = [rows.some(diarista) ? 'Diaristas aparecem no detalhamento e ficam fora dos rankings.' : '',
     observados.length ? `Logins em observação — não constam em DA/DL e não entram nos rankings: ${observados.map((p) => `${E(p.login)} (${E(p.nome)})`).join(', ')}.` : ''].filter(Boolean).join(' ');
-  return `${topo}<p class="sub">${E(unidadeMontador[base])} · ${E(nomeMes(mes))}</p><div class="g2 montadores-rankings"><section class="bloco"><div class="faixa">Ranking do mês · caixas</div><div class="corpo">${tabelaRanking(porMes,'Caixas no mês')}</div></section><section class="bloco"><div class="faixa">Último dia com montagem · ${ultimaData ? fdata(ultimaData) : '–'} · CX/H</div><div class="corpo">${tabelaRanking(porUltimoDia,'CX/H')}</div></section></div>${avisos ? `<div class="aviso">${avisos}</div>` : ''}<h2>Detalhamento diário por montador</h2><p class="small">Caixas e CX/H por dia. Passe o mouse sobre o valor para consultar erros, paletes, misto, LP duplo, container e gaveta. Verde indica pelo menos 350 CX/H.</p>${detalhamento}`;
+  return `${topo}<p class="sub">${E(unidadeMontador[base])} · ${E(nomeMes(mes))}</p><div class="g2 montadores-rankings"><section class="bloco"><div class="faixa">Ranking do mês · caixas</div><div class="corpo">${tabelaRanking(porMes,'Caixas no mês')}</div></section><section class="bloco"><div class="faixa">Último dia com montagem · ${ultimaData ? fdata(ultimaData) : '–'} · CX/H</div><div class="corpo">${tabelaRanking(porUltimoDia,'CX/H')}</div></section></div>${avisos ? `<div class="aviso">${avisos}</div>` : ''}<h2>Detalhamento diário por montador</h2><p class="small">A matriz mostra somente CX/H por dia. Passe o mouse sobre o valor para consultar erros, paletes, misto, LP duplo, container e gaveta. Verde indica pelo menos 350 CX/H.</p>${detalhamento}`;
 }
 
 export function paginaKMResumo(resultado, { mes, admin, topo }) {
