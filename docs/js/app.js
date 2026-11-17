@@ -6,14 +6,14 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import * as D from './dados.js?v=20261117-7';
 import { lerArquivo, num } from './importar.js';
-import * as V from './views.js?v=20261117-9';
+import * as V from './views.js?v=20261117-10';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';
 import { conectarModeloExportacao } from './modelos.js?v=20261117-3';
-import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores, temCadastroMontadores } from './montadores.js?v=20261117-9';
+import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores, temCadastroMontadores } from './montadores.js?v=20261117-10';
 import { exportarMontadores } from './exportar_montadores.js?v=20261117-4';
 
 const $app = document.getElementById('app');

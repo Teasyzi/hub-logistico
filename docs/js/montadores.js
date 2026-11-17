@@ -249,22 +249,32 @@ export const temCadastroMontadores = async () => {
 export const atualizacaoMontadores = async () => (await lerDadosMontadores()).atualizado || null;
 
 export function calcularMontadores(registros, mes, temCadastro = false) {
-  const loginsCadastro = new Set(registros.filter((r) => r.fonteCadastro).map((r) => String(r.login || '').toLocaleLowerCase('pt-BR')));
-  if (temCadastro && !loginsCadastro.size) for (const r of registros.filter((x) => x.posicao == null)) loginsCadastro.add(String(r.login || '').toLocaleLowerCase('pt-BR'));
+  const cadastroPorBase = new Map();
+  for (const r of registros.filter((x) => x.fonteCadastro === true || (temCadastro && x.posicao == null))) {
+    if (!r.base) continue;
+    const aliases = cadastroPorBase.get(r.base) || new Set();
+    for (const nome of [r.login, r.loginCadastro, r.loginOriginal, r.sistema, r.nome, r.nomeCompleto]) {
+      const chave = chaveCadastro(nome); if (chave) aliases.add(chave);
+    }
+    cadastroPorBase.set(r.base, aliases);
+  }
   const dias = new Map(), pessoas = new Map();
   for (const r of registros.filter((x) => x.data?.startsWith(`${mes}-`))) {
     const id = `${r.base}|${r.login}|${r.data}`;
     const dia = dias.get(id) || { base: r.base, login: r.login, nome: r.nome, data: r.data, caixas: 0, cxHora: 0, erros: 0,
-      posicao: null, paletes: null, misto: null, lpDuplo: null, container: null, gaveta: null, diarista: false, observacao: false, tipo: r.tipo || '' };
+      posicao: null, paletes: null, misto: null, lpDuplo: null, container: null, gaveta: null, diarista: false, observacao: false, cadastroEncontrado: false, tipo: r.tipo || '' };
     dia.caixas += NUM(r.caixas); dia.cxHora += NUM(r.cxHora); dia.erros += NUM(r.erros); dias.set(id, dia);
     dia.diarista ||= r.diarista === true || /diarista/i.test(String(r.tipo || r.vinculo || r.categoria || ''));
-    dia.observacao ||= r.observacao === true || (r.cadastroValidado !== true && r.fonteCadastro !== true && !loginsCadastro.has(String(r.login || '').toLocaleLowerCase('pt-BR')));
+    const aliasesBase = cadastroPorBase.get(r.base);
+    dia.cadastroEncontrado ||= r.fonteCadastro === true || r.cadastroValidado === true
+      || aliasesBase?.has(chaveCadastro(r.login)) || aliasesBase?.has(chaveCadastro(r.nome));
     if (r.posicao != null) dia.posicao = r.posicao;
     for (const k of ['paletes', 'misto', 'lpDuplo', 'container', 'gaveta']) {
       if (r[k] != null) dia[k] = (dia[k] || 0) + NUM(r[k]);
     }
   }
   for (const d of dias.values()) {
+    d.observacao = !d.cadastroEncontrado;
     const id = `${d.base}|${d.login}`;
     const p = pessoas.get(id) || { base: d.base, login: d.login, nome: d.nome, caixas: 0, erros: 0, dias: 0, cxHoraDias: [], diario: [], diarista: false, observacao: false };
     p.caixas += d.caixas; p.erros += d.erros; if (d.caixas > 0 || d.cxHora > 0) { p.dias += 1; p.cxHoraDias.push(d.cxHora); }
