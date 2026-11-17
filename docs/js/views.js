@@ -102,7 +102,7 @@ export function graficoVendidoRetorno(dias, altura = 270) {
 // ---------------------------------------------------------------- painel principal (só admin)
 export function painelPrincipal() {
   const acomp = [['Montagem de cargas (DLs)', '#/montagem', 'ativo · Barreiras e Juazeiro'], ['KPI Distribuição e Logística', null, 'próxima fase'],
-    ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', null, 'planejado'], ['Montadores', '#/montadores', 'em validação · dados locais'],
+    ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', null, 'planejado'], ['Montadores', '#/montadores/NORTE', 'em validação · dados locais'],
     ['Perdas de estoque', null, 'planejado'], ['KM planejado × realizado', '#/km', 'em validação · 4 unidades'], ['Retorno por motivo', null, 'planejado'],
     ['Fill rate', null, 'planejado'], ['Gestão à vista', null, 'planejado'], ['Custos de descarga', null, 'planejado']];
   return `<h1>Painel principal</h1><p class="sub">Acompanhamentos do Hub. Cada um tem link próprio para enviar por e-mail; quem recebe vê só aquele acompanhamento.</p>
@@ -266,38 +266,25 @@ export function abasKM(ativa, mes, admin) {
 }
 
 export function abasMontadores(ativa, mes) {
-  const abas = [['resumo','Resumo',`#/montadores/resumo/${mes}`], ['NORTE','CB Norte',`#/montadores/NORTE/${mes}`], ['SUL','CB Sul',`#/montadores/SUL/${mes}`],
+  const abas = [['NORTE','CB Norte',`#/montadores/NORTE/${mes}`], ['SUL','CB Sul',`#/montadores/SUL/${mes}`],
     ['CBAR','Barreiras',`#/montadores/CBAR/${mes}`], ['CCRT','Juazeiro',`#/montadores/CCRT/${mes}`], ['importar','Importar','#/montadores/importar'], ['exportar','Exportar',`#/montadores/exportar/${mes}`]];
   return `<nav class="abas">${abas.map(([k,t,h]) => `<a class="${k === ativa ? 'on' : ''} ${['importar','exportar'].includes(k) ? 'adm' : ''}" href="${h}">${['importar','exportar'].includes(k) ? '⚙ ' : ''}${t}</a>`).join('')}</nav>`;
 }
 
 const unidadeMontador = { NORTE:'CB NORTE', SUL:'CB SUL', CBAR:'BARREIRAS — LOG I', CCRT:'JUAZEIRO — LOG II' };
-const moeda = (n) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n || 0);
-function tabelaMontadores(rows) {
-  return `<div class="tw scroll"><table class="montadores-ranking"><thead><tr><th>#</th><th class="t">Montador</th><th>Produtividade média<br>(CX/H)</th><th>Meta 350</th><th>Caixas</th><th>Dias</th><th>Média CX/DIA</th><th>Erros</th><th>Gratificação</th></tr></thead><tbody>${rows.length ? rows.map((p,i)=>`<tr><td>${i+1}</td><td class="t">${E(p.nome)}</td><td>${fd(p.mediaCxHora,1)}</td><td>${status(p.mediaCxHora >= 350,'META ATINGIDA','ABAIXO DA META')}</td><td>${fi(p.caixas)}</td><td>${fi(p.dias)}</td><td>${fd(p.mediaCaixasDia,1)}</td><td>${fi(p.erros)}</td><td>${moeda(p.gratificacao)}</td></tr>`).join('') : '<tr><td colspan="9" class="t">Sem dados importados para este período.</td></tr>'}</tbody></table></div>`;
-}
-
-function matrizMontadores(rows, mes) {
-  const dias = new Date(+mes.slice(0,4), +mes.slice(5,7), 0).getDate();
-  const th = Array.from({length:dias},(_,i)=>`<th>${i+1}</th>`).join('');
-  const linhas = rows.map((p)=>{
-    const porDia = Object.fromEntries(p.diario.map((d)=>[+d.data.slice(-2),d]));
-    return `<tr><td class="t">${E(p.nome)}</td>${Array.from({length:dias},(_,i)=>`<td>${porDia[i+1] ? fd(porDia[i+1].cxHora,0) : '–'}</td>`).join('')}</tr>`;
-  }).join('');
-  return `<div class="tw scroll"><table class="matriz-dia"><thead><tr><th class="t">Montador · CX/H</th>${th}</tr></thead><tbody>${linhas || `<tr><td colspan="${dias+1}" class="t">Sem produção no mês.</td></tr>`}</tbody></table></div>`;
-}
-
-export function paginaMontadoresResumo(porBase, {mes, topo}) {
-  const cards = Object.entries(unidadeMontador).map(([base,nome])=>{
-    const rows = porBase[base] || [], caixas = rows.reduce((s,p)=>s+p.caixas,0), media = rows.length ? rows.reduce((s,p)=>s+p.mediaCxHora,0)/rows.length : null;
-    return `<section class="bloco"><div class="faixa">${nome}<a class="btn sec" href="#/montadores/${base}/${mes}">DETALHES →</a></div><div class="corpo"><div class="tiles"><div class="tile"><div class="l">Montadores</div><div class="v">${fi(rows.length)}</div></div><div class="tile"><div class="l">Caixas</div><div class="v">${fi(caixas)}</div></div><div class="tile"><div class="l">Média cx/h</div><div class="v">${fd(media,1)}</div></div></div><h2>TOP 5 DO MÊS</h2>${tabelaMontadores(rows.slice(0,5))}</div></section>`;
-  }).join('');
-  return `${topo}<p class="sub">RESULTADOS DE MONTADORES · ${E(nomeMes(mes))}. PRODUTIVIDADE MÉDIA CALCULADA NOS DIAS COM PRODUÇÃO.</p><div class="grid">${cards}</div>`;
-}
-
 export function paginaMontadoresUnidade(base, rows, {mes, topo}) {
-  const caixas = rows.reduce((s,p)=>s+p.caixas,0), dias = rows.reduce((s,p)=>s+p.dias,0), erros = rows.reduce((s,p)=>s+p.erros,0), grat = rows.reduce((s,p)=>s+p.gratificacao,0);
-  return `${topo}<div class="tiles"><div class="tile"><div class="l">Montadores</div><div class="v">${fi(rows.length)}</div></div><div class="tile"><div class="l">Caixas no mês</div><div class="v">${fi(caixas)}</div></div><div class="tile"><div class="l">Dias trabalhados somados</div><div class="v">${fi(dias)}</div></div><div class="tile"><div class="l">Erros</div><div class="v">${fi(erros)}</div></div><div class="tile"><div class="l">Gratificação estimada</div><div class="v">${moeda(grat)}</div><div class="d">R$ 0,003 por caixa</div></div></div><h2>RANKING · ${E(unidadeMontador[base])}</h2>${tabelaMontadores(rows)}<h2>PRODUTIVIDADE DIÁRIA · CX/H</h2>${matrizMontadores(rows, mes)}`;
+  const dias = new Map();
+  for (const p of rows) for (const d of p.diario) {
+    const list = dias.get(d.data) || []; list.push(d); dias.set(d.data, list);
+  }
+  const colunas = [['posicao','Posição'],['nome','Montador'],['login','Login'],['caixas','Caixas'],['cxHora','Caixas/Hora'],['erros','Erros'],
+    ['paletes','Paletes'],['misto','Misto'],['lpDuplo','LP Duplo'],['container','Container'],['gaveta','Gaveta']];
+  const relatorios = [...dias.entries()].sort(([a],[b]) => b.localeCompare(a)).map(([data, registros]) => {
+    registros.sort((a,b) => (a.posicao ?? Number.MAX_SAFE_INTEGER) - (b.posicao ?? Number.MAX_SAFE_INTEGER) || b.cxHora - a.cxHora);
+    const linhas = registros.map((d,i) => `<tr><td>${fi(d.posicao ?? i+1)}</td><td class="t">${E(d.nome)}</td><td class="t">${E(d.login)}</td><td>${fi(d.caixas)}</td><td>${fd(d.cxHora,2)}</td><td>${fi(d.erros)}</td><td>${d.paletes == null ? '–' : fi(d.paletes)}</td><td>${d.misto == null ? '–' : fi(d.misto)}</td><td>${d.lpDuplo == null ? '–' : fi(d.lpDuplo)}</td><td>${d.container == null ? '–' : fi(d.container)}</td><td>${d.gaveta == null ? '–' : fi(d.gaveta)}</td></tr>`).join('');
+    return `<section class="montadores-dia"><div class="faixa">${data.slice(8,10)}/${data.slice(5,7)}/${data.slice(0,4)} <span class="badge">${fi(registros.length)} montadores</span></div><div class="tw scroll"><table class="montadores-planilha"><thead><tr>${colunas.map(([,n],i) => `<th${i===1 || i===2 ? ' class="t"' : ''}>${n}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody></table></div></section>`;
+  }).join('');
+  return `${topo}<p class="sub">RELATÓRIOS DIÁRIOS · ${E(unidadeMontador[base])} · ${E(nomeMes(mes))}</p>${relatorios || '<div class="aviso">Nenhuma lista diária importada para esta unidade e este mês.</div>'}`;
 }
 
 export function paginaKMResumo(resultado, { mes, admin, topo }) {

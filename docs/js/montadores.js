@@ -72,7 +72,6 @@ function lerListaDiaria(wb, file, base) {
   const cabecalho = (rows[0] || []).map(textoCabecalho);
   const coluna = (nome) => cabecalho.indexOf(textoCabecalho(nome));
   const ix = { posicao: coluna('Posição'), nome: coluna('Montador'), login: coluna('Login'), caixas: coluna('Caixas'), cxHora: coluna('Caixas/Hora'), erros: coluna('Erros') };
-  const extras = ['Paletes', 'Misto', 'LP Duplo', 'Container', 'Gaveta'].map((nome) => ({ nome, indice: coluna(nome) })).filter((x) => x.indice >= 0);
   const faltando = Object.entries(ix).filter(([, i]) => i < 0).map(([k]) => k);
   if (faltando.length) throw new Error(`${file.name}: cabeçalho incompleto; faltam ${faltando.join(', ')}.`);
   const registros = [], logins = new Set(), posicoes = new Set();
@@ -87,15 +86,17 @@ function lerListaDiaria(wb, file, base) {
     const posicao = numeroPlanilha(row[ix.posicao], 'posição', file.name, linha, { inteiro: true });
     if (posicao < 1 || posicoes.has(posicao)) throw new Error(`${file.name}, linha ${linha}: posição repetida ou inválida (${posicao}).`);
     posicoes.add(posicao);
-    for (const extra of extras) {
-      const valor = row[extra.indice];
-      if (valor != null && String(valor).trim()) numeroPlanilha(valor, extra.nome, file.name, linha, { inteiro: true });
-    }
+    const metr = Object.fromEntries([
+      ['paletes', 'Paletes'], ['misto', 'Misto'], ['lpDuplo', 'LP Duplo'], ['container', 'Container'], ['gaveta', 'Gaveta'],
+    ].map(([chave, rotulo]) => {
+      const indice = coluna(rotulo);
+      return [chave, indice < 0 || row[indice] == null || String(row[indice]).trim() === '' ? null : numeroPlanilha(row[indice], rotulo, file.name, linha, { inteiro: true })];
+    }));
     registros.push({ nome, login, base, data,
       caixas: numeroPlanilha(row[ix.caixas], 'caixas', file.name, linha, { inteiro: true }),
       cxHora: numeroPlanilha(row[ix.cxHora], 'caixas/hora', file.name, linha),
       erros: numeroPlanilha(row[ix.erros], 'erros', file.name, linha, { inteiro: true }),
-      posicao,
+      posicao, ...metr,
     });
   }
   if (!registros.length) throw new Error(`${file.name}: não há linhas de produção para importar.`);
@@ -162,8 +163,13 @@ export function calcularMontadores(registros, mes) {
   const dias = new Map(), pessoas = new Map();
   for (const r of registros.filter((x) => x.data?.startsWith(`${mes}-`))) {
     const id = `${r.base}|${r.login}|${r.data}`;
-    const dia = dias.get(id) || { base: r.base, login: r.login, nome: r.nome, data: r.data, caixas: 0, cxHora: 0, erros: 0 };
+    const dia = dias.get(id) || { base: r.base, login: r.login, nome: r.nome, data: r.data, caixas: 0, cxHora: 0, erros: 0,
+      posicao: null, paletes: null, misto: null, lpDuplo: null, container: null, gaveta: null };
     dia.caixas += NUM(r.caixas); dia.cxHora += NUM(r.cxHora); dia.erros += NUM(r.erros); dias.set(id, dia);
+    if (r.posicao != null) dia.posicao = r.posicao;
+    for (const k of ['paletes', 'misto', 'lpDuplo', 'container', 'gaveta']) {
+      if (r[k] != null) dia[k] = (dia[k] || 0) + NUM(r[k]);
+    }
   }
   for (const d of dias.values()) {
     const id = `${d.base}|${d.login}`;

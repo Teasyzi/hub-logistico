@@ -6,14 +6,14 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import * as D from './dados.js?v=20261117-7';
 import { lerArquivo, num } from './importar.js';
-import * as V from './views.js?v=20261117-5';
+import * as V from './views.js?v=20261117-6';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';
 import { conectarModeloExportacao } from './modelos.js?v=20261117-3';
-import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261117-5';
+import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261117-6';
 import { exportarMontadores } from './exportar_montadores.js?v=20261117-3';
 
 const $app = document.getElementById('app');
@@ -572,12 +572,6 @@ async function topoMontadores(aba, mes, titulo) {
   return { topo, registros };
 }
 
-async function telaMontadoresResumo(mes) {
-  const {topo, registros} = await topoMontadores('resumo', mes, V.nomeMes(mes));
-  html(V.paginaMontadoresResumo(calcularMontadores(registros, mes), {mes, topo}));
-  ligarTopo((m) => `#/montadores/resumo/${m}`);
-}
-
 async function telaMontadoresUnidade(base, mes) {
   const {topo, registros} = await topoMontadores(base, mes, `${base} · ${V.nomeMes(mes)}`);
   html(V.paginaMontadoresUnidade(base, calcularMontadores(registros, mes)[base] || [], {mes, topo}));
@@ -708,7 +702,7 @@ async function rotear() {
       cabecalhoSite('Montadores');
       if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
       const sub = p[1], mes = mesP(p[2]) || mesAtual();
-      if (!sub || sub === 'resumo') return await telaMontadoresResumo(mes);
+      if (!sub || sub === 'resumo') { location.hash = `#/montadores/NORTE/${mes}`; return; }
       if (['NORTE','SUL','CBAR','CCRT'].includes(sub)) return await telaMontadoresUnidade(sub, mes);
       if (sub === 'importar') return await telaMontadoresImportar();
       if (sub === 'exportar') return await telaMontadoresExportar(mes);

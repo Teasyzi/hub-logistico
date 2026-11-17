@@ -49,9 +49,9 @@ Fórmulas: `SUMIFS(DA!H, DA!J = dia, DA!L = base, DA!K = montador)`; gratificaç
 
 ## Estado da implementação no Hub (2026-11-17)
 - Importa tanto a planilha mensal oficial que contém `DA` e `DL` quanto vários relatórios diários `AAAA-MM-DD-listas-trabalhadas.xlsx` em um único lote. Cada lote diário recebe a unidade selecionada, substitui somente os registros daquela unidade e daquelas datas e preserva outros dias/unidades.
-- Valida no relatório diário o nome da aba e os cabeçalhos, a data do nome do arquivo, posições sequenciais, logins únicos, campos obrigatórios e valores numéricos inteiros/não negativos para caixas e erros; confere também a ordem decrescente de caixas/hora. Um lote com erro ou datas repetidas não altera os dados salvos.
+- Valida no relatório diário o nome da aba e os cabeçalhos, a data do nome do arquivo, posições sequenciais, logins únicos, campos obrigatórios, contagens inteiras/não negativas e a ordem decrescente de caixas/hora. Um lote com erro ou datas repetidas não altera os dados salvos.
 - Quando já existe um cadastro mensal `DA`/`DL` neste navegador, o login é conferido contra a unidade cadastrada e o nome completo do cadastro prevalece.
 - Importações, nomes e modelos ficam apenas no IndexedDB do navegador usado para importar; a tela e rotas são administrativas. Não sincroniza esses dados ao Firebase.
 - A média de CX/H considera dias com produção; a meta é 350 CX/H e a gratificação estimada é caixas × R$ 0,003.
-- O resumo e o ranking diário já estão na primeira versão; de-para de nomes, observações, evolução por dia da semana e gráficos ainda precisam de validação/complementação.
+- A aba Resumo foi removida. Cada aba de unidade mostra o relatório diário com Posição, Montador, Login, Caixas, Caixas/Hora, Erros, Paletes, Misto, LP Duplo, Container e Gaveta; de-para, observações, evolução por dia da semana e gráficos ainda podem ser complementados.
 - Os modelos de exportação de Montagem, PES, KM e Montadores podem ser guardados localmente no mesmo navegador e trocados escolhendo outro arquivo.
