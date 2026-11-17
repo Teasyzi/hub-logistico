@@ -31,7 +31,7 @@ function lerFolha(wb, sheetName) {
     const nome = String(row[10] || nomeCompleto || sistema || login).trim(), base = codigoBase(row[11]) || baseRaw;
     const diarista = row.some((v) => /diarista/i.test(String(v || '')));
     if (data && base && (login || nome)) {
-      saida.push({ login: login || nome, nome, sistema, loginOriginal: loginRaw, base, data, fonteCadastro: true, diarista,
+      saida.push({ login: login || nome, loginCadastro: loginRaw || login, nome, nomeCompleto, sistema, loginOriginal: loginRaw, base, data, fonteCadastro: true, diarista,
         caixas: NUM(caixas), cxHora: NUM(cxHora), erros: NUM(erros) });
     } else if (baseRaw && (loginRaw || sistema || nomeCompleto)) {
       saida.push({ login: loginRaw || sistema || nomeCompleto, nome: nomeCompleto || sistema || loginRaw, sistema, loginOriginal: loginRaw,
@@ -45,12 +45,37 @@ export async function lerMontadoresXlsx(file) {
   if (!globalThis.XLSX) throw new Error('O leitor de planilhas não carregou. Atualize a página.');
   const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
   if (!wb.Sheets.DA || !wb.Sheets.DL) throw new Error('O arquivo precisa ser o acompanhamento oficial de Montadores com as abas DA e DL.');
-  const registros = [...lerFolha(wb, 'DA'), ...lerFolha(wb, 'DL')];
+  const registros = [...lerFolha(wb, 'DA'), ...lerFolha(wb, 'DL'), ...lerCadastroAba(wb, 'DA'), ...lerCadastroAba(wb, 'DL')];
   if (!registros.length) throw new Error('Não encontrei linhas válidas nas abas DA e DL.');
   return registros;
 }
 
 const textoCabecalho = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
+
+function lerCadastroAba(wb, nomeAba) {
+  const sheet = wb.Sheets[nomeAba];
+  if (!sheet) return [];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+  const cabecalhoIdx = rows.findIndex((row) => ['sistema', 'nome completo', 'base'].every((h) => row.map(textoCabecalho).includes(h)));
+  if (cabecalhoIdx < 0) return [];
+  const cab = rows[cabecalhoIdx].map(textoCabecalho);
+  const ixSistema = cab.indexOf('sistema'), ixNome = cab.indexOf('nome completo'), ixBase = cab.indexOf('base');
+  const ixLogin = cab.findIndex((v) => ['login', 'usuario', 'user', 'matricula'].includes(v));
+  const ixTipo = cab.findIndex((v) => ['tipo', 'vinculo', 'categoria', 'classificacao'].includes(v));
+  const saida = [];
+  for (let i = cabecalhoIdx + 1; i < rows.length; i++) {
+    const row = rows[i] || [], sistema = String(row[ixSistema] ?? '').replace(/\s+/g, ' ').trim();
+    const nome = String(row[ixNome] ?? '').replace(/\s+/g, ' ').trim(), base = codigoBase(row[ixBase]);
+    const login = String((ixLogin >= 0 ? row[ixLogin] : null) || sistema || nome).trim();
+    if (!base || (!sistema && !nome && !login)) continue;
+    const tipo = ixTipo < 0 ? '' : String(row[ixTipo] ?? '').trim();
+    const loginCadastro = ixLogin >= 0 ? String(row[ixLogin] ?? '').trim() : '';
+    saida.push({ login: loginCadastro, loginCadastro, loginOriginal: loginCadastro, sistema, nome: nome || sistema || loginCadastro,
+      base, data: null, fonteCadastro: true, cadastroOnly: true, tipo,
+      diarista: /diarista/i.test(`${sistema} ${nome} ${tipo}`), caixas: 0, cxHora: 0, erros: 0 });
+  }
+  return saida;
+}
 
 function numeroPlanilha(valor, rotulo, arquivo, linha, { inteiro = false } = {}) {
   let n;
@@ -101,7 +126,7 @@ function lerListaDiaria(wb, file, base) {
       return [chave, indice < 0 || row[indice] == null || String(row[indice]).trim() === '' ? null : numeroPlanilha(row[indice], rotulo, file.name, linha, { inteiro: true })];
     }));
     const tipo = ixTipo < 0 ? '' : String(row[ixTipo] ?? '').trim();
-    registros.push({ nome, login, base, data, tipo, fonteCadastro: false, observacao: false, diarista: /diarista/i.test(tipo),
+    registros.push({ nome, login, base, data, tipo, fonteCadastro: false, cadastroValidado: false, observacao: false, diarista: /diarista/i.test(tipo),
       caixas: numeroPlanilha(row[ix.caixas], 'caixas', file.name, linha, { inteiro: true }),
       cxHora: numeroPlanilha(row[ix.cxHora], 'caixas/hora', file.name, linha),
       erros: numeroPlanilha(row[ix.erros], 'erros', file.name, linha, { inteiro: true }),
@@ -144,16 +169,20 @@ export async function importarMontadoresArquivos(files, baseDiaria, confirmarNov
       r.fonteCadastro = true;
       const chave = chaveCadastro(r.login || r.loginOriginal || r.sistema || r.nome);
       if (!chave) continue;
-      const pessoa = pessoas.get(chave) || { chave, login: r.loginOriginal || r.login || r.sistema || r.nome, nome: r.nome, sistema: r.sistema, bases: new Set(), aliases: new Set(), diarista: false };
+      const pessoa = pessoas.get(chave) || { chave, login: r.loginCadastro || r.loginOriginal || (!r.cadastroOnly ? r.login : ''), nome: r.nome, sistema: r.sistema, bases: new Set(), aliases: new Set(), diarista: false };
       if (r.base) pessoa.bases.add(r.base);
       if (!pessoa.nome && r.nome) pessoa.nome = r.nome;
-      for (const alias of [r.login, r.loginOriginal, r.sistema, r.nome]) { const k = chaveCadastro(alias); if (k) pessoa.aliases.add(k); }
+      for (const alias of [r.login, r.loginCadastro, r.loginOriginal, r.sistema, r.nome, r.nomeCompleto]) { const k = chaveCadastro(alias); if (k) pessoa.aliases.add(k); }
       pessoa.diarista ||= r.diarista === true;
       pessoas.set(chave, pessoa);
     }
     for (const pessoa of pessoas.values()) for (const alias of pessoa.aliases) {
       if (!cadastro.has(alias)) cadastro.set(alias, pessoa);
-      else if (cadastro.get(alias)?.chave !== pessoa.chave) cadastro.set(alias, null);
+      else if (cadastro.get(alias)?.chave !== pessoa.chave) {
+        const atual = cadastro.get(alias), mesmaBase = atual && pessoa.bases.size === 1 && atual.bases.size === 1 && [...pessoa.bases][0] === [...atual.bases][0];
+        if (mesmaBase && !atual?.login && pessoa.login) cadastro.set(alias, pessoa);
+        else if (!(mesmaBase && atual?.login && !pessoa.login)) cadastro.set(alias, null);
+      }
     }
     const novos = new Map();
     for (const r of analises.flatMap((a) => a.registros)) {
@@ -170,6 +199,7 @@ export async function importarMontadoresArquivos(files, baseDiaria, confirmarNov
       const unidadeCadastro = [...pessoa.bases][0];
       if (unidadeCadastro && unidadeCadastro !== baseDiaria) throw new Error(`O login ${r.login} está cadastrado em ${unidadeCadastro}, mas o lote foi marcado como ${baseDiaria}. Nenhum dado foi alterado.`);
       r.diarista ||= pessoa.diarista;
+      r.cadastroValidado = true;
       if (pessoa.login) r.login = pessoa.login;
       if (pessoa.nome) r.nome = String(pessoa.nome).replace(/\s+/g, ' ').trim();
     }
@@ -179,10 +209,16 @@ export async function importarMontadoresArquivos(files, baseDiaria, confirmarNov
     registros = [...anteriores, ...analises.flatMap((a) => a.registros)];
   } else {
     const oficial = analises[0].registros, aliasOficial = new Map();
-    for (const p of oficial) for (const alias of [p.login, p.loginOriginal, p.sistema, p.nome]) {
+    for (const p of oficial) for (const alias of [p.login, p.loginCadastro, p.loginOriginal, p.sistema, p.nome, p.nomeCompleto]) {
       const k = chaveCadastro(alias); if (!k) continue;
       if (!aliasOficial.has(k)) aliasOficial.set(k, p);
-      else if (chaveCadastro(aliasOficial.get(k)?.login) !== chaveCadastro(p.login)) aliasOficial.set(k, null);
+      else {
+        const atual = aliasOficial.get(k), loginAtual = atual?.loginCadastro || atual?.loginOriginal || (!atual?.cadastroOnly ? atual?.login : ''), loginNovo = p.loginCadastro || p.loginOriginal || (!p.cadastroOnly ? p.login : '');
+        const mesmaBase = atual && atual.base === p.base;
+        if (atual && chaveCadastro(loginAtual) === chaveCadastro(loginNovo)) aliasOficial.set(k, atual.cadastroOnly && !p.cadastroOnly ? p : atual);
+        else if (mesmaBase && !loginAtual && loginNovo) aliasOficial.set(k, p);
+        else if (!(mesmaBase && loginAtual && !loginNovo)) aliasOficial.set(k, null);
+      }
     }
     const diarios = dados.registros.filter((r) => !r.fonteCadastro && r.posicao != null);
     for (const r of diarios) {
@@ -193,7 +229,8 @@ export async function importarMontadoresArquivos(files, baseDiaria, confirmarNov
       if (!pessoa) { r.observacao = true; continue; }
       const baseCadastro = pessoa.base;
       if (baseCadastro && baseCadastro !== r.base) throw new Error(`O login ${r.login} está cadastrado em ${baseCadastro}, mas o relatório salvo está em ${r.base}. Nenhum dado foi alterado.`);
-      r.login = pessoa.login || r.login; r.nome = pessoa.nome || r.nome;
+      r.login = pessoa.loginCadastro || pessoa.loginOriginal || (!pessoa.cadastroOnly ? pessoa.login : '') || r.login; r.nome = pessoa.nome || r.nome;
+      r.cadastroValidado = true;
       r.observacao = false; r.diarista ||= pessoa.diarista === true;
     }
     const substituidos = new Set(diarios.map((r) => `${r.base}|${r.data}|${chaveCadastro(r.login)}`));
@@ -221,7 +258,7 @@ export function calcularMontadores(registros, mes, temCadastro = false) {
       posicao: null, paletes: null, misto: null, lpDuplo: null, container: null, gaveta: null, diarista: false, observacao: false, tipo: r.tipo || '' };
     dia.caixas += NUM(r.caixas); dia.cxHora += NUM(r.cxHora); dia.erros += NUM(r.erros); dias.set(id, dia);
     dia.diarista ||= r.diarista === true || /diarista/i.test(String(r.tipo || r.vinculo || r.categoria || ''));
-    dia.observacao ||= r.observacao === true || (r.fonteCadastro !== true && !loginsCadastro.has(String(r.login || '').toLocaleLowerCase('pt-BR')));
+    dia.observacao ||= r.observacao === true || (r.cadastroValidado !== true && r.fonteCadastro !== true && !loginsCadastro.has(String(r.login || '').toLocaleLowerCase('pt-BR')));
     if (r.posicao != null) dia.posicao = r.posicao;
     for (const k of ['paletes', 'misto', 'lpDuplo', 'container', 'gaveta']) {
       if (r[k] != null) dia[k] = (dia[k] || 0) + NUM(r[k]);

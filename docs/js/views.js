@@ -276,12 +276,12 @@ export function abasMontadores(ativa, mes) {
 const unidadeMontador = { NORTE:'CB NORTE', SUL:'CB SUL', CBAR:'BARREIRAS — LOG I', CCRT:'JUAZEIRO — LOG II' };
 export function paginaMontadoresUnidade(base, rows, {mes, topo}) {
   const diarista = (p) => p.diario.some((d) => d.diarista) || [p.nome,p.login,p.tipo,p.vinculo,p.categoria].some((v) => /diarista/i.test(String(v || '')));
-  const rankings = rows.filter((p) => !diarista(p) && !p.observacao);
+  const rankings = rows.filter((p) => !diarista(p));
   const todosDias = rows.flatMap((p) => p.diario), ultimaData = todosDias.map((d) => d.data).sort().at(-1);
   const porMes = [...rankings].sort((a,b) => b.caixas-a.caixas || b.mediaCxHora-a.mediaCxHora);
   const porUltimoDia = rankings.map((p) => ({...p, ultimo: p.diario.find((d) => d.data === ultimaData)})).filter((p) => p.ultimo)
     .sort((a,b) => b.ultimo.cxHora-a.ultimo.cxHora || b.ultimo.caixas-a.ultimo.caixas);
-  const tabelaRanking = (lista, valor) => `<div class="tw scroll"><table><thead><tr><th>#</th><th class="t">Montador</th><th>Login</th><th>${valor}</th><th>${valor === 'Caixas no mês' ? 'Dias' : 'Caixas no último dia'}</th></tr></thead><tbody>${lista.map((p,i) => `<tr><td>${i+1}</td><td class="t">${E(p.nome)}</td><td class="t">${E(p.login)}</td><td>${valor === 'Caixas no mês' ? fi(p.caixas) : fd(p.ultimo.cxHora,2)}</td><td>${valor === 'Caixas no mês' ? fi(p.dias) : fi(p.ultimo.caixas)}</td></tr>`).join('') || `<tr><td class="t" colspan="5">Sem dados neste período.</td></tr>`}</tbody></table></div>`;
+  const tabelaRanking = (lista, valor) => `<div class="tw scroll"><table><thead><tr><th>#</th><th class="t">Montador</th><th>Login</th><th>${valor}</th><th>${valor === 'Caixas no mês' ? 'Dias' : 'Caixas no último dia'}</th><th>Situação</th></tr></thead><tbody>${lista.map((p,i) => `<tr><td>${i+1}</td><td class="t">${E(p.nome)}</td><td class="t">${E(p.login)}</td><td>${valor === 'Caixas no mês' ? fi(p.caixas) : fd(p.ultimo.cxHora,2)}</td><td>${valor === 'Caixas no mês' ? fi(p.dias) : fi(p.ultimo.caixas)}</td><td>${p.observacao ? '<span class="badge">Em observação</span>' : 'Validado em DA/DL'}</td></tr>`).join('') || `<tr><td class="t" colspan="6">Sem dados neste período.</td></tr>`}</tbody></table></div>`;
   const ordenados = [...rows].sort((a,b) => b.caixas-a.caixas || a.nome.localeCompare(b.nome,'pt-BR'));
   const datas = [...new Set(todosDias.map((d) => d.data))].sort();
   const porPessoaDia = new Map();
@@ -297,7 +297,7 @@ export function paginaMontadoresUnidade(base, rows, {mes, topo}) {
   const detalhamento = `<div class="tw scroll"><table class="montadores-matriz"><thead><tr><th class="t sticky">Dia</th>${cabecalho}<th>Média do dia</th></tr></thead><tbody>${corpo || `<tr><td class="t" colspan="${ordenados.length+2}">Sem dados diários neste período.</td></tr>`}<tr class="med"><td class="t">Média CX/H no mês</td>${rodapeMedia}<td>–</td></tr></tbody></table></div>`;
   const observados = rows.filter((p) => p.observacao);
   const avisos = [rows.some(diarista) ? 'Diaristas aparecem no detalhamento e ficam fora dos rankings.' : '',
-    observados.length ? `Logins em observação — não constam em DA/DL e não entram nos rankings: ${observados.map((p) => `${E(p.login)} (${E(p.nome)})`).join(', ')}.` : ''].filter(Boolean).join(' ');
+    observados.length ? `Logins em observação — não localizados no cadastro DA/DL e aguardando conferência: ${observados.map((p) => `${E(p.login)} (${E(p.nome)})`).join(', ')}.` : ''].filter(Boolean).join(' ');
   return `${topo}<p class="sub">${E(unidadeMontador[base])} · ${E(nomeMes(mes))}</p><div class="g2 montadores-rankings"><section class="bloco"><div class="faixa">Ranking do mês · caixas</div><div class="corpo">${tabelaRanking(porMes,'Caixas no mês')}</div></section><section class="bloco"><div class="faixa">Último dia com montagem · ${ultimaData ? fdata(ultimaData) : '–'} · CX/H</div><div class="corpo">${tabelaRanking(porUltimoDia,'CX/H')}</div></section></div>${avisos ? `<div class="aviso">${avisos}</div>` : ''}<h2>Detalhamento diário por montador</h2><p class="small">A matriz mostra somente CX/H por dia. Passe o mouse sobre o valor para consultar erros, paletes, misto, LP duplo, container e gaveta. Verde indica pelo menos 350 CX/H.</p>${detalhamento}`;
 }
 
