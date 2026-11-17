@@ -13,7 +13,7 @@ import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';
 import { conectarModeloExportacao } from './modelos.js?v=20261117-3';
-import { importarMontadoresLocal, dadosMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261117-4';
+import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261117-5';
 import { exportarMontadores } from './exportar_montadores.js?v=20261117-3';
 
 const $app = document.getElementById('app');
@@ -587,17 +587,22 @@ async function telaMontadoresUnidade(base, mes) {
 async function telaMontadoresImportar() {
   const mes = mesAtual(), {topo} = await topoMontadores('importar', mes, 'Importar acompanhamento oficial');
   const antes = await dadosMontadores();
-  html(`${topo}<p>Importe o acompanhamento mensal oficial (.XLSX ou .XLSM) que contém as abas de dados ocultas <b>DA</b> e <b>DL</b>. Os dados desta primeira versão ficam somente neste navegador.</p>
-<div class="modelo-box"><label>ARQUIVO OFICIAL DE MONTADORES<br><input type="file" id="arqMontadores" accept=".xlsx,.xlsm"></label><button class="btn" id="importarMontadores">IMPORTAR</button></div>
-<p id="statusMontadores" class="small">${antes.length ? `${V.fi(antes.length)} registros já estão salvos neste navegador. Uma nova importação substitui o conjunto anterior.` : 'Nenhum arquivo importado neste navegador.'}</p>`);
+  html(`${topo}<p>Importe um ou vários relatórios diários <b>listas-trabalhadas</b> (.XLSX), ou uma planilha mensal oficial com as abas <b>DA</b> e <b>DL</b>. Os relatórios diários precisam ter a data no nome (AAAA-MM-DD-listas-trabalhadas.xlsx).</p>
+<div class="modelo-box"><label>ARQUIVOS DE MONTADORES<br><input type="file" id="arqsMontadores" accept=".xlsx,.xlsm" multiple></label><label>UNIDADE DOS RELATÓRIOS DIÁRIOS<br><select id="baseMontadores"><option value="NORTE" selected>CB Norte</option><option value="SUL">CB Sul</option><option value="CBAR">Barreiras</option><option value="CCRT">Juazeiro</option></select></label><button class="btn" id="importarMontadores">IMPORTAR SELECIONADOS</button></div>
+<p class="small">Os relatórios diários não trazem a unidade; ela será aplicada a todas as planilhas do lote. Um lote diário substitui os registros daquela base e das datas selecionadas e preserva os demais dias. Se a planilha oficial DA/DL já estiver carregada neste navegador, o login e a unidade serão conferidos contra ela e o nome completo será preservado. A planilha mensal oficial é importada sozinha e substitui o conjunto salvo.</p>
+<p id="statusMontadores" class="small">${antes.length ? `${V.fi(antes.length)} registros salvos neste navegador.` : 'Nenhum arquivo importado neste navegador.'}</p>`);
   document.getElementById('importarMontadores').onclick = async (e) => {
-    const file = document.getElementById('arqMontadores').files?.[0]; if (!file) { document.getElementById('statusMontadores').textContent = 'Escolha o acompanhamento oficial.'; return; }
-    e.target.disabled = true; const out = document.getElementById('statusMontadores'); out.textContent = 'Lendo as abas DA e DL…';
-    try {
-      const rows = await importarMontadoresLocal(file), dates = rows.map((r) => r.data).sort();
-      out.innerHTML = `<span class="st ok">${V.fi(rows.length)} registros importados de ${V.E(file.name)} · ${V.fdata(dates[0])} a ${V.fdata(dates.at(-1))}. Salvos neste navegador.</span>`;
-      await atualizarStatus(await atualizacaoMontadores());
-    } catch (err) { out.innerHTML = erro(err); }
+    const files = document.getElementById('arqsMontadores').files;
+    if (!files?.length) { document.getElementById('statusMontadores').textContent = 'Escolha pelo menos um arquivo.'; return; }
+    e.target.disabled = true; const out = document.getElementById('statusMontadores'); out.textContent = `Lendo e validando ${files.length} arquivo(s)…`;
+    let resultado;
+    try { resultado = await importarMontadoresArquivos(files, document.getElementById('baseMontadores').value); }
+    catch (err) { out.innerHTML = `${erro(err)}<p class="small">Nenhum dado foi alterado neste lote.</p>`; e.target.disabled = false; return; }
+    const detalhes = resultado.arquivos.map((x) => `<tr><td class="t">${V.E(x.arquivo)}</td><td>${x.data ? V.fdata(x.data) : 'Planilha mensal'}</td><td>${V.fi(x.linhas)}</td><td class="st ok">Validado</td></tr>`).join('');
+    const unidade = { NORTE: 'CB Norte', SUL: 'CB Sul', CBAR: 'Barreiras', CCRT: 'Juazeiro' }[resultado.base];
+    const tipo = resultado.tipo === 'diaria' ? `lote diário de ${V.E(unidade)} · ${V.fi(resultado.total)} registros` : `planilha oficial · ${V.fi(resultado.total)} registros`;
+    out.innerHTML = `<p class="st ok">✓ ${resultado.arquivos.length} arquivo(s) validados; ${tipo}. Agora há ${V.fi(resultado.registros)} registros salvos neste navegador.</p><div class="tw scroll"><table><thead><tr><th class="t">Arquivo</th><th>Data</th><th>Linhas</th><th>Status</th></tr></thead><tbody>${detalhes}</tbody></table></div>`;
+    try { await atualizarStatus(await atualizacaoMontadores()); } catch { /* A importação já foi salva; a barra poderá atualizar na próxima abertura. */ }
     e.target.disabled = false;
   };
 }

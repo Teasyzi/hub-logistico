@@ -48,7 +48,9 @@ Fórmulas: `SUMIFS(DA!H, DA!J = dia, DA!L = base, DA!K = montador)`; gratificaç
 - Bom candidato a fase inicial: entrada única e regra simples.
 
 ## Estado da implementação no Hub (2026-11-17)
-- Fase inicial em validação: importa a planilha mensal oficial que contém `DA` e `DL`, monta ranking por unidade e exporta uma cópia atualizada usando o modelo XLSX/XLSM.
+- Importa tanto a planilha mensal oficial que contém `DA` e `DL` quanto vários relatórios diários `AAAA-MM-DD-listas-trabalhadas.xlsx` em um único lote. Cada lote diário recebe a unidade selecionada, substitui somente os registros daquela unidade e daquelas datas e preserva outros dias/unidades.
+- Valida no relatório diário o nome da aba e os cabeçalhos, a data do nome do arquivo, posições sequenciais, logins únicos, campos obrigatórios e valores numéricos inteiros/não negativos para caixas e erros; confere também a ordem decrescente de caixas/hora. Um lote com erro ou datas repetidas não altera os dados salvos.
+- Quando já existe um cadastro mensal `DA`/`DL` neste navegador, o login é conferido contra a unidade cadastrada e o nome completo do cadastro prevalece.
 - Importações, nomes e modelos ficam apenas no IndexedDB do navegador usado para importar; a tela e rotas são administrativas. Não sincroniza esses dados ao Firebase.
 - A média de CX/H considera dias com produção; a meta é 350 CX/H e a gratificação estimada é caixas × R$ 0,003.
 - O resumo e o ranking diário já estão na primeira versão; de-para de nomes, observações, evolução por dia da semana e gráficos ainda precisam de validação/complementação.
