@@ -14,7 +14,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { calcular, motivos } from './calc.js?v=20261117-5';
 import { placarPES } from './pes.js';
-import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-5';
+import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-6';
 import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-2';
 
 export const UNIDADES = {
@@ -254,27 +254,46 @@ const refKM = (unidade, mes) => doc(db, 'km_dados', `${unidade}_${mes}`);
 export async function lerDadosKM(mes) {
   const unidades = Object.keys(UNIDADES_KM);
   const docs = await Promise.all(unidades.map((c) => getDoc(refKM(c, mes))));
-  const rotas = [], abastecimentos = [], ajustes = {};
+  const rotas = [], abastecimentos = [], ajustes = {}, secoes = {};
   docs.forEach((snap, i) => {
     const d = snap.data() || {}, c = unidades[i];
     rotas.push(...(d.rotas || []).map((r) => ({ ...r, unidade: c })));
     abastecimentos.push(...(d.abastecimentos || []).map((a) => ({ ...a, unidade: c })));
     ajustes[c] = d.ajustes || [];
+    if (Array.isArray(d.secoes)) secoes[c] = d.secoes;
   });
   const parametros = Object.fromEntries(await Promise.all(unidades.map(async (c) => [c, await lerParametrosKM(c, mes)])));
-  return { rotas, abastecimentos, parametros, ajustes };
+  return { rotas, abastecimentos, parametros, ajustes, secoes };
 }
 
 // Rotas de uma unidade já com os ajustes aplicados, para a tela de revisão (só admin).
 export async function lerRotasRevisaoKM(unidade, mes) {
-  const d = (await getDoc(refKM(unidade, mes))).data() || {};
-  const rotas = (d.rotas || []).map((r) => ({ ...r, unidade })).sort((a, b) => a.data.localeCompare(b.data));
-  return aplicarAjustesKM(rotas, { [unidade]: d.ajustes || [] });
+  const [snap, parametros] = await Promise.all([getDoc(refKM(unidade, mes)), lerParametrosKM(unidade, mes)]);
+  const d = snap.data() || {};
+  const rotas = (d.rotas || []).map((r) => ({ ...r, unidade })).sort((a, b) => a.data.localeCompare(b.data) || String(a.secao || '').localeCompare(String(b.secao || '')));
+  return { rotas: aplicarAjustesKM(rotas, { [unidade]: d.ajustes || [] }), secoes: Array.isArray(d.secoes) ? d.secoes : null, parametros };
 }
 
-// Ajustes = [{chave, motorista?, excluir?}]. Ficam num campo próprio de km_dados, que a reimportação de rotas não apaga.
-export async function gravarAjustesKM(unidade, mes, ajustes) {
-  await setDoc(refKM(unidade, mes), { unidade, mes, ajustes, atualizado: serverTimestamp() }, { mergeFields: ['unidade', 'mes', 'ajustes', 'atualizado'] });
+// Ajustes = [{chave, motorista?, excluir?, idaVolta?}] e seções da montagem que entram no planejado.
+// Ficam em campos próprios de km_dados, que a reimportação de rotas não apaga.
+export async function gravarAjustesKM(unidade, mes, ajustes, secoes) {
+  const dados = { unidade, mes, ajustes, atualizado: serverTimestamp(), ...(secoes ? { secoes } : {}) };
+  await setDoc(refKM(unidade, mes), dados, { mergeFields: Object.keys(dados) });
+}
+
+// Tabela fixa de ida e volta e apelidos dos motoristas, por unidade. Vale para todos os meses; o mês pode sobrescrever.
+const refBaseKM = (unidade) => doc(db, 'km_parametro', `${unidade}_base`);
+export async function lerBaseKM(unidade) { return (await getDoc(refBaseKM(unidade))).data()?.valores || {}; }
+export async function gravarBaseKM(unidade, valores) {
+  await setDoc(refBaseKM(unidade), { unidade, mes: 'base', valores, atualizado: serverTimestamp() });
+}
+export async function gravarTabelasKM(tabelas) {
+  let n = 0;
+  for (const [c, t] of Object.entries(tabelas || {})) {
+    if (!Object.keys(t.idaVolta || {}).length && !Object.keys(t.apelidos || {}).length) continue;
+    await gravarBaseKM(c, t); n += Object.keys(t.idaVolta || {}).length;
+  }
+  return n;
 }
 
 async function gravarParcialKM(unidade, mes, tipo, linhas) {
@@ -304,6 +323,10 @@ export async function gravarAbastecimentosKM(linhas) {
 }
 
 export async function lerParametrosKM(unidade, mes) {
+  const [base, doMes] = await Promise.all([lerBaseKM(unidade), getDoc(doc(db, 'km_parametro', `${unidade}_${mes}`)).then((s) => s.data()?.valores || {})]);
+  return { ...base, ...doMes, idaVolta: { ...(base.idaVolta || {}), ...(doMes.idaVolta || {}) }, apelidos: { ...(base.apelidos || {}), ...(doMes.apelidos || {}) } };
+}
+export async function lerParametrosMesKM(unidade, mes) {
   return (await getDoc(doc(db, 'km_parametro', `${unidade}_${mes}`))).data()?.valores || {};
 }
 export async function gravarParametrosKM(unidade, mes, valores) {

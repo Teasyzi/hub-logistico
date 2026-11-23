@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>KM pelos relatórios</title>
+<!-- Calcula o KM de um mês só com os relatórios-fonte, como o site faz depois de importar:
+     ?mes=AAAA-MM&tabelas=<planilha KM antiga, para a ida e volta>&arqs=<arquivo1>|<arquivo2>|…
+     Os arquivos são buscados em /amostras/. Só mostra números: nada de nomes ou placas. -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<pre id="saida">rodando…</pre>
+<script type="module">
+const out = { arquivos: {}, erros: [] };
+try {
+  const I = await import('../../docs/js/importar.js');
+  const K = await import('../../docs/js/km.js');
+  const q = new URLSearchParams(location.search), mes = q.get('mes');
+  const baixar = async (n) => new File([await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer()], n);
+  const parametros = {};
+  if (q.get('tabelas')) {
+    const t = await I.lerArquivo(await baixar(q.get('tabelas')), { mes, contexto: 'km' });
+    for (const [c, v] of Object.entries(t.tabelas || {})) parametros[c] = { idaVolta: v.idaVolta, apelidos: v.apelidos };
+    out.tabelas = Object.fromEntries(Object.entries(t.tabelas).map(([c, v]) => [c, { motoristas: Object.keys(v.idaVolta).length, apelidos: Object.keys(v.apelidos).length }]));
+  }
+  const rotas = [], abastecimentos = [];
+  for (const n of (q.get('arqs') || '').split('|').filter(Boolean)) {
+    const x = await I.lerArquivo(await baixar(n), { mes, unidade: 'AUTO', contexto: 'km' });
+    if (x.rotas) rotas.push(...x.rotas);
+    if (x.tipo === 'km_abastecimentos') abastecimentos.push(...x.linhas);
+    out.arquivos[n] = { tipo: x.tipo, linhas: (x.rotas || x.linhas || []).length, unidades: [...new Set((x.rotas || x.linhas || []).map((r) => r.unidade))], dias: [...new Set((x.rotas || x.linhas || []).map((r) => r.data))].length };
+  }
+  const calc = (secoes = {}) => K.calcularKM({ mes, rotas, abastecimentos, parametros, secoes });
+  const res = calc();
+  const busca = Object.fromEntries(Object.keys(K.UNIDADES_KM).map((c) => [c, K.buscaIdaVoltaKM(parametros[c] || {})]));
+  out.unidades = Object.fromEntries(Object.entries(res.unidades).map(([c, u]) => {
+    const rs = rotas.filter((r) => r.unidade === c && K.rotaNaSecao(r));
+    const origens = {};
+    for (const r of rs) { const o = K.idaDaRota(r, busca[c]).origem; origens[o] = (origens[o] || 0) + 1; }
+    return [c, { planejado: Math.round(u.totais.planejado), realizado: u.totais.realizado, dispersao: u.totais.dispersao == null ? null : +(u.totais.dispersao * 100).toFixed(1),
+      ultimoDia: u.ultimoDia, kmRotas: Math.round(rs.reduce((s, r) => s + r.km, 0)), idaVolta: Math.round(u.totais.planejado ? u.dias.filter((d) => !d.acumulado).reduce((s, d) => s + d.planejado, 0) - rs.filter((r) => r.data <= (u.ultimoDia || '')).reduce((s, r) => s + r.km, 0) : 0),
+      origensIda: origens, revisao: u.revisao }];
+  }));
+  const todas = calc({ NORTE: I.SECOES_KM });
+  out.norteTodasSecoes = Math.round(todas.unidades.NORTE.totais.planejado);
+  out.norteNomesForaDaTabela = new Set(rotas.filter((r) => r.unidade === 'NORTE' && K.idaDaRota(r, busca.NORTE).origem === 'fora da tabela').map((r) => r.motorista)).size;
+} catch (e) { out.erros.push(e.message + '\n' + e.stack); }
+window.resultado = out;
+document.getElementById('saida').textContent = JSON.stringify(out, null, 1);
+</script>

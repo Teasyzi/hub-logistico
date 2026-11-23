@@ -156,6 +156,26 @@ function dataAbaKM(nome, mes) {
   return mm && aa ? `${aa}-${String(mm).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}` : null;
 }
 
+// "MONTAGEM DAS CARGAS - CB SUL - NOVEMBRO.xlsx": as abas trazem só o dia, então o mês sai do nome do arquivo.
+// O ano vem do nome (se tiver) ou do mês escolhido na tela; sem mês no nome, vale o mês escolhido.
+const MESES_KM = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+export function mesDoNomeKM(nomeArquivo, mesTela) {
+  const n = normKM(nomeArquivo), i = MESES_KM.findIndex((m) => new RegExp(`\\b${m}\\b`).test(n));
+  if (i < 0) return mesTela;
+  const ano = n.match(/\b(20\d{2})\b/)?.[1] || String(mesTela || '').slice(0, 4) || String(new Date().getFullYear());
+  return `${ano}-${String(i + 1).padStart(2, '0')}`;
+}
+
+export const SECOES_KM =['ROTAS DO DIA', 'RECARGAS NA BASE', 'CARGAS CROSS', 'FINALIZANDO ROTAS', 'SAÍDA PARA OUTRO DIA'];
+function secaoKM(titulo) {
+  const t = normKM(titulo);
+  if (/recarga/.test(t)) return 'RECARGAS NA BASE';
+  if (/cross/.test(t)) return 'CARGAS CROSS';
+  if (/finalizando/.test(t)) return 'FINALIZANDO ROTAS';
+  if (/saida para/.test(t)) return 'SAÍDA PARA OUTRO DIA';
+  return 'ROTAS DO DIA';
+}
+
 // Montagens Norte/Sul: os campos são lidos por posição porque os rótulos da Sul estão deslocados.
 export function lerRotasMontagemKM(wb, mes) {
   const saida = [];
@@ -171,10 +191,14 @@ export function lerRotasMontagemKM(wb, mes) {
     const unidade = norte ? 'NORTE' : 'SUL';
     if (unidadeArquivo && unidadeArquivo !== unidade) throw new Error('O arquivo mistura abas Norte e Sul; importe cada arquivo separadamente.');
     unidadeArquivo = unidade;
+    // A Norte divide a aba em seções com um título na col. E ("ROTAS DO DIA", "RECARGAS NA BASE…",
+    // "CARGAS CROSS…", "FINALIZANDO ROTAS <dia>", "CARGAS COM SAÍDA PARA <dia>"). Cada rota guarda a sua.
+    let secao = 'ROTAS DO DIA';
     for (const r of ls.slice(4)) {
+      if (r && texto(r[4]) && !texto(r[1]) && !texto(r[2]) && !num(r[norte ? 8 : 13])) { secao = secaoKM(r[4]); continue; }
       const km = num(r[norte ? 8 : 13]);
       if (!km || !r[2]) continue;
-      saida.push({ unidade: norte ? 'NORTE' : 'SUL', data, carga: texto(r[0]), area: texto(r[1]), placa: String(r[2]).trim().toUpperCase(), motorista: texto(r[4]), km, idaVolta: null });
+      saida.push({ unidade: norte ? 'NORTE' : 'SUL', data, secao, carga: texto(r[0]), area: texto(r[1]), placa: String(r[2]).trim().toUpperCase(), motorista: texto(r[4]), km, idaVolta: null });
     }
   }
   if (!saida.length) throw new Error('Não encontrei as rotas Norte/Sul. Confira as abas diárias e selecione o mês de referência.');
@@ -232,11 +256,48 @@ export function lerPlanejamentoHistoricoKM(wb) {
   return saida;
 }
 
+// Tabelas fixas da planilha antiga, para não redigitar todo mês:
+// - ida e volta: Norte/Sul = NOME MOTORISTA → ÁREA → IDA E VOLTA da 1ª linha daquela área (como o PROCV);
+//   Barreiras = soma da IDA E VOLTA do motorista (como o SOMASE). Juazeiro não tem.
+// - apelidos (aba Planilha1): nome como vem na montagem → nome completo, por unidade.
+export function lerIdaVoltaHistoricoKM(wb) {
+  const abas = { NORTE: 'Planejado Norte', SUL: 'Planejado Sul', CBAR: 'Planejado Barreiras', CCRT: 'Planejado Juazeiro' };
+  const saida = {};
+  for (const [u, aba] of Object.entries(abas)) {
+    const ls = linhas(wb.Sheets[aba]);
+    const cab = (ls[0] || []).map(normKM), n = cab.lastIndexOf('nome motorista');
+    const idaVolta = {}, areas = {};
+    if (n >= 0 && cab[n + 1] === 'area' && cab[n + 2] === 'ida e volta') {
+      const tab = ls.slice(1).filter((l) => l && texto(l[n]));
+      const idaArea = {};
+      for (const l of tab) { const a = normKM(l[n + 1]); if (a && !(a in idaArea)) idaArea[a] = num(l[n + 2]); }
+      for (const l of tab) {
+        const nome = texto(l[n]).toUpperCase();
+        areas[nome] = texto(l[n + 1]);
+        idaVolta[nome] = u === 'CBAR' ? (idaVolta[nome] || 0) + num(l[n + 2]) : idaArea[normKM(l[n + 1])] ?? 0;
+      }
+    }
+    saida[u] = { idaVolta, areas, apelidos: {} };
+  }
+  const p1 = linhas(wb.Sheets['Planilha1']);
+  for (const [u, c] of [['NORTE', 0], ['SUL', 3], ['CBAR', 6], ['CCRT', 9]]) {
+    for (const l of p1.slice(2)) {
+      const ap = texto(l?.[c]), nome = texto(l?.[c + 1]);
+      if (ap && nome && ap.toUpperCase() !== nome.toUpperCase()) saida[u].apelidos[ap.toUpperCase()] = nome.toUpperCase();
+    }
+  }
+  return saida;
+}
+
 export function lerPlanejamentoKM(wb, mes, unidadeSelecionada = null) {
   const nomes = wb.SheetNames.map(normKM);
   if (nomes.includes('resumo geral')) {
-    const textoWB = wb.SheetNames.map((n) => linhas(wb.Sheets[n]).flat().filter(Boolean).join(' ')).join(' ').toLocaleUpperCase('pt-BR');
-    const unidade = /JUAZEIRO|CCRT|FILIAL III/.test(textoWB) ? 'CCRT' : /BARREIRAS|CBAR|FILIAL I/.test(textoWB) ? 'CBAR' : unidadeSelecionada;
+    // A unidade fica ao lado do rótulo "Unidade" (C7). Não procurar no arquivo todo: o Resumo de Barreiras
+    // cita CCRT nas abas de cross e era lido como Juazeiro.
+    const lsRG = linhas(wb.Sheets['Resumo Geral']).slice(0, 12);
+    const linhaU = lsRG.find((l) => l && normKM(l[1]) === 'unidade');
+    const cod = normKM(linhaU?.[2]);
+    const unidade = cod === 'ccrt' ? 'CCRT' : cod === 'cbar' ? 'CBAR' : unidadeSelecionada;
     if (!unidade) throw new Error('Não identifiquei Barreiras ou Juazeiro no conteúdo do Resumo.');
     return lerResumoKM(wb, unidade);
   }
@@ -332,7 +393,7 @@ export async function lerArquivo(file, opcoes = {}) {
   if (tipo === 'resumo') return { tipo, plan: lerResumo(wb) };
   if (tipo === 'montagem') return { tipo, ...lerMontagemLegada(wb) };
   if (tipo === 'reprog') return { tipo, reprog: lerReprogLegada(wb) };
-  if (tipo === 'km_rotas' || tipo === 'km_resumo') return { tipo, rotas: lerPlanejamentoKM(wb, opcoes.mes, opcoes.unidade === 'AUTO' ? null : opcoes.unidade) };
-  if (tipo === 'km_historico') return { tipo, rotas: lerPlanejamentoHistoricoKM(wb), linhas: lerConsultaHistoricoKM(wb) };
+  if (tipo === 'km_rotas' || tipo === 'km_resumo') return { tipo, rotas: lerPlanejamentoKM(wb, mesDoNomeKM(file.name, opcoes.mes), opcoes.unidade === 'AUTO' ? null : opcoes.unidade) };
+  if (tipo === 'km_historico') return { tipo, rotas: lerPlanejamentoHistoricoKM(wb), linhas: lerConsultaHistoricoKM(wb), tabelas: lerIdaVoltaHistoricoKM(wb) };
   return { tipo: null };
 }

@@ -130,3 +130,4 @@ table.pes td:nth-child(4){font-size:12.5px}
 .campo-link{width:100%;max-width:640px}
 .bloco .corpo h3{margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.35px;color:var(--ink2)}
 .km-rotas td input.mot{text-align:left;min-width:220px}.km-rotas tr.exc td{color:var(--muted)}.km-rotas tr.exc td input.mot{color:var(--muted)}
+.km-rotas td input.ida{width:72px;min-width:60px}label.chk{display:inline-flex;gap:4px;align-items:center;margin:0 14px 6px 0;white-space:nowrap}

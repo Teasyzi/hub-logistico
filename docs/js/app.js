@@ -4,9 +4,9 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261123-5';
-import { lerArquivo, num } from './importar.js?v=20261123-5';
-import * as V from './views.js?v=20261123-5';
+import * as D from './dados.js?v=20261123-6';
+import { lerArquivo, num } from './importar.js?v=20261123-6';
+import * as V from './views.js?v=20261123-6';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -503,27 +503,34 @@ async function telaKMMotoristas(unidade, mes) {
 async function telaKMRotas(unidade, mes) {
   if (!['NORTE', 'SUL', 'CBAR', 'CCRT'].includes(unidade)) unidade = 'NORTE';
   html('<p class="small">Carregando rotas…</p>');
-  const [topo, rotas] = await Promise.all([topoKM('rotas', mes, `Revisar rotas · ${V.nomeMes(mes)}`), D.lerRotasRevisaoKM(unidade, mes)]);
-  html(V.paginaKMRotas(unidade, rotas, { mes, topo }));
+  const [topo, dados] = await Promise.all([topoKM('rotas', mes, `Revisar rotas · ${V.nomeMes(mes)}`), D.lerRotasRevisaoKM(unidade, mes)]);
+  html(V.paginaKMRotas(unidade, dados, { mes, topo }));
   ligarTopo((m) => `#/km/rotas/${unidade}/${m}`);
   const linhas = () => [...document.querySelectorAll('table.km-rotas tbody tr[data-chave]')];
+  const caixasSecao = () => [...document.querySelectorAll('input.secao')];
+  const secoesMarcadas = () => caixasSecao().filter((i) => i.checked).map((i) => i.value);
+  const pintar = () => { const s = secoesMarcadas();
+    for (const tr of linhas()) tr.classList.toggle('exc', tr.querySelector('.exc').checked || (!!tr.dataset.secao && caixasSecao().length > 0 && !s.includes(tr.dataset.secao))); };
   document.getElementById('filtroRotas').onchange = (e) => {
     for (const tr of linhas()) tr.hidden = e.target.value !== 'todas' && !tr.dataset.grupos.split(' ').includes(e.target.value);
   };
   document.getElementById('marcarFret').onclick = () => {
-    for (const tr of linhas()) if (/FRETEIRO/i.test(tr.querySelector('.mot').value)) { tr.querySelector('.exc').checked = true; tr.classList.add('exc'); }
+    for (const tr of linhas()) if (/FRETEIRO/i.test(tr.querySelector('.mot').value)) tr.querySelector('.exc').checked = true;
+    pintar();
   };
-  for (const tr of linhas()) tr.querySelector('.exc').onchange = (e) => tr.classList.toggle('exc', e.target.checked);
+  for (const tr of linhas()) tr.querySelector('.exc').onchange = pintar;
+  for (const i of caixasSecao()) i.onchange = pintar;
   document.getElementById('salvarRotas').onclick = async (e) => {
     e.target.disabled = true;
     try {
       const ajustes = [];
       for (const tr of linhas()) {
         const motorista = tr.querySelector('.mot').value.trim(), excluir = tr.querySelector('.exc').checked;
-        const trocou = motorista && motorista !== tr.dataset.original;
-        if (trocou || excluir) ajustes.push({ chave: tr.dataset.chave, ...(trocou ? { motorista } : {}), ...(excluir ? { excluir: true } : {}) });
+        const idaTxt = tr.querySelector('.ida')?.value.trim() ?? '';
+        const trocou = motorista && motorista !== tr.dataset.original, temIda = idaTxt !== '';
+        if (trocou || excluir || temIda) ajustes.push({ chave: tr.dataset.chave, ...(trocou ? { motorista } : {}), ...(excluir ? { excluir: true } : {}), ...(temIda ? { idaVolta: num(idaTxt) } : {}) });
       }
-      await D.gravarAjustesKM(unidade, mes, ajustes);
+      await D.gravarAjustesKM(unidade, mes, ajustes, caixasSecao().length ? secoesMarcadas() : null);
       await telaKMRotas(unidade, mes);
       document.getElementById('msg').innerHTML = `<span class="st ok">✓ ${ajustes.length} ajuste(s) salvos</span>`;
     } catch (err) { document.getElementById('msg').innerHTML = erro(err); e.target.disabled = false; }
@@ -549,6 +556,8 @@ async function telaKMImportar() {
           n = await D.gravarRotasKM(x.rotas);
           // A planilha antiga também traz a listagem de abastecimentos na aba Consulta.
           if (x.tipo === 'km_historico' && x.linhas?.length) n += await D.gravarAbastecimentosKM(x.linhas);
+          // …e a tabela de ida e volta e os apelidos, que passam a valer para todos os meses.
+          if (x.tipo === 'km_historico' && x.tabelas) tipo += ` · ida e volta de ${await D.gravarTabelasKM(x.tabelas)} motoristas`;
         }
         else throw new Error('Formato não reconhecido como arquivo de KM.');
         await D.registrarImportacao({ arquivo: f.name, tipo, linhas: n, periodo: document.getElementById('mesImport').value, acompanhamento: 'km' });
@@ -567,22 +576,26 @@ async function telaKMImportar() {
 
 async function telaKMParametros(mes) {
   const topo = await topoKM('parametros', mes, `Parâmetros · ${V.nomeMes(mes)}`), cs = ['NORTE', 'SUL', 'CBAR', 'CCRT'];
-  const pars = Object.fromEntries(await Promise.all(cs.map(async (c) => [c, await D.lerParametrosKM(c, mes)])));
+  const [pars, bases] = await Promise.all([
+    Promise.all(cs.map((c) => D.lerParametrosMesKM(c, mes))).then((xs) => Object.fromEntries(cs.map((c, i) => [c, xs[i]]))),
+    Promise.all(cs.map((c) => D.lerBaseKM(c))).then((xs) => Object.fromEntries(cs.map((c, i) => [c, xs[i]]))),
+  ]);
   const padrao = mes === '2026-11' ? { NORTE: 2.46, SUL: 2.09, CBAR: 2.07, CCRT: 4.19 } : {};
   const numTxt = (v) => v == null ? '' : String(v).replace('.', ',');
-  const linhas = cs.map((c) => `<tr><td class="t">${V.E(c)}</td><td><input type="text" data-c="${c}" data-k="cpk" value="${V.E(numTxt(pars[c].cpk ?? padrao[c]))}"></td><td><input type="text" data-c="${c}" data-k="meta" value="${V.E(numTxt((pars[c].meta ?? 0.05) * 100))}" placeholder="5"></td><td><textarea data-c="${c}" data-k="idaVolta" rows="3" placeholder="MOTORISTA=km, um por linha">${V.E(Object.entries(pars[c].idaVolta || {}).map(([k,v]) => `${k}=${numTxt(v)}`).join('\n'))}</textarea></td></tr>`).join('');
-  html(`${topo}<p class="sub">CPK em R$/km, meta percentual em % (ex.: 5), e ida e volta como MOTORISTA=km, uma regra por linha. A ida e volta é aplicada uma vez por motorista/placa no dia.</p><div class="tw"><table><thead><tr><th class="t">Unidade</th><th>CPK</th><th>Meta ± %</th><th>Ida e volta por motorista</th></tr></thead><tbody>${linhas}</tbody></table></div><p><button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>`);
+  const linhas = cs.map((c) => `<tr><td class="t">${V.E(c)}</td><td><input type="text" data-c="${c}" data-k="cpk" value="${V.E(numTxt(pars[c].cpk ?? padrao[c]))}"></td><td><input type="text" data-c="${c}" data-k="meta" value="${V.E(numTxt((pars[c].meta ?? 0.05) * 100))}" placeholder="5"></td><td><textarea data-c="${c}" data-k="idaVolta" rows="4" placeholder="MOTORISTA=km, um por linha">${V.E(Object.entries(bases[c].idaVolta || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR')).map(([k,v]) => `${k}=${numTxt(v)}`).join('\n'))}</textarea><div class="small">${Object.keys(bases[c].apelidos || {}).length} apelido(s) importado(s)</div></td></tr>`).join('');
+  html(`${topo}<p class="sub">CPK em R$/km e meta em % (ex.: 5) valem para este mês. A <b>ida e volta por motorista</b> é uma tabela fixa, que vale para todos os meses. Ela é preenchida sozinha quando você importa uma planilha antiga "KM Planejado x Realizado" e pode ser editada aqui (MOTORISTA=km, um por linha). A ida e volta entra uma vez por motorista no dia, e dá para zerar uma rota específica em ⚙ Rotas.</p><div class="tw"><table><thead><tr><th class="t">Unidade</th><th>CPK</th><th>Meta ± %</th><th>Ida e volta por motorista (todos os meses)</th></tr></thead><tbody>${linhas}</tbody></table></div><p><button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>`);
   document.getElementById('salvar').onclick = async (e) => {
     e.target.disabled = true;
     try {
       for (const c of cs) {
-        const v = { idaVolta: {} };
+        const v = {}, ida = {};
         document.querySelectorAll(`[data-c="${c}"]`).forEach((i) => {
-          if (i.dataset.k === 'idaVolta') for (const line of i.value.split(/\r?\n/)) { const [k, x] = line.split('='); if (k?.trim() && x?.trim()) v.idaVolta[k.trim().toLocaleUpperCase('pt-BR')] = num(x); }
+          if (i.dataset.k === 'idaVolta') for (const line of i.value.split(/\r?\n/)) { const [k, x] = line.split('='); if (k?.trim() && x?.trim()) ida[k.trim().toLocaleUpperCase('pt-BR')] = num(x); }
           else if (i.value.trim()) v[i.dataset.k] = num(i.value);
         });
         if (v.meta > 1) v.meta /= 100;
         await D.gravarParametrosKM(c, mes, v);
+        await D.gravarBaseKM(c, { ...bases[c], idaVolta: ida });
       }
       document.getElementById('msg').innerHTML = '<span class="st ok">Salvo</span>';
       await atualizarStatus(await ultimaKM(mes));

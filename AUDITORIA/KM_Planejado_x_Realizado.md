@@ -135,3 +135,23 @@ Pendente: saber com quem envia o "CPK FROTA ROTA ACM" se ele é outro recorte (s
 
 ### FRETEIRO e troca de motorista (2026-11-23)
 O Hub não exclui mais FRETEIRO sozinho. Em `#/km/rotas/<unidade>/<mês>` (só admin) dá para trocar o motorista de cada rota e marcar "Excluir". Há um botão para marcar todas as rotas de FRETEIRO de uma vez. O resumo avisa quantas rotas de FRETEIRO ainda contam no planejado. Os ajustes ficam em `km_dados/<unidade>_<mês>.ajustes`, separados das rotas, e continuam valendo depois de reimportar o dia.
+
+### KM só com os relatórios-fonte (2026-11-23)
+O site passa a montar o mês inteiro com os arquivos que já chegam, sem a planilha:
+
+| Arquivo | O que o site faz |
+|---|---|
+| `MONTAGEM DAS CARGAS … CB NORTE` | lê todas as abas `DD-MM`. Cada rota guarda a seção da aba (ROTAS DO DIA, RECARGAS NA BASE, CARGAS CROSS, FINALIZANDO ROTAS, SAÍDA PARA OUTRO DIA). **Por padrão só "ROTAS DO DIA" entra no planejado.** As outras se marcam em ⚙ Rotas, por mês. |
+| `MONTAGEM DAS CARGAS - CB SUL - <MÊS>` | lê as abas `DD`. O mês sai do nome do arquivo. |
+| `Resumo de Planejamento - Diário - CBAR/CCRT` | um arquivo por dia. A unidade sai da célula ao lado de "Unidade" (C7). Antes, o de Barreiras era lido como Juazeiro porque cita CCRT nas abas de cross. |
+| `Listagem de abastecimentos.txt` | realizado, pelo centro de custo. |
+| `KM Planejado x Realizado - <Mês>.xlsm` (uma vez) | além das rotas e abastecimentos, grava a **tabela fixa de ida e volta** (motorista → área → km, como o PROCV) e os **apelidos** da `Planilha1`. Vale para todos os meses e pode ser editada em ⚙ Parâmetros. |
+
+Ida e volta de cada rota: o valor digitado em ⚙ Rotas vence (ex.: **0** quando o motorista veio buscar a carga na unidade); depois vem o valor do arquivo (planilha antiga); depois a tabela pelo nome do motorista (apelido → nome completo; nome cortado em 30 letras casa pelo começo). Entra uma vez por motorista no dia. FRETEIRO, GENÉRICO e EXTRA ficam sem ida e volta. Juazeiro não tem tabela.
+
+Teste com nov/26 (`code/tests_js/km_relatorios.html`), realizado até 23/11:
+- CB Norte: só "ROTAS DO DIA" dá 101.293 km planejados (58.265 de rota + 43.028 de ida e volta) contra 95.006 rodados (−6,2%). Com todas as seções, seriam 134.919 (−30%), o que confirma o padrão.
+- CB Norte: 25 rotas de 3 motoristas não estão na tabela de outubro. Elas entram sem ida e volta e aparecem no aviso de ⚙ Rotas.
+- CB Sul: 68.778 km planejados (a ida e volta da Sul é 0 na tabela) contra 63.681 rodados. As 15 rotas de FRETEIRO (1.813 km) aguardam revisão.
+- Barreiras e Juazeiro: só há o Resumo de 21/11, porque os diários de novembro ainda não foram importados.
+- Outubro continua batendo com a planilha oficial após as mudanças.

@@ -1,6 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261123-5';
+import { UNIDADES } from './dados.js?v=20261123-6';
 import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
+import { buscaIdaVoltaKM, idaDaRota, rotaNaSecao, SECOES_PADRAO_KM } from './km.js?v=20261123-6';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -330,30 +331,45 @@ ${detalhe}</div></section>`;
 // Revisão das rotas planejadas (só admin): trocar motorista e excluir rota (ex.: FRETEIRO confirmado).
 // O filtro é feito no navegador (atributo data-grupos de cada linha), sem mudar a rota da página.
 const NOMES_KM = { NORTE: 'CB Norte', SUL: 'CB Sul', CBAR: 'DL Barreiras', CCRT: 'DL Juazeiro' };
-export function paginaKMRotas(unidade, rotas, { mes, topo }) {
+const SECOES_MONTAGEM = ['ROTAS DO DIA', 'RECARGAS NA BASE', 'CARGAS CROSS', 'FINALIZANDO ROTAS', 'SAÍDA PARA OUTRO DIA'];
+export function paginaKMRotas(unidade, { rotas, secoes, parametros }, { mes, topo }) {
   const fret = (r) => /FRETEIRO/i.test(`${r.categoria || ''} ${r.motorista || ''}`);
   const comPlaca = ['NORTE', 'SUL'].includes(unidade);
+  const busca = buscaIdaVoltaKM(parametros), ativas = secoes || SECOES_PADRAO_KM;
+  const temSecao = rotas.some((r) => r.secao), comIda = unidade !== 'CCRT';
+  const secoesPresentes = SECOES_MONTAGEM.filter((s) => rotas.some((r) => r.secao === s));
+  const foraSecao = (r) => !rotaNaSecao(r, ativas);
+  const idaTxt = (r) => { const i = idaDaRota({ ...r, idaManual: null }, busca); return { auto: i.valor, origem: i.origem }; };
   const nomes = [...new Set(rotas.map((r) => r.motoristaOriginal).filter((n) => n && !/FRETEIRO/i.test(n)))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const pend = rotas.filter((r) => fret(r) && !r.excluida), kmPend = pend.reduce((s, r) => s + (Number(r.km) || 0), 0);
-  const grupos = (r) => [fret(r) || /FRETEIRO/i.test(r.motoristaOriginal || '') ? 'freteiro' : '', r.ajustada || r.excluida ? 'ajustadas' : '', r.excluida ? 'excluidas' : ''].filter(Boolean).join(' ');
-  const etiqueta = (r) => r.excluida ? '<span class="st no">excluída</span>' : fret(r) ? '<span class="badge">FRETEIRO · revisar</span>'
-    : r.ajustada ? '<span class="st ok">motorista trocado</span>' : /GENERICO|EXTRA/i.test(`${r.categoria || ''} ${r.motorista || ''}`) ? '<span class="tag">sem atribuição</span>' : '';
-  const linhas = rotas.map((r) => `<tr class="${r.excluida ? 'exc' : ''}" data-chave="${E(r.chave)}" data-original="${E(r.motoristaOriginal || '')}" data-grupos="${grupos(r)}">
-<td class="t">${fdata(r.data)}</td><td class="t">${E(r.carga || '–')}</td><td class="t">${E(r.area || '–')}</td>${comPlaca ? `<td class="t">${E(r.placa || '–')}</td>` : ''}
+  const grupos = (r) => [fret(r) || /FRETEIRO/i.test(r.motoristaOriginal || '') ? 'freteiro' : '', r.ajustada || r.excluida ? 'ajustadas' : '', r.excluida ? 'excluidas' : '',
+    comIda && idaTxt(r).origem === 'fora da tabela' ? 'semtabela' : '', r.idaManual != null ? 'idamanual' : ''].filter(Boolean).join(' ');
+  const etiqueta = (r) => r.excluida ? '<span class="st no">excluída</span>' : foraSecao(r) ? '<span class="tag">seção fora do planejado</span>' : fret(r) ? '<span class="badge">FRETEIRO · revisar</span>'
+    : r.motorista !== r.motoristaOriginal ? '<span class="st ok">motorista trocado</span>' : /GENERICO|EXTRA/i.test(`${r.categoria || ''} ${r.motorista || ''}`) ? '<span class="tag">sem atribuição</span>' : '';
+  const celIda = (r) => { const { auto, origem } = idaTxt(r);
+    return `<td><input type="text" class="ida" value="${r.idaManual == null ? '' : E(String(r.idaManual))}" placeholder="${E(fd(auto, 0))}" title="Automático: ${E(fd(auto, 0))} km (${E(origem)}). Deixe vazio para usar o automático; 0 quando o motorista saiu da unidade." aria-label="Ida e volta"></td>`; };
+  const linhas = rotas.map((r) => `<tr class="${r.excluida || foraSecao(r) ? 'exc' : ''}" data-chave="${E(r.chave)}" data-original="${E(r.motoristaOriginal || '')}" data-grupos="${grupos(r)}" data-secao="${E(r.secao || '')}">
+<td class="t">${fdata(r.data)}</td>${temSecao ? `<td class="t">${E(r.secao || '–')}</td>` : ''}<td class="t">${E(r.carga || '–')}</td><td class="t">${E(r.area || '–')}</td>${comPlaca ? `<td class="t">${E(r.placa || '–')}</td>` : ''}
 <td class="t"><input type="text" class="mot" list="nomesKM" value="${E(r.motorista || '')}" title="No arquivo: ${E(r.motoristaOriginal || '–')}"></td>
-<td>${fd(r.km, 1)}</td><td>${etiqueta(r)}</td><td><input type="checkbox" class="exc" ${r.excluida ? 'checked' : ''} aria-label="Excluir rota"></td></tr>`).join('');
+<td>${fd(r.km, 1)}</td>${comIda ? celIda(r) : ''}<td>${etiqueta(r)}</td><td><input type="checkbox" class="exc" ${r.excluida ? 'checked' : ''} aria-label="Excluir rota"></td></tr>`).join('');
+  const nCols = 6 + (temSecao ? 1 : 0) + (comPlaca ? 1 : 0) + (comIda ? 1 : 0);
+  const caixaSecoes = temSecao ? `<div class="bloco"><div class="faixa">Seções da montagem que entram no planejado</div><div class="corpo"><p>${secoesPresentes.map((s) => `<label class="chk"><input type="checkbox" class="secao" value="${E(s)}" ${ativas.includes(s) ? 'checked' : ''}> ${E(s)} (${fi(rotas.filter((r) => r.secao === s).length)})</label>`).join(' ')}</p><p class="small">As rotas das seções desmarcadas ficam em cinza e não somam no planejado. Vale para este mês e esta unidade.</p></div></div>` : '';
+  const semTab = comIda ? rotas.filter((r) => !r.excluida && !foraSecao(r) && idaTxt(r).origem === 'fora da tabela') : [];
+  const avisoTab = semTab.length ? `<div class="aviso">${fi(semTab.length)} rota(s) com motorista fora da tabela de ida e volta (${fi(new Set(semTab.map((r) => r.motorista)).size)} motorista(s)). Elas entram sem ida e volta. Ajuste a rota aqui ou inclua o motorista em ⚙ Parâmetros.</div>` : '';
   const unidadesNav = Object.entries(NOMES_KM).map(([c, n]) => `<a class="${c === unidade ? 'on' : ''}" href="#/km/rotas/${c}/${mes}">${n}</a>`).join('');
-  const opc = [['todas', 'Todas as rotas'], ['freteiro', 'Só FRETEIRO'], ['ajustadas', 'Ajustadas ou excluídas'], ['excluidas', 'Só excluídas']]
+  const opc = [['todas', 'Todas as rotas'], ['freteiro', 'Só FRETEIRO'], ...(comIda ? [['semtabela', 'Motorista fora da tabela de ida e volta'], ['idamanual', 'Ida e volta ajustada']] : []), ['ajustadas', 'Ajustadas ou excluídas'], ['excluidas', 'Só excluídas']]
     .map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
   return `${topo}<nav class="abas">${unidadesNav}</nav>
-<p class="sub">Rotas do planejado de ${E(NOMES_KM[unidade])} em ${E(nomeMes(mes))}. Troque o motorista quando a rota veio com o nome errado (ex.: FRETEIRO que na verdade foi um motorista da casa) e marque <b>Excluir</b> nas rotas que não entram no planejado. Os ajustes continuam valendo depois de reimportar o dia.</p>
+<p class="sub">Rotas do planejado de ${E(NOMES_KM[unidade])} em ${E(nomeMes(mes))}. Troque o motorista quando a rota veio com o nome errado (ex.: FRETEIRO que na verdade foi um motorista da casa) e marque <b>Excluir</b> nas rotas que não entram no planejado.${comIda ? ' Na coluna <b>Ida e volta</b>, o valor em cinza é o automático (área do motorista). Digite <b>0</b> quando o motorista veio buscar a carga na unidade e o planejamento já saiu daqui.' : ''} Os ajustes continuam valendo depois de reimportar o dia.</p>
+${caixaSecoes}
 ${pend.length ? `<div class="aviso">${fi(pend.length)} rota(s) de FRETEIRO ainda contam no planejado (${fi(kmPend)} km). Confira e exclua as que realmente foram de freteiro.</div>` : '<p class="small">Nenhuma rota de FRETEIRO pendente nesta unidade.</p>'}
+${avisoTab}
 <p><label>Mostrar <select id="filtroRotas">${opc}</select></label> <button class="btn sec" id="marcarFret" type="button">Marcar todas as de FRETEIRO para excluir</button></p>
 <datalist id="nomesKM">${nomes.map((n) => `<option value="${E(n)}">`).join('')}</datalist>
-<div class="tw scroll"><table class="km-rotas"><thead><tr><th class="t">Dia</th><th class="t">Carga</th><th class="t">Rota / área</th>${comPlaca ? '<th class="t">Placa</th>' : ''}<th class="t">Motorista</th><th>Km</th><th>Situação</th><th>Excluir</th></tr></thead>
-<tbody>${linhas || `<tr><td class="t" colspan="${comPlaca ? 8 : 7}">Nenhuma rota importada neste mês.</td></tr>`}</tbody></table></div>
+<div class="tw scroll"><table class="km-rotas"><thead><tr><th class="t">Dia</th>${temSecao ? '<th class="t">Seção</th>' : ''}<th class="t">Carga</th><th class="t">Rota / área</th>${comPlaca ? '<th class="t">Placa</th>' : ''}<th class="t">Motorista</th><th>Km rota</th>${comIda ? '<th>Ida e volta</th>' : ''}<th>Situação</th><th>Excluir</th></tr></thead>
+<tbody>${linhas || `<tr><td class="t" colspan="${nCols}">Nenhuma rota importada neste mês.</td></tr>`}</tbody></table></div>
 <p><button class="btn" id="salvarRotas">Salvar ajustes</button> <span id="msg"></span></p>
-<p class="small">Passe o mouse sobre o motorista para ver o nome que veio no arquivo. A ida e volta passa a seguir o motorista informado aqui.</p>`;
+<p class="small">Passe o mouse sobre o motorista para ver o nome que veio no arquivo e sobre a ida e volta para ver de onde veio o valor automático. A ida e volta entra uma vez por motorista no dia.</p>`;
 }
 
 export function paginaKMMotoristas(u, { mes, topo }) {

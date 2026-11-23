@@ -25,15 +25,63 @@ export function aplicarAjustesKM(rotas, ajustes = {}) {
   return rotas.map((r) => {
     const lista = ajustes[r.unidade] || [], k = chaveRotaKM(r), a = lista.find((x) => x.chave === k);
     const base = { ...r, motoristaOriginal: r.motoristaOriginal ?? r.motorista ?? null, chave: k };
-    if (!a) return { ...base, excluida: false, ajustada: false };
+    if (!a) return { ...base, excluida: false, ajustada: false, idaManual: null };
     const trocou = !!a.motorista && a.motorista !== base.motoristaOriginal;
+    const idaManual = a.idaVolta == null || a.idaVolta === '' ? null : Number(a.idaVolta);
     return { ...base, motorista: trocou ? a.motorista : base.motorista,
-      categoria: trocou ? categoriaKM(a.motorista) : base.categoria, excluida: !!a.excluir, ajustada: trocou };
+      categoria: trocou ? categoriaKM(a.motorista) : base.categoria, excluida: !!a.excluir, ajustada: trocou || idaManual != null, idaManual };
   });
+}
+
+// Seções da Montagem Norte que entram no planejado (as rotas sem seção, como Sul e DLs, sempre entram).
+export const SECOES_PADRAO_KM = ['ROTAS DO DIA'];
+export const rotaNaSecao = (r, secoes) => !r.secao || (secoes || SECOES_PADRAO_KM).includes(r.secao);
+
+// Nome do motorista → ida e volta, como o PROCV da planilha: tabela fixa (motorista → km da área) e apelidos
+// (nome da montagem → nome completo). Nomes cortados (a montagem Sul corta em 30 letras) casam pelo começo.
+const normNome = (s) => semAcento(s).toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+export function buscaIdaVoltaKM(par = {}) {
+  const idx = new Map(), apelidos = new Map();
+  for (const [k, v] of Object.entries(par.idaVolta || {})) if (!k.includes('|')) idx.set(normNome(k), Number(v) || 0);
+  for (const [k, v] of Object.entries(par.apelidos || {})) apelidos.set(normNome(k), normNome(v));
+  return Object.assign((nome) => {
+    const n = normNome(nome);
+    if (!n) return null;
+    for (const x of [apelidos.get(n), n]) if (x && idx.has(x)) return idx.get(x);
+    const alvo = apelidos.get(n) || n;
+    const cand = [...idx.keys()].filter((k) => k.startsWith(alvo) || (alvo.length >= 20 && alvo.startsWith(k)));
+    return cand.length === 1 ? idx.get(cand[0]) : null;
+  }, { vazia: idx.size === 0 });
+}
+
+// Ida e volta de cada rota: o valor digitado na revisão vence; depois o que veio no arquivo; depois a tabela.
+export function idaDaRota(r, busca) {
+  if (r.idaManual != null) return { valor: r.idaManual, origem: 'manual' };
+  if (r.idaVolta != null) return { valor: Number(r.idaVolta) || 0, origem: 'arquivo' };
+  if (/FRETEIRO|GENERICO|EXTRA/i.test(semAcento(r.motorista))) return { valor: 0, origem: 'sem atribuição' };
+  if (busca.vazia) return { valor: 0, origem: 'unidade sem tabela' };
+  const v = busca(r.motorista);
+  return v == null ? { valor: 0, origem: 'fora da tabela' } : { valor: v, origem: 'tabela' };
+}
+
+// Uma ida e volta por motorista/caminhão no dia. Se alguma rota do dia foi ajustada à mão, vale o ajuste.
+function idaPorDia(rs, busca) {
+  const grupos = new Map();
+  for (const r of rs) {
+    const k = `${r.data}|${chavePessoa(r) || `sem-pessoa-${r.placa || ''}`}`;
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push({ r, ida: idaDaRota(r, busca) });
+  }
+  const saida = [];
+  for (const g of grupos.values()) {
+    const manuais = g.filter((x) => x.ida.origem === 'manual'), base = manuais.length ? manuais : g;
+    saida.push({ r: g[0].r, valor: Math.max(...base.map((x) => x.ida.valor)) });
+  }
+  return saida;
 }
 const localUnidade = (s) => ({ 'MATRIZ': 'NORTE', 'FILIAL II': 'SUL', 'FILIAL I': 'CBAR', 'FILIAL III': 'CCRT' })[String(s || '').trim().toLocaleUpperCase('pt-BR')];
 
-export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], parametros = {}, ajustes = {} }) {
+export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], parametros = {}, ajustes = {}, secoes = {} }) {
   const rotas = aplicarAjustesKM(rotasBrutas, ajustes);
   const dias = diasDoMes(mes);
   const unidades = {};
@@ -41,7 +89,8 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     const par = { meta: 0.05, cpk: mes === '2026-11' ? CPK_NOV_2026[c] : null, ...(parametros[c] || {}) };
     const porDia = Object.fromEntries(dias.map((data) => [data, { data, planejado: 0, realizado: 0, rotas: 0, abastecimentos: 0 }]));
     const doMes = rotas.filter((r) => r.unidade === c && r.data?.startsWith(mes));
-    const rs = doMes.filter((r) => !r.excluida);
+    const rs = doMes.filter((r) => !r.excluida && rotaNaSecao(r, secoes[c]));
+    const busca = buscaIdaVoltaKM(par);
     const fretPend = rs.filter(eFreteiro);
     const revisao = { freteirosPendentes: fretPend.length, kmFreteirosPendentes: fretPend.reduce((s, r) => s + (Number(r.km) || 0), 0),
       excluidas: doMes.length - rs.length, ajustadas: doMes.filter((r) => r.ajustada).length };
@@ -51,14 +100,7 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
       porDia[r.data].rotas++;
     }
     // Ida e volta é uma vez por motorista/caminhão no dia, nunca uma vez por rota.
-    const idaDia = new Set();
-    for (const r of rs) {
-      const pessoa = chavePessoa(r), area = String(r.area || '').trim().toLocaleUpperCase('pt-BR');
-      const idaVolta = r.idaVolta ?? par.idaVolta?.[`${pessoa}|${area}`] ?? par.idaVolta?.[pessoa] ?? par.idaVolta?.[String(r.motorista || '').trim()];
-      if (!porDia[r.data] || idaVolta == null) continue;
-      const k = `${r.data}|${pessoa || `sem-pessoa-${r.placa || ''}`}`;
-      if (!idaDia.has(k)) { porDia[r.data].planejado += Number(idaVolta) || 0; idaDia.add(k); }
-    }
+    for (const { r, valor } of idaPorDia(rs, busca)) if (porDia[r.data]) porDia[r.data].planejado += valor;
     const as = abastecimentos.filter((a) => a.unidade === c && a.data?.startsWith(mes));
     for (const a of as) {
       if (!porDia[a.data]) continue;
@@ -77,27 +119,25 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     const realizado = incluidos.reduce((s, d) => s + d.realizado, 0);
     const diferenca = realizado - planejado;
     const dispersao = planejado ? realizado / planejado - 1 : null;
-    const motoristas = ['NORTE', 'SUL'].includes(c) ? detalheMotoristas(c, mes, rs, as, par) : [];
+    const motoristas = ['NORTE', 'SUL'].includes(c) ? detalheMotoristas(c, mes, rs, as, busca) : [];
+    revisao.foraDaTabela = rs.filter((r) => idaDaRota(r, busca).origem === 'fora da tabela').length;
+    revisao.foraDaSecao = doMes.filter((r) => !r.excluida && !rotaNaSecao(r, secoes[c])).length;
     unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || as.length > 0, revisao, dias: exibidos, ultimoDia, totais: { planejado, realizado, diferenca, dispersao,
       custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : Math.abs(dispersao) <= (Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
   }
   return { mes, unidades };
 }
 
-function detalheMotoristas(unidade, mes, rotas, abastecimentos, parametros) {
+function detalheMotoristas(unidade, mes, rotas, abastecimentos, busca) {
   const mapa = new Map();
   const chave = (motorista, placa) => `${String(motorista || 'SEM IDENTIFICAÇÃO').trim()}|${String(placa || '').trim().toUpperCase()}`;
-  const idaSomada = new Set();
   for (const r of rotas) {
     if (!r.data?.startsWith(mes)) continue;
     const k = chave(r.motorista, r.placa), x = mapa.get(k) || { motorista: r.motorista || 'Sem identificação', placa: r.placa || '', planejado: 0, realizado: 0, rotas: 0, semRota: 0 };
     x.planejado += Number(r.km) || 0; x.rotas++;
-    const pessoa = chavePessoa(r), diaPessoa = `${r.data}|${pessoa || r.placa || ''}`;
-    const area = String(r.area || '').trim().toLocaleUpperCase('pt-BR');
-    const ida = r.idaVolta ?? parametros.idaVolta?.[`${pessoa}|${area}`] ?? parametros.idaVolta?.[pessoa] ?? parametros.idaVolta?.[String(r.motorista || '').trim()];
-    if (ida != null && !idaSomada.has(diaPessoa)) { x.planejado += Number(ida) || 0; idaSomada.add(diaPessoa); }
     mapa.set(k, x);
   }
+  for (const { r, valor } of idaPorDia(rotas.filter((r) => r.data?.startsWith(mes)), busca)) mapa.get(chave(r.motorista, r.placa)).planejado += valor;
   const porPlacaDia = new Map();
   for (const r of rotas) if (r.placa && r.data?.startsWith(mes)) {
     const k = `${r.data}|${String(r.placa).toUpperCase()}`;

@@ -33,6 +33,7 @@ tags: []
 - [ ] Exigir a aba Exportar e o mapeamento do modelo oficial como critério de conclusão de qualquer acompanhamento novo.
 - [ ] Usar o PES no site: preencher a Digitação de nov/26 e publicar junto com a Montagem.
 - [ ] Usar o site apenas para teste e conferência, mantendo a planilha oficial como arquivo diário enviado até a validação completa.
+- [ ] KM: importar no site os Resumos diários de BA/JN de novembro e a planilha de outubro (para a tabela de ida e volta); conferir os 3 motoristas da Norte fora da tabela.
 - [ ] Fase KM: outubro/26 validado contra a planilha oficial em 2026-11-23 (`AUDITORIA/KM_Planejado_x_Realizado.md` §10). Falta novembro, que depende dos Resumos diários de BA/JN e da planilha oficial de novembro ([[2026-11-16 KM plano]]).
 - [ ] KM: atualizar a CPK (igual desde abr/26) e a despesa/km de `Analise por dia!AX:AY` (iguais desde 2024) assim que houver a origem dos valores.
 
