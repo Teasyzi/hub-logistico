@@ -32,7 +32,7 @@ if (pagina === 'resumo') document.getElementById('app').innerHTML = V.paginaKMRe
 else {
   const u = res.unidades[pagina];
   const dados = { rotas: K.aplicarAjustesKM(rotas.filter((r) => r.unidade === pagina).sort((a, b) => a.data.localeCompare(b.data))), secoes: null, parametros: parametros[pagina] || {}, abastecimentos: abastecimentos.filter((a) => a.unidade === pagina) };
-  const extras = `${V.tabelaRotasKM(pagina, dados, { duplicadas: u.duplicadas, espelhos: u.espelhos })}${V.blocoLancamentosKM(lanc, { mes })}${['NORTE', 'SUL'].includes(pagina) ? V.blocoMotoristasKM(u) : ''}`;
+  const extras = `${V.tabelaRotasKM(pagina, dados, { duplicadas: u.duplicadas, espelhos: u.espelhos, equipamentos: u.equipamentos })}${V.blocoLancamentosKM(lanc, { mes })}${['NORTE', 'SUL'].includes(pagina) ? V.blocoMotoristasKM(u) : ''}`;
   document.getElementById('app').innerHTML = V.paginaKMUnidade(pagina, u, { mes, topo: topo(pagina, u.nome), admin: true, extras });
 }
 window.resultado = res; window.pronto = true;

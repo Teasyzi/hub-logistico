@@ -4,10 +4,10 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261123-11';
-import { lerArquivo, num } from './importar.js?v=20261123-11';
-import * as V from './views.js?v=20261123-11';
-import { hojeKM } from './km.js?v=20261123-11';
+import * as D from './dados.js?v=20261123-12';
+import { lerArquivo, num } from './importar.js?v=20261123-12';
+import * as V from './views.js?v=20261123-12';
+import { hojeKM } from './km.js?v=20261123-12';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -492,7 +492,7 @@ async function telaKMUnidade(unidade, mes, diaInicial = null) {
   const topo = await topoKM(unidade, mes, `${u.nome} · ${V.nomeMes(mes)}`);
   // Abre no último dia com rotas, para a tabela não começar com o mês inteiro.
   const dia = diaInicial || (admin && dados.rotas.length ? dados.rotas.map((r) => r.data).sort().at(-1) : 'todos');
-  const extras = admin ? `${V.tabelaRotasKM(unidade, dados, { duplicadas: u.duplicadas || [], espelhos: u.espelhos || {}, diaInicial: dia })}${V.blocoLancamentosKM(lancamentos, { mes })}${['NORTE', 'SUL'].includes(unidade) ? V.blocoMotoristasKM(u) : ''}` : '';
+  const extras = admin ? `${V.tabelaRotasKM(unidade, dados, { duplicadas: u.duplicadas || [], espelhos: u.espelhos || {}, equipamentos: u.equipamentos || {}, diaInicial: dia })}${V.blocoLancamentosKM(lancamentos, { mes })}${['NORTE', 'SUL'].includes(unidade) ? V.blocoMotoristasKM(u) : ''}` : '';
   html(V.paginaKMUnidade(unidade, u, { mes, topo, admin, extras }));
   ligarTopo((m) => `#/km/${unidade}/${m}`);
   if (admin) ligarEdicaoKM(unidade, mes, lancamentos);

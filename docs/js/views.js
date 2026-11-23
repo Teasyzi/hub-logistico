@@ -1,7 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261123-11';
+import { UNIDADES } from './dados.js?v=20261123-12';
 import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
-import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261123-11';
+import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261123-12';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -342,6 +342,7 @@ function avisosRevisaoKM(c, u, mes) {
   const semTab = r.semTabela ? `<div class="aviso"><b>A tabela de ida e volta desta unidade está vazia</b>, por isso a ida e volta está zerada em todas as rotas. Importe a planilha "KM Planejado x Realizado" de um mês fechado em <a href="#/km/parametros/${mes}">⚙ Parâmetros</a>. Ela vale para todos os meses.</div>` : '';
   if (r.freteirosPendentes) itens.push(`${fi(r.freteirosPendentes)} rota(s) de FRETEIRO contando no planejado (${fi(r.kmFreteirosPendentes)} km)`);
   if (r.duplicadas) itens.push(`${fi(r.duplicadas)} rota(s) duplicada(s) fora do cálculo`);
+  if (r.equipamentos || r.abastecimentosFora) itens.push(`equipamentos fora do cálculo: ${fi(r.equipamentos || 0)} rota(s) no planejado (${fi(r.kmEquipamentos || 0)} km) e ${fi(r.abastecimentosFora || 0)} abastecimento(s) do veículo 272 no realizado (${fi(r.kmRealizadoFora || 0)} km)`);
   if (r.semBase) itens.push(`${fi(r.semBase)} rota(s) de motorista cadastrado sem base (ida e volta zerada)`);
   if (r.idaNaRota) itens.push(`${fi(r.idaNaRota)} rota(s) com km que já parece incluir a ida e volta da base (filtro "Km da rota já inclui a ida e volta?")`);
   const semCad = (r.semCadastro || []).length ? `<div class="aviso"><b>${fi(r.semCadastro.length)} motorista(s) sem cadastro</b>, com a ida e volta zerada: ${r.semCadastro.map((x) => `${E(x.nome)} (${fi(x.rotas)} rota${x.rotas > 1 ? 's' : ''})`).join(', ')}. Se for motorista novo, inclua o nome completo e a base; se for outro nome de um motorista que já existe, inclua em Apelidos. <a href="#/km/parametros/${mes}">⚙ Parâmetros →</a></div>` : '';
@@ -419,14 +420,14 @@ export function blocoLancamentosKM(lancamentos, { mes }) {
 
 // Revisão das rotas (só admin): seção, motorista, ida e volta, duplicadas e exclusão. Filtros no navegador.
 const SECOES_MONTAGEM = ['ROTAS DO DIA', 'RECARGAS NA BASE', 'CARGAS CROSS', 'FINALIZANDO ROTAS', 'SAÍDA PARA OUTRO DIA'];
-export function tabelaRotasKM(unidade, { rotas, secoes, parametros, abastecimentos = [] }, { duplicadas = [], espelhos = {}, diaInicial = 'todos' } = {}) {
+export function tabelaRotasKM(unidade, { rotas, secoes, parametros, abastecimentos = [] }, { duplicadas = [], espelhos = {}, equipamentos = {}, diaInicial = 'todos' } = {}) {
   const fret = (r) => /FRETEIRO/i.test(`${r.categoria || ''} ${r.motorista || ''}`);
   const comPlaca = ['NORTE', 'SUL'].includes(unidade), dups = new Set(duplicadas);
   const busca = buscaIdaVoltaKM(parametros), ativas = secoes || SECOES_PADRAO_KM;
   const temSecao = rotas.some((r) => r.secao), comIda = unidade !== 'CCRT';
   const secoesPresentes = SECOES_MONTAGEM.filter((s) => rotas.some((r) => r.secao === s));
   const foraSecao = (r) => !rotaNaSecao(r, ativas);
-  const conta = (r) => !r.excluida && !foraSecao(r) && !dups.has(r.chave) && !espelhos[r.chave];
+  const conta = (r) => !r.excluida && !foraSecao(r) && !dups.has(r.chave) && !espelhos[r.chave] && !equipamentos[r.chave];
   const marcaIda = (r) => comIda && conta(r) && idaNaRotaKM(r, busca);
   const idaTxt = (r) => { const i = idaDaRota({ ...r, idaManual: null }, busca); return { auto: i.valor, origem: i.origem }; };
   // Embaixo do motorista: a base do cadastro, ou o aviso de que ele não está cadastrado.
@@ -445,15 +446,15 @@ export function tabelaRotasKM(unidade, { rotas, secoes, parametros, abasteciment
   const vistos = new Set();
   const realPlaca = (r) => { const k = `${r.data}|${String(r.placa || '').toUpperCase()}`; if (!r.placa || vistos.has(k)) return ''; vistos.add(k); return abast.has(k) ? fi(abast.get(k)) : '0'; };
   const grupos = (r) => [fret(r) || /FRETEIRO/i.test(r.motoristaOriginal || '') ? 'freteiro' : '', r.ajustada || r.excluida ? 'ajustadas' : '', r.excluida ? 'excluidas' : '',
-    dups.has(r.chave) || r.manter ? 'duplicada' : '', espelhos[r.chave] ? 'espelho' : '', marcaIda(r) ? 'idanarota' : '', comIda && ['sem cadastro', 'sem base'].includes(idaTxt(r).origem) ? 'semtabela' : '', r.idaManual != null ? 'idamanual' : ''].filter(Boolean).join(' ');
-  const etiqueta = (r) => r.excluida ? '<span class="st no">excluída</span>' : espelhos[r.chave] ? `<span class="tag" title="A mesma rota (placa, descrição e km) está em ROTAS DO DIA de ${fdata(espelhos[r.chave])}. Só aquela conta.">repete ${fdata(espelhos[r.chave])} · não conta</span>` : foraSecao(r) ? '<span class="tag">seção fora do planejado</span>'
+    dups.has(r.chave) || r.manter ? 'duplicada' : '', espelhos[r.chave] ? 'espelho' : '', equipamentos[r.chave] ? 'equipamento' : '', marcaIda(r) ? 'idanarota' : '', comIda && ['sem cadastro', 'sem base'].includes(idaTxt(r).origem) ? 'semtabela' : '', r.idaManual != null ? 'idamanual' : ''].filter(Boolean).join(' ');
+  const etiqueta = (r) => r.excluida ? '<span class="st no">excluída</span>' : equipamentos[r.chave] ? `<span class="tag" title="Rota de equipamentos (descrição com EQUIPAMENTO ou veículo 272): fica fora do planejado.">${E(equipamentos[r.chave])} · não conta</span>` : espelhos[r.chave] ? `<span class="tag" title="A mesma rota (placa, descrição e km) está em ROTAS DO DIA de ${fdata(espelhos[r.chave])}. Só aquela conta.">repete ${fdata(espelhos[r.chave])} · não conta</span>` : foraSecao(r) ? '<span class="tag">seção fora do planejado</span>'
     : dups.has(r.chave) ? `<label class="chk" title="Rota repetida no mesmo dia (mesma placa, rota e km). Marque para contar mesmo assim."><span class="st no">duplicada</span><input type="checkbox" class="man"> manter</label>`
     : r.manter ? '<label class="chk"><span class="tag">repetida, mantida</span><input type="checkbox" class="man" checked> manter</label>'
     : fret(r) ? '<span class="badge">FRETEIRO · revisar</span>'
     : r.motorista !== r.motoristaOriginal ? '<span class="st ok">motorista trocado</span>' : /GENERICO|EXTRA/i.test(`${r.categoria || ''} ${r.motorista || ''}`) ? '<span class="tag">sem atribuição</span>' : '';
   const celIda = (r) => { const { auto, origem } = idaTxt(r);
     return `<td><input type="text" class="ida" value="${r.idaManual == null ? '' : E(String(r.idaManual))}" placeholder="${E(fd(auto, 0))}" title="Automático: ${E(fd(auto, 0))} km (${E(origem)}). Deixe vazio para usar o automático; 0 quando o motorista saiu da unidade." aria-label="Ida e volta">${marcaIda(r) ? `<div class="small"><span class="tag" title="O km da rota (${E(fd(r.km, 0))}) já chega a 85% da ida e volta da base (${E(fd(auto, 0))}): talvez a montagem já conte a viagem desde o CD. Digite 0 para zerar ou o próprio valor para manter.">km já inclui?</span></div>` : ''}</td>`; };
-  const linhas = rotas.map((r) => `<tr class="${r.excluida || foraSecao(r) || dups.has(r.chave) || espelhos[r.chave] ? 'exc' : ''}" data-chave="${E(r.chave)}" data-padrao="${E(nomeDe(r.motoristaOriginal))}" data-troca="${E(r.motorista !== r.motoristaOriginal ? r.motorista || '' : '')}" data-mot="${E(nomeDe(r.motorista))}" data-grupos="${grupos(r)}" data-secao="${E(r.secao || '')}" data-dia="${r.data}"${diaInicial !== 'todos' && r.data !== diaInicial ? ' hidden' : ''}>
+  const linhas = rotas.map((r) => `<tr class="${r.excluida || foraSecao(r) || dups.has(r.chave) || espelhos[r.chave] || equipamentos[r.chave] ? 'exc' : ''}" data-chave="${E(r.chave)}" data-padrao="${E(nomeDe(r.motoristaOriginal))}" data-troca="${E(r.motorista !== r.motoristaOriginal ? r.motorista || '' : '')}" data-mot="${E(nomeDe(r.motorista))}" data-grupos="${grupos(r)}" data-secao="${E(r.secao || '')}" data-dia="${r.data}"${diaInicial !== 'todos' && r.data !== diaInicial ? ' hidden' : ''}>
 <td class="t">${fdata(r.data)}</td>${temSecao ? `<td class="t">${E(r.secao || '–')}</td>` : ''}<td class="t">${E(r.carga || '–')}</td><td class="t">${E(r.area || '–')}</td>${comPlaca ? `<td class="t">${E(r.placa || '–')}</td>` : ''}
 <td class="t"><input type="text" class="mot" list="nomesKM" value="${E(nomeDe(r.motorista))}" aria-label="Motorista">${comIda ? celNome(r) : ''}</td>
 <td>${fd(r.km, 1)}</td>${comIda ? celIda(r) : ''}${comPlaca ? `<td>${realPlaca(r)}</td>` : ''}<td>${etiqueta(r)}</td><td><input type="checkbox" class="exc" ${r.excluida ? 'checked' : ''} aria-label="Excluir rota"></td></tr>`).join('');
@@ -461,10 +462,10 @@ export function tabelaRotasKM(unidade, { rotas, secoes, parametros, abasteciment
   const caixaSecoes = temSecao ? `<p class="secoes-km"><b>Seções que entram no planejado:</b> ${secoesPresentes.map((s) => `<label class="chk"><input type="checkbox" class="secao" value="${E(s)}" ${ativas.includes(s) ? 'checked' : ''}> ${E(s)} (${fi(rotas.filter((r) => r.secao === s).length)})</label>`).join(' ')}</p>` : '';
   const diasRotas = [...new Set(rotas.map((r) => r.data))].sort();
   const opcDia = `<option value="todos">Todos os dias</option>${diasRotas.map((d) => `<option value="${d}" ${d === diaInicial ? 'selected' : ''}>${fdata(d)}</option>`).join('')}`;
-  const opc = [['todas', 'Todas as rotas'], ['freteiro', 'Só FRETEIRO'], ['duplicada', 'Duplicadas'], ['espelho', 'Repetidas de outro dia (saída para / finalizando)'], ...(comIda ? [['semtabela', 'Motorista sem cadastro ou sem base'], ['idanarota', 'Km da rota já inclui a ida e volta?'], ['idamanual', 'Ida e volta ajustada']] : []), ['ajustadas', 'Ajustadas ou excluídas'], ['excluidas', 'Só excluídas']]
+  const opc = [['todas', 'Todas as rotas'], ['freteiro', 'Só FRETEIRO'], ['duplicada', 'Duplicadas'], ['espelho', 'Repetidas de outro dia (saída para / finalizando)'], ['equipamento', 'Equipamentos / veículo 272'], ...(comIda ? [['semtabela', 'Motorista sem cadastro ou sem base'], ['idanarota', 'Km da rota já inclui a ida e volta?'], ['idamanual', 'Ida e volta ajustada']] : []), ['ajustadas', 'Ajustadas ou excluídas'], ['excluidas', 'Só excluídas']]
     .map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
   return `<section class="bloco" id="rotas"><div class="faixa">Rotas do dia</div><div class="corpo">
-<p class="small">Troque o motorista quando a rota veio com o nome errado (ex.: FRETEIRO que foi um motorista da casa) e marque <b>Excluir</b> nas rotas que não entram.${comIda ? ' Na <b>Ida e volta</b>, o valor em cinza é o automático (base do motorista no cadastro); digite <b>0</b> quando o motorista veio buscar a carga na unidade.' : ''} Rotas repetidas saem sozinhas: no mesmo dia ficam como <b>duplicada</b>; a cópia em "SAÍDA PARA" ou "FINALIZANDO" de uma rota que está em "ROTAS DO DIA" do dia vizinho fica como <b>repete dd/mm</b>. Os ajustes continuam valendo depois de reimportar o dia.</p>
+<p class="small">Troque o motorista quando a rota veio com o nome errado (ex.: FRETEIRO que foi um motorista da casa) e marque <b>Excluir</b> nas rotas que não entram.${comIda ? ' Na <b>Ida e volta</b>, o valor em cinza é o automático (base do motorista no cadastro); digite <b>0</b> quando o motorista veio buscar a carga na unidade.' : ''} Rotas repetidas saem sozinhas: no mesmo dia ficam como <b>duplicada</b>; a cópia em "SAÍDA PARA" ou "FINALIZANDO" de uma rota que está em "ROTAS DO DIA" do dia vizinho fica como <b>repete dd/mm</b>. Rotas de equipamentos (descrição com EQUIPAMENTO ou veículo 272) também saem sozinhas, e os abastecimentos do 272 ficam fora do realizado. Os ajustes continuam valendo depois de reimportar o dia.</p>
 ${caixaSecoes}
 <p class="filtros-km"><label>Dia <select id="diaRotas">${opcDia}</select></label> <label>Motorista <select id="motRotas"><option value="">Todos</option>${motoristasRotas.map((n) => `<option value="${E(n)}">${E(n)}</option>`).join('')}</select></label> <label>Mostrar <select id="filtroRotas">${opc}</select></label> <button class="btn sec" id="marcarFret" type="button">Marcar as de FRETEIRO para excluir</button></p>
 <datalist id="nomesKM">${nomes.map((n) => `<option value="${E(n)}">`).join('')}</datalist>

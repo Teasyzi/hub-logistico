@@ -129,7 +129,7 @@ function lerAbastecimentos(cabecalho, registros, onde) {
   const cab = cabecalho.map(normKM);
   const idx = (f) => cab.findIndex((c) => f.test(c));
   const col = {
-    placa: idx(/^placa$/), data: idx(/^data abastec/), km: idx(/^km s percorridos$|^kms percorridos$|^km percorridos$/),
+    placa: idx(/^placa$/), veiculo: idx(/^n veiculo$|^veiculo$/), data: idx(/^data abastec/), km: idx(/^km s percorridos$|^kms percorridos$|^km percorridos$/),
     local: idx(/^n local atual$|^local atual$/), custo: idx(/^nome local custo/), motorista: idx(/^nome motorista$|^motorista$/),
   };
   if (col.data < 0 || col.km < 0 || col.local < 0) throw new Error(`Não reconheci as colunas Data Abastec, Km's Percorridos e N. local atual ${onde}.`);
@@ -144,6 +144,8 @@ function lerAbastecimentos(cabecalho, registros, onde) {
     const km = num(a[col.km]);
     if (km < 0) continue;
     const abastecimento = { unidade, data, km };
+    // Nº do veículo: identifica o caminhão dos equipamentos (272), que fica fora do realizado.
+    if (col.veiculo >= 0 && texto(a[col.veiculo])) abastecimento.veiculo = texto(a[col.veiculo]);
     if (unidade === 'NORTE' || unidade === 'SUL') {
       abastecimento.placa = placa.toUpperCase();
       if (col.motorista >= 0 && texto(a[col.motorista])) abastecimento.motorista = texto(a[col.motorista]);
@@ -210,7 +212,7 @@ export function lerRotasMontagemKM(wb, mes) {
       if (r && texto(r[4]) && !texto(r[1]) && !texto(r[2]) && !num(r[norte ? 8 : 13])) { secao = secaoKM(r[4]); continue; }
       const km = num(r[norte ? 8 : 13]);
       if (!km || !r[2]) continue;
-      saida.push({ unidade: norte ? 'NORTE' : 'SUL', data, secao, carga: texto(r[0]), area: texto(r[1]), placa: String(r[2]).trim().toUpperCase(), motorista: texto(r[4]), km, idaVolta: null });
+      saida.push({ unidade: norte ? 'NORTE' : 'SUL', data, secao, carga: texto(r[0]), area: texto(r[1]), placa: String(r[2]).trim().toUpperCase(), veiculo: texto(r[3]), motorista: texto(r[4]), km, idaVolta: null });
     }
   }
   if (!saida.length) throw new Error('Não encontrei as rotas Norte/Sul. Confira as abas diárias e selecione o mês de referência.');

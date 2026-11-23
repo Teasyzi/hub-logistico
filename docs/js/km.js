@@ -89,6 +89,20 @@ export function aplicarLancamentosKM(porDia, lancamentos = []) {
   }
 }
 
+// Equipamentos (freezers, expositores…) não são entrega: as rotas com "EQUIPAMENTO" na descrição e tudo do
+// veículo 272, que leva os equipamentos, saem do planejado; os abastecimentos do 272 saem do realizado.
+// O veículo é o nº da frota ("N. veículo" na listagem, col. D na montagem), porque a placa dele vem digitada
+// de mais de um jeito na montagem. Placas que a listagem liga ao 272 também valem, para rotas antigas sem o nº.
+export const VEICULOS_FORA_KM = ['272'];
+const veiculoFora = (v) => v != null && VEICULOS_FORA_KM.includes(String(v).trim().replace(/^0+/, ''));
+export const placasForaKM = (abastecimentos) => new Set(abastecimentos.filter((a) => veiculoFora(a.veiculo) && a.placa).map((a) => String(a.placa).toUpperCase()));
+export function equipamentoKM(r, placasFora = new Set()) {
+  if (/EQUIPAMENTO/i.test(semAcento(r.area))) return 'equipamentos';
+  if (veiculoFora(r.veiculo) || (r.placa && placasFora.has(String(r.placa).toUpperCase()))) return `veículo ${VEICULOS_FORA_KM.join('/')}`;
+  return null;
+}
+export const abastecimentoForaKM = (a) => veiculoFora(a.veiculo);
+
 // Seções da Montagem Norte que entram no planejado (as rotas sem seção, como Sul e DLs, sempre entram).
 export const SECOES_PADRAO_KM = ['ROTAS DO DIA'];
 export const rotaNaSecao = (r, secoes) => !r.secao || (secoes || SECOES_PADRAO_KM).includes(r.secao);
@@ -198,7 +212,9 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     const porDia = Object.fromEntries(dias.map((data) => [data, { data, planejado: 0, realizado: 0, kmRotas: 0, idaVolta: 0, rotas: 0, abastecimentos: 0, ajusteRealizado: 0, ajustePlanejado: 0, notas: [] }]));
     const doMes = rotas.filter((r) => r.unidade === c && r.data?.startsWith(mes));
     const espelhos = espelhosKM(doMes);
-    const ativas = doMes.filter((r) => !r.excluida && rotaNaSecao(r, secoes[c]) && !espelhos.has(r.chave));
+    const asMes = abastecimentos.filter((a) => a.unidade === c && a.data?.startsWith(mes)), placasFora = placasForaKM(asMes);
+    const equip = Object.fromEntries(doMes.map((r) => [r.chave, equipamentoKM(r, placasFora)]).filter(([, m]) => m));
+    const ativas = doMes.filter((r) => !r.excluida && rotaNaSecao(r, secoes[c]) && !espelhos.has(r.chave) && !equip[r.chave]);
     const dups = duplicadasKM(ativas);
     const rs = ativas.filter((r) => !dups.has(r.chave));
     const busca = buscaIdaVoltaKM(par);
@@ -213,7 +229,7 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     }
     // Ida e volta é uma vez por motorista/caminhão no dia, nunca uma vez por rota.
     for (const { r, valor } of idaPorDia(rs, busca)) if (porDia[r.data]) { porDia[r.data].planejado += valor; porDia[r.data].idaVolta += valor; }
-    const as = abastecimentos.filter((a) => a.unidade === c && a.data?.startsWith(mes));
+    const foraReal = asMes.filter(abastecimentoForaKM), as = asMes.filter((a) => !abastecimentoForaKM(a));
     for (const a of as) {
       if (!porDia[a.data]) continue;
       porDia[a.data].realizado += Number(a.km) || 0;
@@ -222,6 +238,10 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     aplicarLancamentosKM(porDia, lancamentos[c]);
     revisao.duplicadas = dups.size;
     revisao.espelhos = espelhos.size;
+    revisao.equipamentos = Object.keys(equip).length;
+    revisao.kmEquipamentos = doMes.filter((r) => equip[r.chave]).reduce((s, r) => s + (Number(r.km) || 0), 0);
+    revisao.abastecimentosFora = foraReal.length;
+    revisao.kmRealizadoFora = foraReal.reduce((s, a) => s + (Number(a.km) || 0), 0);
     revisao.semTabela = c !== 'CCRT' && busca.vazia && rs.length > 0;
     const limite = [hoje, extracao[c]].filter(Boolean).sort()[0];
     const diasComRealizado = dias.filter((d) => porDia[d].abastecimentos > 0 && d < limite);
@@ -244,7 +264,7 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     revisao.idaNaRota = c === 'CCRT' ? 0 : rs.filter((r) => idaNaRotaKM(r, busca)).length;
     revisao.extracao = extracao[c] || null;
     revisao.foraDaSecao = doMes.filter((r) => !r.excluida && !rotaNaSecao(r, secoes[c])).length;
-    unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || as.length > 0, revisao, dias: exibidos, ultimoDia, duplicadas: [...dups], espelhos: Object.fromEntries(espelhos), totais: { planejado, realizado, diferenca, dispersao,
+    unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || asMes.length > 0, revisao, dias: exibidos, ultimoDia, duplicadas: [...dups], espelhos: Object.fromEntries(espelhos), equipamentos: equip, totais: { planejado, realizado, diferenca, dispersao,
       custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : dispersao <= (Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
   }
   return { mes, unidades };

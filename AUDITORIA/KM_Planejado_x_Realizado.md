@@ -191,3 +191,11 @@ Teste com nov/26 (`code/tests_js/km_relatorios.html`), realizado até 23/11:
 - **Importação:** o Hub aceita a listagem salva como `.xls`, que na verdade é uma tabela HTML em Windows-1252. As colunas são as mesmas do TXT; a unidade vem do "Nome Local Custo aba.". O `.txt` continua aceito.
 - **Reimportar a listagem substitui o período que ela cobre** (do primeiro ao último dia do arquivo, em cada mês). Antes, o Hub só somava as linhas novas: um lançamento corrigido no sistema ficava duplicado (o km antigo e o novo) e um lançamento apagado continuava contando.
 - **Cuidado:** os abastecimentos entram no sistema com dias de atraso. Uma listagem tirada cedo deixa dias anteriores incompletos, não só o dia da extração.
+
+### Equipamentos e veículo 272 (2026-11-23, noite)
+- **Regra:** rotas de equipamentos não contam. Saem do planejado as rotas com "EQUIPAMENTO" na descrição e todas as rotas do veículo 272, que leva os equipamentos. Os abastecimentos do 272 saem do realizado.
+- **Identificação pelo nº do veículo:** o 272 é reconhecido pelo nº da frota ("N. veículo" na listagem, col. D na montagem), não pela placa. Na Montagem Norte de nov/26 ele aparece com duas placas diferentes, e só uma delas bate com a listagem. As placas que a listagem liga ao 272 também valem, para rotas gravadas antes de o Hub guardar o nº do veículo.
+- **Nov/26, Norte:** as linhas "EQUIPAMENTOS…" da montagem não têm km e já ficavam de fora. O 272 tinha 5 rotas com km (419 km: São Gonçalo, Guaiúba ×2, Pecém, Acarape) e 8 abastecimentos (1.784 km). Até 21/11: 93.850 km planejados × 106.519 km realizados (+13,5%).
+- **Sul:** as linhas "EQUIPAMENTOS TAUÁ" e "CONSIGNAÇÃO+EQUIPAMENTOS TAUÁ" usam o veículo 268, não têm km e ficam de fora pela descrição. Os abastecimentos do 268 continuam no realizado.
+- **Na tela:** as rotas aparecem riscadas com "veículo 272 · não conta" ou "equipamentos · não conta". Há um filtro "Equipamentos / veículo 272" e um aviso com os km tirados do planejado e do realizado.
+- **Dados já gravados:** o nº do veículo só passa a ser gravado nas importações feitas depois desta mudança. É preciso reimportar a listagem (KMS.xls) e as montagens do mês.
