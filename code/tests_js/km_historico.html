@@ -1,0 +1,65 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Validação KM × planilha antiga</title>
+<!-- Abrir servido por HTTP a partir da raiz do repo, com ?arq=<url da planilha KM Planejado x Realizado - <Mês>.xlsm>
+     e &mes=AAAA-MM. Compara o cálculo do Hub com a aba "Analise por dia" (valores salvos), dia a dia e por unidade.
+     Só mostra números: nada de nomes ou placas na saída. -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  body { font: 13px system-ui, sans-serif; margin: 16px; }
+  table { border-collapse: collapse; margin: 8px 0 20px; }
+  td, th { border: 1px solid #999; padding: 2px 6px; text-align: right; }
+  th { background: #eee; } .ruim { background: #fdd; } .ok { background: #dfd; }
+</style>
+<p id="fim">rodando…</p><div id="r"></div>
+<pre id="json" hidden></pre>
+<script type="module">
+const $r = document.getElementById('r');
+const TOL = 0.5;
+const f1 = (x) => x == null ? '' : Number(x).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+const out = { unidades: {}, erros: [] };
+try {
+  const I = await import('../../docs/js/importar.js');
+  const K = await import('../../docs/js/km.js');
+  const q = new URLSearchParams(location.search);
+  const url = q.get('arq'), mes = q.get('mes');
+  const buf = await (await fetch(url)).arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array', cellDates: false, cellFormula: false, cellStyles: false });
+  const tipo = I.detectar(wb, 'km');
+  out.tipo = tipo;
+
+  const rotas = I.lerPlanejamentoHistoricoKM(wb);
+  const abastecimentos = I.lerConsultaHistoricoKM ? I.lerConsultaHistoricoKM(wb) : [];
+  out.rotas = rotas.length; out.abastecimentos = abastecimentos.length;
+  const res = K.calcularKM({ mes, rotas, abastecimentos });
+
+  // Aba "Analise por dia": linha das datas e linhas de planejado/realizado de cada unidade (valores salvos).
+  const ws = wb.Sheets['Analise por dia'];
+  const ls = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true, range: (() => { const r = XLSX.utils.decode_range(ws['!ref']); r.s.r = 0; r.s.c = 0; return r; })() });
+  const blocos = { NORTE: 'MATRIZ', SUL: 'FILIAL II', CBAR: 'FILIAL I', CCRT: 'FILIAL III' };
+  for (const [u, rot] of Object.entries(blocos)) {
+    const i = ls.findIndex((l) => l && String(l[0] ?? '').trim() === rot);
+    const datas = ls[i], plan = ls[i + 1], real = ls[i + 2];
+    const hub = Object.fromEntries(res.unidades[u].dias.map((d) => [d.data, d]));
+    const linhas = [];
+    let totOP = 0, totOR = 0, totHP = 0, totHR = 0;
+    const fimDias = ls[i - 1].findIndex((v) => String(v ?? '').trim() === 'TOTAL'); // depois de TOTAL vêm médias e o bloco da CPK
+    for (let c = 1; c < (fimDias > 0 ? fimDias : datas.length); c++) {
+      if (typeof datas[c] !== 'number' || datas[c] < 40000) continue;
+      const data = I.iso(datas[c]), h = hub[data] || { planejado: 0, realizado: 0 };
+      const op = Number(plan[c]) || 0, or = Number(real[c]) || 0;
+      totOP += op; totOR += or; totHP += h.planejado; totHR += h.realizado;
+      linhas.push({ data, op, hp: h.planejado, dp: h.planejado - op, or, hr: h.realizado, dr: h.realizado - or });
+    }
+    out.unidades[u] = { totais: { oficialPlan: totOP, hubPlan: totHP, oficialReal: totOR, hubReal: totHR, hubAcumulado: res.unidades[u].totais },
+      divergentes: linhas.filter((l) => Math.abs(l.dp) > TOL || Math.abs(l.dr) > TOL) };
+    const cls = (x) => Math.abs(x) > TOL ? 'ruim' : 'ok';
+    $r.insertAdjacentHTML('beforeend', `<h3>${u} — planejado oficial ${f1(totOP)} / Hub ${f1(totHP)} · realizado oficial ${f1(totOR)} / Hub ${f1(totHR)}</h3>
+      <table><tr><th>dia</th><th>plan. oficial</th><th>plan. Hub</th><th>dif</th><th>real. oficial</th><th>real. Hub</th><th>dif</th></tr>
+      ${linhas.map((l) => `<tr><td>${l.data}</td><td>${f1(l.op)}</td><td>${f1(l.hp)}</td><td class="${cls(l.dp)}">${f1(l.dp)}</td><td>${f1(l.or)}</td><td>${f1(l.hr)}</td><td class="${cls(l.dr)}">${f1(l.dr)}</td></tr>`).join('')}</table>`);
+  }
+} catch (e) { out.erros.push(e.message + '\n' + e.stack); $r.insertAdjacentHTML('beforeend', `<p>erro: ${e.message}</p>`); }
+document.getElementById('json').textContent = JSON.stringify(out);
+window.resultado = out;
+document.getElementById('fim').textContent = out.erros.length ? 'erro' : 'pronto';
+</script>

@@ -101,6 +101,7 @@ export function detectar(wb, contexto) {
 
 const normKM = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
 const centroKM = (s) => ({ 'matriz': 'NORTE', 'filial ii': 'SUL', 'filial i': 'CBAR', 'filial iii': 'CCRT' })[normKM(s)] || null;
+const custoKM = (s) => ({ 'cb norte': 'NORTE', 'cb sul': 'SUL', 'cb bahia': 'CBAR', 'cb juazeiro': 'CCRT' })[normKM(s)] || null;
 const categoriaMotorista = (s) => /freteiro/i.test(String(s || '')) ? 'FRETEIRO'
   : /generico/i.test(normKM(s)) ? 'MOTORISTA GENERICO' : /extra/i.test(normKM(s)) ? 'EXTRA' : 'NORMAL';
 
@@ -108,28 +109,43 @@ const categoriaMotorista = (s) => /freteiro/i.test(String(s || '')) ? 'FRETEIRO'
 export function lerKMsTXT(textoArquivo) {
   const ls = String(textoArquivo).replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim());
   if (ls.length < 2) throw new Error('Arquivo de KM vazio ou sem linhas de dados.');
-  const cab = ls[0].split('\t').map(normKM);
+  return lerAbastecimentos(ls[0].split('\t'), ls.slice(1).map((l) => l.split('\t')), 'no TXT');
+}
+
+// Mesma leitura para o TXT e para a aba `Consulta` da planilha antiga (a listagem colada a partir da linha 3).
+function lerAbastecimentos(cabecalho, registros, onde) {
+  const cab = cabecalho.map(normKM);
   const idx = (f) => cab.findIndex((c) => f.test(c));
   const col = {
     placa: idx(/^placa$/), data: idx(/^data abastec/), km: idx(/^km s percorridos$|^kms percorridos$|^km percorridos$/),
-    local: idx(/^n local atual$|^local atual$/), motorista: idx(/^nome motorista$|^motorista$/),
+    local: idx(/^n local atual$|^local atual$/), custo: idx(/^nome local custo/), motorista: idx(/^nome motorista$|^motorista$/),
   };
-  if (col.data < 0 || col.km < 0 || col.local < 0) throw new Error('Não reconheci as colunas Data Abastec, Km\'s Percorridos e N. local atual no TXT.');
+  if (col.data < 0 || col.km < 0 || col.local < 0) throw new Error(`Não reconheci as colunas Data Abastec, Km's Percorridos e N. local atual ${onde}.`);
   const saida = [];
-  for (const l of ls.slice(1)) {
-    const a = l.split('\t'), unidade = centroKM(a[col.local]);
-    const data = iso(a[col.data]);
-    if (!unidade || !data || !a[col.placa]?.trim()) continue; // ignora o total final, sem placa
+  for (const a of registros) {
+    if (!a) continue;
+    // A planilha oficial soma pelo "Nome Local Custo" (CB NORTE…). Ele difere do "N. local atual" quando um
+    // veículo de uma unidade abastece em outra (ex.: out/26, veículo da CB Norte com local FILIAL II).
+    const unidade = (col.custo >= 0 && custoKM(a[col.custo])) || centroKM(a[col.local]);
+    const data = iso(a[col.data]), placa = texto(a[col.placa]);
+    if (!unidade || !data || !placa) continue; // ignora o total final, sem placa
     const km = num(a[col.km]);
     if (km < 0) continue;
     const abastecimento = { unidade, data, km };
     if (unidade === 'NORTE' || unidade === 'SUL') {
-      abastecimento.placa = a[col.placa].trim().toUpperCase();
-      if (col.motorista >= 0 && a[col.motorista]?.trim()) abastecimento.motorista = a[col.motorista].trim();
+      abastecimento.placa = placa.toUpperCase();
+      if (col.motorista >= 0 && texto(a[col.motorista])) abastecimento.motorista = texto(a[col.motorista]);
     }
     saida.push(abastecimento);
   }
   return saida;
+}
+
+export function lerConsultaHistoricoKM(wb) {
+  const ls = linhas(wb.Sheets['Consulta']);
+  const i = ls.findIndex((r) => r && r.some((v) => /^data abastec/.test(normKM(v))));
+  if (i < 0) return [];
+  return lerAbastecimentos(ls[i].map((v) => v ?? ''), ls.slice(i + 1), 'na aba Consulta');
 }
 
 const valorCelula = (ws, ref) => ws?.[ref]?.v ?? null;
@@ -197,15 +213,19 @@ export function lerPlanejamentoHistoricoKM(wb) {
     if (ix < 0) continue;
     const cab = ls[ix].map(normKM), find = (...re) => cab.findIndex((v) => re.some((x) => x.test(v)));
     const idata = find(/^data$/), ikm = find(/^km$|km rota|distancia planejada|km planejado/), iTotal = find(/km total/);
-    const iplaca = find(/^placa$/), imot = find(/motorista/), iarea = find(/area/), iveic = find(/veiculo/), icarga = find(/carga|rom/), iida = find(/ida e volta|ida volta/);
+    const iplaca = find(/^placa$/), imot = find(/motorista/), iarea = find(/area/), iveic = find(/veiculo/), icarga = find(/carga|rom/);
     if (idata < 0 || (ikm < 0 && iTotal < 0)) continue;
+    // Vale a coluna de km mais à esquerda: à direita ficam as tabelas de referência (em Juazeiro há um "KM"
+    // na col. V que não é da rota). Se for a "KM TOTAL", ela já inclui a ida e volta.
+    const usaTotal = ikm < 0 || (iTotal >= 0 && iTotal < ikm), ikmUsado = usaTotal ? iTotal : ikm;
+    const iidaAchado = find(/ida e volta|ida volta/), iida = !usaTotal && iidaAchado >= 0 && iidaAchado < ikmUsado + 4 ? iidaAchado : -1;
     for (const r of ls.slice(ix + 1)) {
-      const data = iso(r[idata]), kmRota = num(r[ikm >= 0 ? ikm : iTotal]);
+      const data = iso(r[idata]), kmRota = num(r[ikmUsado]);
       if (!data || !kmRota) continue;
       const motorista = texto(imot >= 0 ? r[imot] : null);
       saida.push({ unidade, data, area: texto(iarea >= 0 ? r[iarea] : null), ...(unidade === 'NORTE' || unidade === 'SUL'
         ? { placa: texto(iplaca >= 0 ? r[iplaca] : null), motorista, veiculo: texto(iveic >= 0 ? r[iveic] : null), carga: texto(icarga >= 0 ? r[icarga] : null) }
-        : { motorista, categoria: categoriaMotorista(motorista) }), km: kmRota, idaVolta: iida >= 0 ? num(r[iida]) : null });
+        : { motorista, categoria: categoriaMotorista(motorista) }), km: kmRota, idaVolta: usaTotal ? 0 : iida >= 0 ? num(r[iida]) : null });
     }
   }
   if (!saida.length) throw new Error('Não encontrei linhas de planejamento reconhecíveis na planilha histórica.');
@@ -313,6 +333,6 @@ export async function lerArquivo(file, opcoes = {}) {
   if (tipo === 'montagem') return { tipo, ...lerMontagemLegada(wb) };
   if (tipo === 'reprog') return { tipo, reprog: lerReprogLegada(wb) };
   if (tipo === 'km_rotas' || tipo === 'km_resumo') return { tipo, rotas: lerPlanejamentoKM(wb, opcoes.mes, opcoes.unidade === 'AUTO' ? null : opcoes.unidade) };
-  if (tipo === 'km_historico') return { tipo, rotas: lerPlanejamentoHistoricoKM(wb) };
+  if (tipo === 'km_historico') return { tipo, rotas: lerPlanejamentoHistoricoKM(wb), linhas: lerConsultaHistoricoKM(wb) };
   return { tipo: null };
 }

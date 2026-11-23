@@ -72,3 +72,48 @@ Isso é exatamente o mapa de `UNIDADES_KM` em `docs/js/km.js`.
 - **Em validação.** Existem `docs/js/km.js` (com `UNIDADES_KM`), a rota `#/km` e `exportar_km.js`.
 - Pendência do `TASKS.md`: validar os parsers contra outubro e novembro.
 - Os layouts das amostras de nov/26 batem com o que o MOD descreve, então os parsers podem ser validados com estas amostras.
+
+## 10. Validação de outubro/26 (2026-11-23)
+Comparação dia a dia entre o cálculo do Hub e a aba `Analise por dia` de `2026\2026-10\KM Planejado x Realizado - Outubro.xlsm`, importando a própria planilha (abas `Planejado *` e `Consulta`). Página: `code/tests_js/km_historico.html?mes=2026-10&arq=<url da planilha>`.
+
+> O arquivo `KM Planejado x Realizado - Novembro.xlsm` na raiz é uma cópia de outubro ainda incompleta (Consulta de 01/10 a 28/10, salva em 09/11). Ainda não há uma planilha com os dados de novembro.
+
+| Unidade | Planejado oficial | Planejado Hub | Realizado oficial | Realizado Hub |
+|---|---|---|---|---|
+| CB Norte | 159.797,35 | 159.797,35 | 173.026 | 173.026 |
+| CB Sul | 86.927,53 | 86.927,53 | 97.922 | 97.922 |
+| DL Barreiras | 80.493 | 80.047 (−446, FRETEIRO) | 90.086 | 90.086 |
+| DL Juazeiro | 24.783 | 24.660 (−123, FRETEIRO) | 29.002 | 29.002 |
+
+Corrigido no Hub durante a validação:
+- Juazeiro: o leitor da planilha antiga usava a coluna `KM` da tabela de referência (col. V) em vez da `KM TOTAL` (col. L). O planejado saía 5.319 em vez de 24.783.
+- Realizado: a planilha soma pelo `Nome Local Custo aba.` (col. M), não pelo `N. local atual` (col. L). Em 09 e 10/10, o veículo 346 (397 e 255 km) tem local FILIAL II e custo CB NORTE. O Hub passou a usar o custo, com o local como reserva.
+- A importação da planilha antiga passou a gravar também os abastecimentos da aba `Consulta`.
+
+Diferenças que ficam, porque o Hub segue a regra e a planilha não:
+- **FRETEIRO no planejado:** a planilha soma as rotas de freteiro. Pela regra combinada, o Hub exclui. Em out/26: Barreiras 08/10 (329), 27/10 (84) e 29/10 (33); Juazeiro 26/10 (123).
+- **Células digitadas por cima da fórmula** em `Analise por dia`. O total do mês não muda, mas o km vai para outro dia:
+
+| Célula | Unidade | O que foi feito |
+|---|---|---|
+| `M5` = 0 e `N5` = 7.740 | Norte, realizado | 12/10 (539 km) somado em 13/10 |
+| `J18` = 3.995 e `K18` = 0 | Barreiras, planejado | 10/10 (236 km) somado em 09/10 |
+| `L19`, `M19` = 0 e `N19` = 5.030 | Barreiras, realizado | 11/10 (632) e 12/10 (408) somados em 13/10 |
+| `J25` = 2.289 e `K25` = 0 | Juazeiro, planejado | 10/10 (1.193) somado em 09/10 |
+| `Q25` = 1.526 e `R25` = 0 | Juazeiro, planejado | 17/10 (441) somado em 16/10 |
+| `N26` = 0 e `O26` = 1.605 | Juazeiro, realizado | 13/10 (527) somado em 14/10 |
+
+### CPK e despesa em todas as versões
+- `DESPESA` e `KM` (Norte 3.459.428,90 / 1.651.492; Sul 2.604.531,38 / 1.326.094; BA 1.799.485,52 / 907.580; JN 959.142,08 / 264.353) são **os mesmos em todos os arquivos, de set/24 a out/26**. Nunca foram atualizados.
+- A CPK só foi calculada a partir deles (`=despesa/km`) em 2024. Depois passou a ser digitada:
+
+| Arquivos | Rótulo | Norte | Sul | BA | JN |
+|---|---|---|---|---|---|
+| set–dez/24 | CPK (fórmula) | 2,0947 | 1,9641 | 1,9827 | 3,6283 |
+| jan–abr/25 | CPK 2024 | 2,0960 | 1,9848 | 1,9758 | 3,5429 |
+| mai–ago/25 | CPK 2025 | 2,3912 | 2,1035 | 2,7362 | 3,4806 |
+| set–out/25 | CPK FROTA ROTA ACM 2025 | 2,2635 | 1,9537 | 2,3320 | 3,4527 |
+| nov/25–mar/26 | CPK FROTA ROTA ACM 2025 | 2,2589 | 1,9678 | 2,2821 | 3,4477 |
+| **abr/26–out/26** | CPK FROTA ROTA ACM 2026 | **2,46** | **2,09** | **2,07** | **4,19** |
+
+A CPK está parada desde **abril/26** (7 meses). A despesa e o km da tabela estão parados desde 2024 e não são a base da CPK atual.

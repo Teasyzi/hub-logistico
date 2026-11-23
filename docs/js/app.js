@@ -515,7 +515,11 @@ async function telaKMImportar() {
         const x = await lerArquivo(f, { mes: document.getElementById('mesImport').value, unidade: document.getElementById('unidadeImport').value });
         let n = 0, tipo = x.tipo;
         if (x.tipo === 'km_abastecimentos') n = await D.gravarAbastecimentosKM(x.linhas);
-        else if (['km_rotas', 'km_resumo', 'km_historico'].includes(x.tipo)) n = await D.gravarRotasKM(x.rotas);
+        else if (['km_rotas', 'km_resumo', 'km_historico'].includes(x.tipo)) {
+          n = await D.gravarRotasKM(x.rotas);
+          // A planilha antiga também traz a listagem de abastecimentos na aba Consulta.
+          if (x.tipo === 'km_historico' && x.linhas?.length) n += await D.gravarAbastecimentosKM(x.linhas);
+        }
         else throw new Error('Formato não reconhecido como arquivo de KM.');
         await D.registrarImportacao({ arquivo: f.name, tipo, linhas: n, periodo: document.getElementById('mesImport').value, acompanhamento: 'km' });
         rows += `<tr><td class="t">${V.E(f.name)}</td><td>${V.E(tipo)}</td><td>${n}</td><td class="st ok">Importado</td></tr>`;
