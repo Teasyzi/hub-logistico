@@ -4,9 +4,9 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261123-8';
-import { lerArquivo, num } from './importar.js?v=20261123-8';
-import * as V from './views.js?v=20261123-8';
+import * as D from './dados.js?v=20261123-9';
+import { lerArquivo, num } from './importar.js?v=20261123-9';
+import * as V from './views.js?v=20261123-9';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -602,9 +602,27 @@ async function telaKMParametros(mes) {
   ]);
   const padrao = mes === '2026-11' ? { NORTE: 2.46, SUL: 2.09, CBAR: 2.07, CCRT: 4.19 } : {};
   const numTxt = (v) => v == null ? '' : String(v).replace('.', ',');
-  const linhas = cs.map((c) => `<tr><td class="t">${V.E(c)}</td><td><input type="text" data-c="${c}" data-k="cpk" value="${V.E(numTxt(pars[c].cpk ?? padrao[c]))}"></td><td><input type="text" data-c="${c}" data-k="meta" value="${V.E(numTxt((pars[c].meta ?? 0.05) * 100))}" placeholder="5"></td><td><textarea data-c="${c}" data-k="idaVolta" rows="4" placeholder="MOTORISTA=km, um por linha">${V.E(Object.entries(bases[c].idaVolta || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR')).map(([k,v]) => `${k}=${numTxt(v)}`).join('\n'))}</textarea><div class="small">${Object.keys(bases[c].apelidos || {}).length} apelido(s) importado(s)</div></td></tr>`).join('');
-  html(`${topo}<p class="sub">CPK em R$/km e meta em % (ex.: 5) valem para este mês. A <b>ida e volta por motorista</b> é uma tabela fixa, que vale para todos os meses. Ela é preenchida sozinha quando você importa uma planilha antiga "KM Planejado x Realizado" e pode ser editada aqui (MOTORISTA=km, um por linha). A ida e volta entra uma vez por motorista no dia, e dá para zerar uma rota específica em ⚙ Rotas.</p><div class="tw"><table><thead><tr><th class="t">Unidade</th><th>CPK</th><th>Meta ± %</th><th>Ida e volta por motorista (todos os meses)</th></tr></thead><tbody>${linhas}</tbody></table></div><p><button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>
-<section class="bloco"><div class="faixa">Importar tabela de ida e volta</div><div class="corpo"><p class="small">Escolha uma planilha "KM Planejado x Realizado - <button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>`);lt;Mês<button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>`);gt;.xlsm" de um mês fechado. O site lê só as tabelas de ida e volta (motorista → área → km, como o PROCV) e os apelidos da aba Planilha1, e substitui a tabela acima de todas as unidades. As rotas e os abastecimentos dessa planilha não são importados aqui.</p><p><input type="file" id="arqTabela" accept=".xlsm,.xlsx"> <span id="msgTabela"></span></p></div></section>`);
+  const ordena = (xs) => [...xs].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const linhas = cs.map((c) => `<tr><td class="t">${V.E(c)}</td><td><input type="text" data-c="${c}" data-k="cpk" value="${V.E(numTxt(pars[c].cpk ?? padrao[c]))}"></td><td><input type="text" data-c="${c}" data-k="meta" value="${V.E(numTxt((pars[c].meta ?? 0.05) * 100))}" placeholder="5"></td></tr>`).join('');
+  // Cadastro de motoristas (todos os meses), como as tabelas das abas Planejado. Juazeiro não tem ida e volta.
+  const cadastro = (c) => {
+    const b = bases[c], ida = b.idaVolta || {}, areas = b.areas || {};
+    const nomes = ordena(new Set([...(b.cadastro || []), ...Object.keys(areas), ...Object.keys(ida)]));
+    const txtBases = ordena(Object.keys(b.bases || {})).map((k) => `${k}=${numTxt(b.bases[k])}`).join('\n');
+    const txtMot = nomes.map((n) => `${n}=${areas[n] || ''}${n in ida ? `=${numTxt(ida[n])}` : ''}`).join('\n');
+    const txtAp = ordena(Object.keys(b.apelidos || {})).map((k) => `${k}=${b.apelidos[k]}`).join('\n');
+    return `<section class="bloco"><div class="faixa">Cadastro de motoristas · ${V.E(c)}</div><div class="corpo"><div class="grid">
+<label>Ida e volta por base <span class="small">(BASE=km)</span><br><textarea data-cad="${c}" data-k="bases" rows="8" placeholder="QUIXADÁ=332">${V.E(txtBases)}</textarea></label>
+<label>Motoristas · ${V.fi(nomes.length)} <span class="small">(NOME COMPLETO=BASE${c === 'CBAR' ? '=km' : ''})</span><br><textarea data-cad="${c}" data-k="motoristas" rows="8" placeholder="NOME COMPLETO=BASE">${V.E(txtMot)}</textarea></label>
+<label>Apelidos · ${V.fi(Object.keys(b.apelidos || {}).length)} <span class="small">(NOME NA MONTAGEM=NOME COMPLETO)</span><br><textarea data-cad="${c}" data-k="apelidos" rows="8" placeholder="APELIDO=NOME COMPLETO">${V.E(txtAp)}</textarea></label>
+</div></div></section>`;
+  };
+  html(`${topo}<p class="sub">CPK em R$/km e meta em % (ex.: 5) valem para este mês.</p><div class="tw"><table><thead><tr><th class="t">Unidade</th><th>CPK</th><th>Meta ± %</th></tr></thead><tbody>${linhas}</tbody></table></div>
+<h2>Ida e volta (todos os meses)</h2>
+<p class="small">Funciona como na planilha: o nome que vem na montagem vira o <b>nome completo</b> pelos apelidos (Planilha1), o nome completo dá a <b>base</b> do motorista e a base dá a <b>ida e volta</b>. Ela entra uma vez por motorista no dia. Em Barreiras, o terceiro valor da linha do motorista é a ida e volta dele (a soma da planilha) e vence a da base. Motorista novo: inclua o nome completo com a base e, se a montagem usar outro nome, o apelido. Para zerar uma rota específica, use a página da unidade.</p>
+${['NORTE', 'SUL', 'CBAR'].map(cadastro).join('')}
+<p><button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>
+<section class="bloco"><div class="faixa">Importar cadastro de motoristas</div><div class="corpo"><p class="small">Escolha uma planilha "KM Planejado x Realizado - &lt;Mês&gt;.xlsm" de um mês fechado. O site lê só os apelidos da aba Planilha1 e as tabelas NOME MOTORISTA / ÁREA / IDA E VOLTA das abas Planejado, e substitui o cadastro acima de todas as unidades. As rotas e os abastecimentos dessa planilha não são importados aqui.</p><p><input type="file" id="arqTabela" accept=".xlsm,.xlsx"> <span id="msgTabela"></span></p></div></section>`);
   document.getElementById('arqTabela').onchange = async (e) => {
     const msg = document.getElementById('msgTabela'), f = e.target.files[0];
     if (!f) return;
@@ -615,21 +633,26 @@ async function telaKMParametros(mes) {
       const n = await D.gravarTabelasKM(x.tabelas);
       if (!n) throw new Error('Não encontrei a tabela NOME MOTORISTA / ÁREA / IDA E VOLTA nas abas Planejado.');
       await telaKMParametros(mes);
-      document.getElementById('msgTabela').innerHTML = `<span class="st ok">✓ ida e volta de ${n} motoristas importada</span>`;
+      document.getElementById('msgTabela').innerHTML = `<span class="st ok">✓ cadastro de ${n} motoristas importado</span>`;
     } catch (err) { msg.innerHTML = erro(err); }
   };
+  // Linhas "A=B" ou "A=B=C" dos campos do cadastro, em maiúsculas.
+  const linhasCad = (c, k) => (document.querySelector(`[data-cad="${c}"][data-k="${k}"]`)?.value || '').split(/\r?\n/)
+    .map((l) => l.split('=').map((x) => x.trim().toLocaleUpperCase('pt-BR'))).filter(([a]) => a);
   document.getElementById('salvar').onclick = async (e) => {
     e.target.disabled = true;
     try {
       for (const c of cs) {
-        const v = {}, ida = {};
-        document.querySelectorAll(`[data-c="${c}"]`).forEach((i) => {
-          if (i.dataset.k === 'idaVolta') for (const line of i.value.split(/\r?\n/)) { const [k, x] = line.split('='); if (k?.trim() && x?.trim()) ida[k.trim().toLocaleUpperCase('pt-BR')] = num(x); }
-          else if (i.value.trim()) v[i.dataset.k] = num(i.value);
-        });
+        const v = {};
+        document.querySelectorAll(`[data-c="${c}"]`).forEach((i) => { if (i.value.trim()) v[i.dataset.k] = num(i.value); });
         if (v.meta > 1) v.meta /= 100;
         await D.gravarParametrosKM(c, mes, v);
-        await D.gravarBaseKM(c, { ...bases[c], idaVolta: ida });
+        if (!document.querySelector(`[data-cad="${c}"]`)) continue;
+        const basesKm = {}, areas = {}, idaVolta = {}, apelidos = {}, cad = new Set();
+        for (const [b, km] of linhasCad(c, 'bases')) if (km) basesKm[b] = num(km);
+        for (const [n, b, km] of linhasCad(c, 'motoristas')) { cad.add(n); if (b) areas[n] = b; if (km) idaVolta[n] = num(km); }
+        for (const [a, n] of linhasCad(c, 'apelidos')) if (n) { apelidos[a] = n; cad.add(n); }
+        await D.gravarBaseKM(c, { ...bases[c], bases: basesKm, areas, idaVolta, apelidos, cadastro: [...cad].sort((a, b) => a.localeCompare(b, 'pt-BR')) });
       }
       document.getElementById('msg').innerHTML = '<span class="st ok">Salvo</span>';
       await atualizarStatus(await ultimaKM(mes));

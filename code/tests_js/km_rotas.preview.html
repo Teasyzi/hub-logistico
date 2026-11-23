@@ -16,7 +16,7 @@ const baixar = async (n) => new File([await (await fetch('/amostras/' + encodeUR
 const parametros = {};
 if (q.get('tabelas')) {
   const t = await I.lerArquivo(await baixar(q.get('tabelas')), { mes, contexto: 'km' });
-  for (const [c, v] of Object.entries(t.tabelas || {})) parametros[c] = { idaVolta: v.idaVolta, apelidos: v.apelidos };
+  for (const [c, v] of Object.entries(t.tabelas || {})) parametros[c] = v;
 }
 const rotas = [], abastecimentos = [];
 for (const n of (q.get('arqs') || '').split('|').filter(Boolean)) {

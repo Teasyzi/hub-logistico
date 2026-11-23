@@ -145,13 +145,21 @@ O site passa a montar o mês inteiro com os arquivos que já chegam, sem a plani
 | `MONTAGEM DAS CARGAS - CB SUL - <MÊS>` | lê as abas `DD`. O mês sai do nome do arquivo. |
 | `Resumo de Planejamento - Diário - CBAR/CCRT` | um arquivo por dia. A unidade sai da célula ao lado de "Unidade" (C7). Antes, o de Barreiras era lido como Juazeiro porque cita CCRT nas abas de cross. |
 | `Listagem de abastecimentos.txt` | realizado, pelo centro de custo. |
-| `KM Planejado x Realizado - <Mês>.xlsm` (uma vez) | além das rotas e abastecimentos, grava a **tabela fixa de ida e volta** (motorista → área → km, como o PROCV) e os **apelidos** da `Planilha1`. Vale para todos os meses e pode ser editada em ⚙ Parâmetros. |
+| `KM Planejado x Realizado - <Mês>.xlsm` (uma vez) | além das rotas e abastecimentos, grava o **cadastro de motoristas**: apelidos da `Planilha1`, base de cada motorista e ida e volta de cada base. Vale para todos os meses e pode ser editado em ⚙ Parâmetros. |
 
-Ida e volta de cada rota: o valor digitado em ⚙ Rotas vence (ex.: **0** quando o motorista veio buscar a carga na unidade); depois vem o valor do arquivo (planilha antiga); depois a tabela pelo nome do motorista (apelido → nome completo; nome cortado em 30 letras casa pelo começo). Entra uma vez por motorista no dia. FRETEIRO, GENÉRICO e EXTRA ficam sem ida e volta. Juazeiro não tem tabela.
+**Fórmulas da planilha (conferidas em out/26, 2026-11-23).** Abas `Planejado Norte` e `Planejado Sul`:
+- `Q` = PROCV(MOTORISTA; Planilha1!A:B ou D:E) → nome completo. Nome fora da Planilha1 dá #N/D.
+- `R` = PROCV(Q; T:U) → **base do motorista** (ÁREA). `L` repete a base.
+- `I` IDA E VOLTA = PROCV(R; U:V) → km da **primeira linha daquela base**. Norte: Maracanaú 0, Canindé 0, Pentecoste 193, Quixadá 332, Morada Nova 348, Quixeramobim 420, Boa Viagem 444. Sul: todas as bases com 0.
+- `M` PLANEJAMENTO = PROCV(DESCRIÇÃO DA ROTA & BASE; X:AA) → km de referência da rota para aquela base. É aqui que a descrição da rota entra: `N`/`O` marcam "VERIFICAR PLANEJADO" quando o km passa 45 da referência. Não muda a ida e volta.
+- Barreiras: `O` = SOMASE(NOME; W:W; Y:Y), soma da ida e volta das linhas do motorista. Juazeiro não tem ida e volta.
+- Em out/26, 26 células de IDA E VOLTA da Norte foram digitadas como **0** por cima da fórmula, sempre em motorista de base fora do CD. 18 delas são rotas em que o km da montagem já passa de ~85% da ida e volta da base (ex.: "QUIXADÁ" com 333 km), ou seja, a montagem já contou a viagem desde o CD. As outras 8 (base Quixeramobim, rotas de 46 a 251 km) não seguem regra visível.
+
+Ida e volta de cada rota no Hub: o valor digitado na página da unidade vence (ex.: **0** quando o motorista saiu do CD); depois o valor do arquivo (planilha antiga); depois o cadastro: nome da montagem → apelido → nome completo → base → ida e volta da base. Em Barreiras, o valor próprio do motorista (a soma da planilha) vence o da base. Nome cortado em 30 letras casa pelo começo se só houver um nome completo possível. Entra uma vez por motorista no dia, já pelo nome completo. FRETEIRO, GENÉRICO e EXTRA ficam sem ida e volta. Nome que não casa fica **sem cadastro** (ida e volta 0) e aparece num aviso para o admin cadastrar. O resumo "Por motorista" também agrupa pelo nome completo.
 
 Teste com nov/26 (`code/tests_js/km_relatorios.html`), realizado até 23/11:
 - CB Norte: só "ROTAS DO DIA" dá 101.293 km planejados (58.265 de rota + 43.028 de ida e volta) contra 95.006 rodados (−6,2%). Com todas as seções, seriam 134.919 (−30%), o que confirma o padrão.
-- CB Norte: 25 rotas de 3 motoristas não estão na tabela de outubro. Elas entram sem ida e volta e aparecem no aviso de ⚙ Rotas.
+- CB Norte: 24 rotas de 2 motoristas não estão no cadastro de outubro (um é grafia diferente de um nome que existe). Elas entram sem ida e volta e aparecem no aviso "sem cadastro". Na Sul, 1 rota com só o primeiro nome do motorista.
 - CB Sul: 68.778 km planejados (a ida e volta da Sul é 0 na tabela) contra 63.681 rodados. As 15 rotas de FRETEIRO (1.813 km) aguardam revisão.
 - Barreiras e Juazeiro: só há o Resumo de 21/11, porque os diários de novembro ainda não foram importados.
 - Outubro continua batendo com a planilha oficial após as mudanças.

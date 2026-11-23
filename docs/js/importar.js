@@ -257,35 +257,41 @@ export function lerPlanejamentoHistoricoKM(wb) {
   return saida;
 }
 
-// Tabelas fixas da planilha antiga, para não redigitar todo mês:
-// - ida e volta: Norte/Sul = NOME MOTORISTA → ÁREA → IDA E VOLTA da 1ª linha daquela área (como o PROCV);
-//   Barreiras = soma da IDA E VOLTA do motorista (como o SOMASE). Juazeiro não tem.
-// - apelidos (aba Planilha1): nome como vem na montagem → nome completo, por unidade.
+// Cadastro fixo de motoristas da planilha antiga, para não redigitar todo mês. Igual às fórmulas das abas Planejado:
+// - apelidos (aba Planilha1): MOTORISTA como vem na montagem → NOME COMPLETO (col. Q = PROCV na Planilha1).
+// - areas: NOME MOTORISTA → ÁREA, a base do motorista (col. R = PROCV na tabela T:U; vale a 1ª linha do nome).
+// - bases: ÁREA → IDA E VOLTA da 1ª linha daquela área (col. I = PROCV de R em U:V).
+// - idaVolta: só Barreiras, que soma a IDA E VOLTA das linhas do motorista (col. O = SOMASE). Vence a base.
+// - cadastro: todos os nomes completos da Planilha1 e da tabela. Juazeiro não tem ida e volta.
 export function lerIdaVoltaHistoricoKM(wb) {
   const abas = { NORTE: 'Planejado Norte', SUL: 'Planejado Sul', CBAR: 'Planejado Barreiras', CCRT: 'Planejado Juazeiro' };
+  const maiusc = (v) => (texto(v) || '').toLocaleUpperCase('pt-BR');
   const saida = {};
   for (const [u, aba] of Object.entries(abas)) {
     const ls = linhas(wb.Sheets[aba]);
     const cab = (ls[0] || []).map(normKM), n = cab.lastIndexOf('nome motorista');
-    const idaVolta = {}, areas = {};
+    const idaVolta = {}, areas = {}, bases = {};
     if (n >= 0 && cab[n + 1] === 'area' && cab[n + 2] === 'ida e volta') {
       const tab = ls.slice(1).filter((l) => l && texto(l[n]));
-      const idaArea = {};
-      for (const l of tab) { const a = normKM(l[n + 1]); if (a && !(a in idaArea)) idaArea[a] = num(l[n + 2]); }
+      for (const l of tab) { const a = maiusc(l[n + 1]); if (a && !(a in bases)) bases[a] = num(l[n + 2]); }
       for (const l of tab) {
-        const nome = texto(l[n]).toUpperCase();
-        areas[nome] = texto(l[n + 1]);
-        idaVolta[nome] = u === 'CBAR' ? (idaVolta[nome] || 0) + num(l[n + 2]) : idaArea[normKM(l[n + 1])] ?? 0;
+        const nome = maiusc(l[n]);
+        if (!(nome in areas)) areas[nome] = maiusc(l[n + 1]);
+        if (u === 'CBAR') idaVolta[nome] = (idaVolta[nome] || 0) + num(l[n + 2]);
       }
     }
-    saida[u] = { idaVolta, areas, apelidos: {} };
+    saida[u] = { idaVolta, areas, bases, apelidos: {}, cadastro: [] };
   }
   const p1 = linhas(wb.Sheets['Planilha1']);
   for (const [u, c] of [['NORTE', 0], ['SUL', 3], ['CBAR', 6], ['CCRT', 9]]) {
+    const cad = new Set(Object.keys(saida[u].areas));
     for (const l of p1.slice(2)) {
-      const ap = texto(l?.[c]), nome = texto(l?.[c + 1]);
-      if (ap && nome && ap.toUpperCase() !== nome.toUpperCase()) saida[u].apelidos[ap.toUpperCase()] = nome.toUpperCase();
+      const ap = maiusc(l?.[c]), nome = maiusc(l?.[c + 1]);
+      if (!nome) continue;
+      cad.add(nome);
+      if (ap && ap !== nome) saida[u].apelidos[ap] = nome;
     }
+    saida[u].cadastro = [...cad].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }
   return saida;
 }

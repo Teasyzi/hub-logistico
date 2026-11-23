@@ -93,38 +93,75 @@ export function aplicarLancamentosKM(porDia, lancamentos = []) {
 export const SECOES_PADRAO_KM = ['ROTAS DO DIA'];
 export const rotaNaSecao = (r, secoes) => !r.secao || (secoes || SECOES_PADRAO_KM).includes(r.secao);
 
-// Nome do motorista → ida e volta, como o PROCV da planilha: tabela fixa (motorista → km da área) e apelidos
-// (nome da montagem → nome completo). Nomes cortados (a montagem Sul corta em 30 letras) casam pelo começo.
-const normNome = (s) => semAcento(s).toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+// Cadastro de motoristas, como nas abas Planejado da planilha:
+//   nome na montagem → nome completo (Planilha1, PROCV exato) → base do motorista (NOME MOTORISTA / ÁREA)
+//   → ida e volta da base (ÁREA / IDA E VOLTA, primeira linha da área, como o PROCV).
+// Barreiras soma a ida e volta das linhas do motorista (SOMASE): esse valor fica como valor próprio do
+// motorista e vence o da base. Nomes cortados (a montagem Sul corta em 30 letras) casam pelo começo quando
+// só existe um nome completo possível. O que não casar fica "sem cadastro" e vira aviso para o admin.
+// par = { apelidos: {APELIDO: NOME}, areas: {NOME: BASE}, bases: {BASE: km}, idaVolta: {NOME: km}, cadastro: [NOME] }
+export const normNome = (s) => semAcento(s).toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+export const semAtribuicaoKM = (nome) => /FRETEIRO|GENERICO|EXTRA/i.test(semAcento(nome));
 export function buscaIdaVoltaKM(par = {}) {
-  const idx = new Map(), apelidos = new Map();
-  for (const [k, v] of Object.entries(par.idaVolta || {})) if (!k.includes('|')) idx.set(normNome(k), Number(v) || 0);
-  for (const [k, v] of Object.entries(par.apelidos || {})) apelidos.set(normNome(k), normNome(v));
-  return Object.assign((nome) => {
+  const nomes = new Map(), apelidos = new Map(), areas = new Map(), bases = new Map(), proprio = new Map();
+  const add = (n) => { const k = normNome(n); if (k && !nomes.has(k)) nomes.set(k, String(n).trim().toLocaleUpperCase('pt-BR')); };
+  for (const [k, v] of Object.entries(par.areas || {})) { add(k); if (String(v || '').trim()) areas.set(normNome(k), String(v).trim().toLocaleUpperCase('pt-BR')); }
+  for (const n of par.cadastro || []) add(n);
+  for (const [k, v] of Object.entries(par.idaVolta || {})) if (!k.includes('|')) { add(k); proprio.set(normNome(k), Number(v) || 0); }
+  for (const [k, v] of Object.entries(par.apelidos || {})) { add(v); apelidos.set(normNome(k), normNome(v)); }
+  for (const [k, v] of Object.entries(par.bases || {})) bases.set(normNome(k), Number(v) || 0);
+  const cache = new Map();
+  // nome como veio no arquivo → { nome: nome completo (ou o do arquivo), cadastrado, base, ida: km ou null }
+  const resolver = (nome) => {
     const n = normNome(nome);
-    if (!n) return null;
-    for (const x of [apelidos.get(n), n]) if (x && idx.has(x)) return idx.get(x);
-    const alvo = apelidos.get(n) || n;
-    const cand = [...idx.keys()].filter((k) => k.startsWith(alvo) || (alvo.length >= 20 && alvo.startsWith(k)));
-    return cand.length === 1 ? idx.get(cand[0]) : null;
-  }, { vazia: idx.size === 0 });
+    if (cache.has(n)) return cache.get(n);
+    let k = apelidos.get(n) || n;
+    if (n && !nomes.has(k)) {
+      const cand = [...nomes.keys()].filter((x) => (k.includes(' ') && x.startsWith(k)) || (k.length >= 20 && k.startsWith(x)));
+      if (cand.length === 1) k = cand[0];
+    }
+    const cadastrado = !!n && nomes.has(k), base = cadastrado ? areas.get(k) || null : null;
+    const ida = !cadastrado ? null : proprio.has(k) ? proprio.get(k) : base && bases.has(normNome(base)) ? bases.get(normNome(base)) : null;
+    const x = { nome: cadastrado ? nomes.get(k) : String(nome || '').trim(), cadastrado, base, ida };
+    cache.set(n, x);
+    return x;
+  };
+  return Object.assign((nome) => resolver(nome).ida, { resolver, vazia: nomes.size === 0, nomes: [...new Set(nomes.values())].sort((a, b) => a.localeCompare(b, 'pt-BR')) });
 }
 
-// Ida e volta de cada rota: o valor digitado na revisão vence; depois o que veio no arquivo; depois a tabela.
+// Ida e volta de cada rota: o valor digitado na revisão vence; depois o que veio no arquivo; depois o cadastro
+// (base do motorista). FRETEIRO, genérico e extra ficam sem ida e volta.
 export function idaDaRota(r, busca) {
   if (r.idaManual != null) return { valor: r.idaManual, origem: 'manual' };
   if (r.idaVolta != null) return { valor: Number(r.idaVolta) || 0, origem: 'arquivo' };
-  if (/FRETEIRO|GENERICO|EXTRA/i.test(semAcento(r.motorista))) return { valor: 0, origem: 'sem atribuição' };
+  if (semAtribuicaoKM(r.motorista)) return { valor: 0, origem: 'sem atribuição' };
   if (busca.vazia) return { valor: 0, origem: 'unidade sem tabela' };
-  const v = busca(r.motorista);
-  return v == null ? { valor: 0, origem: 'fora da tabela' } : { valor: v, origem: 'tabela' };
+  const m = busca.resolver(r.motorista);
+  if (!m.cadastrado) return { valor: 0, origem: 'sem cadastro' };
+  if (m.ida == null) return { valor: 0, origem: 'sem base' };
+  return { valor: m.ida, origem: m.base ? `base ${m.base}` : 'valor do motorista' };
 }
 
-// Uma ida e volta por motorista/caminhão no dia. Se alguma rota do dia foi ajustada à mão, vale o ajuste.
+// Nome completo do motorista da rota (ou o nome do arquivo, quando não tem cadastro).
+export const nomeMotoristaKM = (r, busca) => !r.motorista ? '' : !busca || busca.vazia || semAtribuicaoKM(r.motorista) ? String(r.motorista).trim() : busca.resolver(r.motorista).nome;
+
+// Motoristas da unidade que não estão no cadastro (Planilha1 / tabela de ida e volta), com o nº de rotas.
+export function semCadastroKM(rs, busca) {
+  if (busca.vazia) return [];
+  const m = new Map();
+  for (const r of rs) {
+    if (!r.motorista || semAtribuicaoKM(r.motorista) || busca.resolver(r.motorista).cadastrado) continue;
+    const n = String(r.motorista).trim().toLocaleUpperCase('pt-BR');
+    m.set(n, (m.get(n) || 0) + 1);
+  }
+  return [...m].map(([nome, rotas]) => ({ nome, rotas })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+// Uma ida e volta por motorista/caminhão no dia (pelo nome completo). Se alguma rota do dia foi ajustada à mão, vale o ajuste.
 function idaPorDia(rs, busca) {
   const grupos = new Map();
   for (const r of rs) {
-    const k = `${r.data}|${chavePessoa(r) || `sem-pessoa-${r.placa || ''}`}`;
+    const k = `${r.data}|${normNome(nomeMotoristaKM(r, busca)) || chavePessoa(r) || `sem-pessoa-${r.placa || ''}`}`;
     if (!grupos.has(k)) grupos.set(k, []);
     grupos.get(k).push({ r, ida: idaDaRota(r, busca) });
   }
@@ -184,7 +221,10 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     const diferenca = realizado - planejado;
     const dispersao = planejado ? realizado / planejado - 1 : null;
     const motoristas = ['NORTE', 'SUL'].includes(c) ? detalheMotoristas(c, mes, rs, as, busca, ultimoDia) : [];
-    revisao.foraDaTabela = rs.filter((r) => idaDaRota(r, busca).origem === 'fora da tabela').length;
+    // Só para o admin: os nomes ficam no resultado do rascunho, nunca no agregado publicado.
+    revisao.semCadastro = c === 'CCRT' ? [] : semCadastroKM(rs, busca);
+    revisao.semBase = c === 'CCRT' ? 0 : rs.filter((r) => idaDaRota(r, busca).origem === 'sem base').length;
+    revisao.foraDaTabela = revisao.semCadastro.reduce((s, x) => s + x.rotas, 0) + revisao.semBase;
     revisao.foraDaSecao = doMes.filter((r) => !r.excluida && !rotaNaSecao(r, secoes[c])).length;
     unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || as.length > 0, revisao, dias: exibidos, ultimoDia, duplicadas: [...dups], espelhos: Object.fromEntries(espelhos), totais: { planejado, realizado, diferenca, dispersao,
       custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : dispersao <= (Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
@@ -198,7 +238,15 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
 function detalheMotoristas(unidade, mes, rotas, abastecimentos, busca, ultimoDia) {
   const ate = (d) => d?.startsWith(mes) && (!ultimoDia || d <= ultimoDia);
   const rs = rotas.filter((r) => ate(r.data));
-  const nome = (r) => String(r.motorista || 'Sem identificação').trim();
+  // Agrupa pelo nome completo do cadastro: o apelido e o nome completo da mesma pessoa viram uma linha só.
+  const nome = (r) => nomeMotoristaKM(r, busca) || 'Sem identificação';
+  const doArquivo = new Map(), semCad = new Set();
+  for (const r of rs) {
+    const n = nome(r), o = String(r.motorista || '').trim();
+    if (!doArquivo.has(n)) doArquivo.set(n, new Set());
+    if (o) doArquivo.get(n).add(o);
+    if (r.motorista && !semAtribuicaoKM(r.motorista) && !busca.vazia && !busca.resolver(r.motorista).cadastrado) semCad.add(n);
+  }
   const mot = new Map(), placaKm = new Map(), motPlaca = new Map();
   const pega = (n) => { if (!mot.has(n)) mot.set(n, { motorista: n, placas: new Set(), dias: new Set(), rotas: 0, kmRotas: 0, idaVolta: 0, planejado: 0, realizado: 0 }); return mot.get(n); };
   for (const r of rs) {
@@ -215,6 +263,7 @@ function detalheMotoristas(unidade, mes, rotas, abastecimentos, busca, ultimoDia
   }
   const semRota = [...realPlaca].filter(([p]) => !placaKm.has(p));
   const lista = [...mot.values()].map((x) => ({ ...x, placas: [...x.placas].sort().join(', '), dias: x.dias.size,
+    nomesArquivo: [...(doArquivo.get(x.motorista) || [])].filter((o) => o.toLocaleUpperCase('pt-BR') !== x.motorista).sort(), semCadastro: semCad.has(x.motorista),
     dispersao: x.planejado ? x.realizado / x.planejado - 1 : null }));
   lista.sort((a, b) => (b.dispersao ?? -9) - (a.dispersao ?? -9));
   if (semRota.length) lista.push({ motorista: 'Placas sem rota no mês', semRota: true, placas: semRota.map(([p]) => p).sort().join(', '), dias: 0, rotas: 0, kmRotas: 0, idaVolta: 0, planejado: 0,

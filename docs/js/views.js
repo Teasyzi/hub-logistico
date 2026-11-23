@@ -1,7 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261123-8';
+import { UNIDADES } from './dados.js?v=20261123-9';
 import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
-import { buscaIdaVoltaKM, idaDaRota, rotaNaSecao, SECOES_PADRAO_KM } from './km.js?v=20261123-8';
+import { buscaIdaVoltaKM, idaDaRota, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261123-9';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -342,8 +342,9 @@ function avisosRevisaoKM(c, u, mes) {
   const semTab = r.semTabela ? `<div class="aviso"><b>A tabela de ida e volta desta unidade está vazia</b>, por isso a ida e volta está zerada em todas as rotas. Importe a planilha "KM Planejado x Realizado" de um mês fechado em <a href="#/km/parametros/${mes}">⚙ Parâmetros</a>. Ela vale para todos os meses.</div>` : '';
   if (r.freteirosPendentes) itens.push(`${fi(r.freteirosPendentes)} rota(s) de FRETEIRO contando no planejado (${fi(r.kmFreteirosPendentes)} km)`);
   if (r.duplicadas) itens.push(`${fi(r.duplicadas)} rota(s) duplicada(s) fora do cálculo`);
-  if (r.foraDaTabela) itens.push(`${fi(r.foraDaTabela)} rota(s) com motorista fora da tabela de ida e volta`);
-  return semTab + (itens.length ? `<div class="aviso">${itens.join(' · ')}. <a href="#/km/${c}/${mes}">Revisar rotas →</a></div>` : '');
+  if (r.semBase) itens.push(`${fi(r.semBase)} rota(s) de motorista cadastrado sem base (ida e volta zerada)`);
+  const semCad = (r.semCadastro || []).length ? `<div class="aviso"><b>${fi(r.semCadastro.length)} motorista(s) sem cadastro</b>, com a ida e volta zerada: ${r.semCadastro.map((x) => `${E(x.nome)} (${fi(x.rotas)} rota${x.rotas > 1 ? 's' : ''})`).join(', ')}. Se for motorista novo, inclua o nome completo e a base; se for outro nome de um motorista que já existe, inclua em Apelidos. <a href="#/km/parametros/${mes}">⚙ Parâmetros →</a></div>` : '';
+  return semTab + semCad + (itens.length ? `<div class="aviso">${itens.join(' · ')}. <a href="#/km/${c}/${mes}">Revisar rotas →</a></div>` : '');
 }
 
 function cardUnidadeKM(c, u, { mes, admin }) {
@@ -424,13 +425,21 @@ export function tabelaRotasKM(unidade, { rotas, secoes, parametros, abasteciment
   const secoesPresentes = SECOES_MONTAGEM.filter((s) => rotas.some((r) => r.secao === s));
   const foraSecao = (r) => !rotaNaSecao(r, ativas);
   const idaTxt = (r) => { const i = idaDaRota({ ...r, idaManual: null }, busca); return { auto: i.valor, origem: i.origem }; };
-  const nomes = [...new Set(rotas.map((r) => r.motoristaOriginal).filter((n) => n && !/FRETEIRO/i.test(n)))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  // Embaixo do motorista: o nome completo e a base do cadastro, ou o aviso de que ele não está cadastrado.
+  const celNome = (r) => {
+    if (!r.motorista || busca.vazia || semAtribuicaoKM(r.motorista)) return '';
+    const m = busca.resolver(r.motorista);
+    if (!m.cadastrado) return '<div class="small"><span class="st no">sem cadastro</span></div>';
+    const nome = nomeMotoristaKM(r, busca), mesmo = nome === String(r.motorista).trim().toLocaleUpperCase('pt-BR');
+    return `<div class="small">${mesmo ? '' : `${E(nome)} · `}${m.base ? `base ${E(m.base)}` : '<span class="st no">sem base</span>'}</div>`;
+  };
+  const nomes = [...new Set([...busca.nomes, ...rotas.map((r) => r.motoristaOriginal).filter((n) => n && !/FRETEIRO/i.test(n))])].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const abast = new Map();
   for (const a of abastecimentos) { const k = `${a.data}|${String(a.placa || '').toUpperCase()}`; abast.set(k, (abast.get(k) || 0) + (Number(a.km) || 0)); }
   const vistos = new Set();
   const realPlaca = (r) => { const k = `${r.data}|${String(r.placa || '').toUpperCase()}`; if (!r.placa || vistos.has(k)) return ''; vistos.add(k); return abast.has(k) ? fi(abast.get(k)) : '0'; };
   const grupos = (r) => [fret(r) || /FRETEIRO/i.test(r.motoristaOriginal || '') ? 'freteiro' : '', r.ajustada || r.excluida ? 'ajustadas' : '', r.excluida ? 'excluidas' : '',
-    dups.has(r.chave) || r.manter ? 'duplicada' : '', espelhos[r.chave] ? 'espelho' : '', comIda && idaTxt(r).origem === 'fora da tabela' ? 'semtabela' : '', r.idaManual != null ? 'idamanual' : ''].filter(Boolean).join(' ');
+    dups.has(r.chave) || r.manter ? 'duplicada' : '', espelhos[r.chave] ? 'espelho' : '', comIda && ['sem cadastro', 'sem base'].includes(idaTxt(r).origem) ? 'semtabela' : '', r.idaManual != null ? 'idamanual' : ''].filter(Boolean).join(' ');
   const etiqueta = (r) => r.excluida ? '<span class="st no">excluída</span>' : espelhos[r.chave] ? `<span class="tag" title="A mesma rota (placa, descrição e km) está em ROTAS DO DIA de ${fdata(espelhos[r.chave])}. Só aquela conta.">repete ${fdata(espelhos[r.chave])} · não conta</span>` : foraSecao(r) ? '<span class="tag">seção fora do planejado</span>'
     : dups.has(r.chave) ? `<label class="chk" title="Rota repetida no mesmo dia (mesma placa, rota e km). Marque para contar mesmo assim."><span class="st no">duplicada</span><input type="checkbox" class="man"> manter</label>`
     : r.manter ? '<label class="chk"><span class="tag">repetida, mantida</span><input type="checkbox" class="man" checked> manter</label>'
@@ -440,16 +449,16 @@ export function tabelaRotasKM(unidade, { rotas, secoes, parametros, abasteciment
     return `<td><input type="text" class="ida" value="${r.idaManual == null ? '' : E(String(r.idaManual))}" placeholder="${E(fd(auto, 0))}" title="Automático: ${E(fd(auto, 0))} km (${E(origem)}). Deixe vazio para usar o automático; 0 quando o motorista saiu da unidade." aria-label="Ida e volta"></td>`; };
   const linhas = rotas.map((r) => `<tr class="${r.excluida || foraSecao(r) || dups.has(r.chave) || espelhos[r.chave] ? 'exc' : ''}" data-chave="${E(r.chave)}" data-original="${E(r.motoristaOriginal || '')}" data-grupos="${grupos(r)}" data-secao="${E(r.secao || '')}" data-dia="${r.data}"${diaInicial !== 'todos' && r.data !== diaInicial ? ' hidden' : ''}>
 <td class="t">${fdata(r.data)}</td>${temSecao ? `<td class="t">${E(r.secao || '–')}</td>` : ''}<td class="t">${E(r.carga || '–')}</td><td class="t">${E(r.area || '–')}</td>${comPlaca ? `<td class="t">${E(r.placa || '–')}</td>` : ''}
-<td class="t"><input type="text" class="mot" list="nomesKM" value="${E(r.motorista || '')}" title="No arquivo: ${E(r.motoristaOriginal || '–')}"></td>
+<td class="t"><input type="text" class="mot" list="nomesKM" value="${E(r.motorista || '')}" title="No arquivo: ${E(r.motoristaOriginal || '–')}">${comIda ? celNome(r) : ''}</td>
 <td>${fd(r.km, 1)}</td>${comIda ? celIda(r) : ''}${comPlaca ? `<td>${realPlaca(r)}</td>` : ''}<td>${etiqueta(r)}</td><td><input type="checkbox" class="exc" ${r.excluida ? 'checked' : ''} aria-label="Excluir rota"></td></tr>`).join('');
   const nCols = 6 + (temSecao ? 1 : 0) + (comPlaca ? 2 : 0) + (comIda ? 1 : 0);
   const caixaSecoes = temSecao ? `<p class="secoes-km"><b>Seções que entram no planejado:</b> ${secoesPresentes.map((s) => `<label class="chk"><input type="checkbox" class="secao" value="${E(s)}" ${ativas.includes(s) ? 'checked' : ''}> ${E(s)} (${fi(rotas.filter((r) => r.secao === s).length)})</label>`).join(' ')}</p>` : '';
   const diasRotas = [...new Set(rotas.map((r) => r.data))].sort();
   const opcDia = `<option value="todos">Todos os dias</option>${diasRotas.map((d) => `<option value="${d}" ${d === diaInicial ? 'selected' : ''}>${fdata(d)}</option>`).join('')}`;
-  const opc = [['todas', 'Todas as rotas'], ['freteiro', 'Só FRETEIRO'], ['duplicada', 'Duplicadas'], ['espelho', 'Repetidas de outro dia (saída para / finalizando)'], ...(comIda ? [['semtabela', 'Motorista fora da tabela de ida e volta'], ['idamanual', 'Ida e volta ajustada']] : []), ['ajustadas', 'Ajustadas ou excluídas'], ['excluidas', 'Só excluídas']]
+  const opc = [['todas', 'Todas as rotas'], ['freteiro', 'Só FRETEIRO'], ['duplicada', 'Duplicadas'], ['espelho', 'Repetidas de outro dia (saída para / finalizando)'], ...(comIda ? [['semtabela', 'Motorista sem cadastro ou sem base'], ['idamanual', 'Ida e volta ajustada']] : []), ['ajustadas', 'Ajustadas ou excluídas'], ['excluidas', 'Só excluídas']]
     .map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
   return `<section class="bloco" id="rotas"><div class="faixa">Rotas do dia</div><div class="corpo">
-<p class="small">Troque o motorista quando a rota veio com o nome errado (ex.: FRETEIRO que foi um motorista da casa) e marque <b>Excluir</b> nas rotas que não entram.${comIda ? ' Na <b>Ida e volta</b>, o valor em cinza é o automático (área do motorista); digite <b>0</b> quando o motorista veio buscar a carga na unidade.' : ''} Rotas repetidas saem sozinhas: no mesmo dia ficam como <b>duplicada</b>; a cópia em "SAÍDA PARA" ou "FINALIZANDO" de uma rota que está em "ROTAS DO DIA" do dia vizinho fica como <b>repete dd/mm</b>. Os ajustes continuam valendo depois de reimportar o dia.</p>
+<p class="small">Troque o motorista quando a rota veio com o nome errado (ex.: FRETEIRO que foi um motorista da casa) e marque <b>Excluir</b> nas rotas que não entram.${comIda ? ' Na <b>Ida e volta</b>, o valor em cinza é o automático (base do motorista no cadastro); digite <b>0</b> quando o motorista veio buscar a carga na unidade.' : ''} Rotas repetidas saem sozinhas: no mesmo dia ficam como <b>duplicada</b>; a cópia em "SAÍDA PARA" ou "FINALIZANDO" de uma rota que está em "ROTAS DO DIA" do dia vizinho fica como <b>repete dd/mm</b>. Os ajustes continuam valendo depois de reimportar o dia.</p>
 ${caixaSecoes}
 <p class="filtros-km"><label>Dia <select id="diaRotas">${opcDia}</select></label> <label>Mostrar <select id="filtroRotas">${opc}</select></label> <button class="btn sec" id="marcarFret" type="button">Marcar as de FRETEIRO para excluir</button></p>
 <datalist id="nomesKM">${nomes.map((n) => `<option value="${E(n)}">`).join('')}</datalist>
@@ -463,7 +472,7 @@ export function blocoMotoristasKM(u) {
   const ls = u.motoristas || [];
   const rows = ls.map((x) => x.semRota
     ? `<tr class="pv"><td class="t">${E(x.motorista)}</td><td class="t" title="${E(x.placas)}">${fi(x.placas.split(', ').length)} placa(s)</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>${fi(x.realizado)}</td><td>–</td><td>–</td></tr>`
-    : `<tr><td class="t">${E(x.motorista)}</td><td class="t">${E(x.placas || '–')}</td><td>${fi(x.dias)}</td><td>${fi(x.rotas)}</td><td>${fi(x.kmRotas)}</td><td>${fi(x.idaVolta)}</td><td>${fi(x.planejado)}</td><td>${fi(x.realizado)}</td><td>${fsinal(x.realizado - x.planejado)}</td><td class="${farolKM(x.dispersao, u.totais.meta)}">${fpSinal(x.dispersao)}</td></tr>`).join('');
+    : `<tr><td class="t">${E(x.motorista)}${x.semCadastro ? ' <span class="st no">sem cadastro</span>' : ''}${x.nomesArquivo?.length ? `<div class="small">na montagem: ${E(x.nomesArquivo.join(', '))}</div>` : ''}</td><td class="t">${E(x.placas || '–')}</td><td>${fi(x.dias)}</td><td>${fi(x.rotas)}</td><td>${fi(x.kmRotas)}</td><td>${fi(x.idaVolta)}</td><td>${fi(x.planejado)}</td><td>${fi(x.realizado)}</td><td>${fsinal(x.realizado - x.planejado)}</td><td class="${farolKM(x.dispersao, u.totais.meta)}">${fpSinal(x.dispersao)}</td></tr>`).join('');
   return `<section class="bloco"><div class="faixa">Por motorista · mês</div><div class="corpo"><div class="tw scroll"><table class="km-mot"><thead><tr><th class="t">Motorista</th><th class="t">Placas</th><th>Dias</th><th>Rotas</th><th>Km das rotas</th><th>Ida e volta</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Dispersão</th></tr></thead><tbody>${rows || '<tr><td colspan="10" class="t">Sem rotas neste mês.</td></tr>'}</tbody></table></div>
 <p class="small">O abastecimento cobre os km rodados desde o abastecimento anterior, por isso o realizado não é casado dia a dia. O realizado do mês de cada placa é dividido entre os motoristas que rodaram com ela, na proporção do km planejado de cada um. Só entram dias até o último abastecimento lançado. "Placas sem rota no mês" são abastecimentos de placas que não aparecem em nenhuma rota (passe o mouse para ver quais).</p></div></section>`;
 }

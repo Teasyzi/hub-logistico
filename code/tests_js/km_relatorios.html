@@ -16,7 +16,7 @@ try {
   const parametros = {};
   if (q.get('tabelas')) {
     const t = await I.lerArquivo(await baixar(q.get('tabelas')), { mes, contexto: 'km' });
-    for (const [c, v] of Object.entries(t.tabelas || {})) parametros[c] = { idaVolta: v.idaVolta, apelidos: v.apelidos };
+    for (const [c, v] of Object.entries(t.tabelas || {})) parametros[c] = v;
     out.tabelas = Object.fromEntries(Object.entries(t.tabelas).map(([c, v]) => [c, { motoristas: Object.keys(v.idaVolta).length, apelidos: Object.keys(v.apelidos).length }]));
   }
   const rotas = [], abastecimentos = [];

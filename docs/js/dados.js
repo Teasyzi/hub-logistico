@@ -14,7 +14,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { calcular, motivos } from './calc.js?v=20261117-5';
 import { placarPES } from './pes.js';
-import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-8';
+import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-9';
 import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-2';
 
 export const UNIDADES = {
@@ -293,7 +293,8 @@ export async function gravarAjustesKM(unidade, mes, ajustes, secoes) {
   await setDoc(refKM(unidade, mes), dados, { mergeFields: Object.keys(dados) });
 }
 
-// Tabela fixa de ida e volta e apelidos dos motoristas, por unidade. Vale para todos os meses; o mês pode sobrescrever.
+// Cadastro fixo dos motoristas, por unidade: apelidos (nome na montagem → nome completo), base de cada motorista,
+// ida e volta de cada base e, em Barreiras, o valor próprio do motorista. Vale para todos os meses.
 const refBaseKM = (unidade) => doc(db, 'km_parametro', `${unidade}_base`);
 export async function lerBaseKM(unidade) { return (await getDoc(refBaseKM(unidade))).data()?.valores || {}; }
 export async function gravarBaseKM(unidade, valores) {
@@ -302,8 +303,9 @@ export async function gravarBaseKM(unidade, valores) {
 export async function gravarTabelasKM(tabelas) {
   let n = 0;
   for (const [c, t] of Object.entries(tabelas || {})) {
-    if (!Object.keys(t.idaVolta || {}).length && !Object.keys(t.apelidos || {}).length) continue;
-    await gravarBaseKM(c, t); n += Object.keys(t.idaVolta || {}).length;
+    const nMot = new Set([...Object.keys(t.areas || {}), ...Object.keys(t.idaVolta || {}), ...(t.cadastro || [])]).size;
+    if (!nMot && !Object.keys(t.apelidos || {}).length) continue;
+    await gravarBaseKM(c, t); n += nMot;
   }
   return n;
 }
@@ -336,7 +338,9 @@ export async function gravarAbastecimentosKM(linhas) {
 
 export async function lerParametrosKM(unidade, mes) {
   const [base, doMes] = await Promise.all([lerBaseKM(unidade), getDoc(doc(db, 'km_parametro', `${unidade}_${mes}`)).then((s) => s.data()?.valores || {})]);
-  return { ...base, ...doMes, idaVolta: { ...(base.idaVolta || {}), ...(doMes.idaVolta || {}) }, apelidos: { ...(base.apelidos || {}), ...(doMes.apelidos || {}) } };
+  const junta = (k) => ({ ...(base[k] || {}), ...(doMes[k] || {}) });
+  return { ...base, ...doMes, idaVolta: junta('idaVolta'), apelidos: junta('apelidos'), areas: junta('areas'), bases: junta('bases'),
+    cadastro: [...new Set([...(base.cadastro || []), ...(doMes.cadastro || [])])] };
 }
 export async function lerParametrosMesKM(unidade, mes) {
   return (await getDoc(doc(db, 'km_parametro', `${unidade}_${mes}`))).data()?.valores || {};
