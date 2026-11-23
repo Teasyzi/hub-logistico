@@ -1,0 +1,28 @@
+id;relatorio;sistema;unidades;frequencia;status_amostra;KM;Cargas_em_aberto;Fill_rate;KPI;Montadores;Montagem;Perdas_DLs;PES;REPROG;Retorno;Transportes_1x1
+S01;VOLUMES DE VENDAS (CBAR) / ZSD0092 (CCRT);SAP Solar;DLs;diaria;recebido;;;;X;;X;X;X;;;
+S02;VOLUMES DE RETORNOS (CBAR) / ZSD0090 (CCRT);SAP Solar;DLs;diaria;recebido;;;;X;;X;;X;;X;
+S03;Resumo de Planejamento Diario CBAR_V5 / CCRT (Resumo Geral, Paradas);Roadnet (ODBC);DLs;diaria;recebido;X;;;X;;X;;X;;;X
+S04;Listagem de abastecimentos;Sistema de frota;todas;diaria;recebido;X;;;X;;;;;;;
+S05;(mesmo arquivo que S19: MONTAGEM DAS CARGAS CB NORTE/SUL);ver S19;DAs;diaria;faltando;X;;;X;;;;;;;X
+S06;Despesa de frota (CPK);a confirmar;todas;mensal;faltando;X;;;;;;;;;;
+S07;Consulta BI - vendas sem acerto;Consulta BI;DAs;diaria;recebido;;X;;;;;;;;;
+S08;Insuficiencia por produto e dia;a confirmar (BI ou ERP);DAs;mensal;faltando;;;X;X;;;;;;;
+S09;Cadastro de produtos;ERP revendas;DAs;eventual;faltando;;;X;;;;;;;;
+S10;Kardex VDER0002 (TXT);ERP revendas;DAs;mensal;faltando (nov);;;;X;;;;;;;
+S11;listas-trabalhadas (por base);Easy Pallet;todas;diaria;recebido;;;;X;X;;;;;;
+S12;MB59 movimentos de material (CBAR xlsx / CCRT xls);SAP;DLs;mensal;recebido;;;;X;;;X;;;;
+S13;Diferencas de inventario;SAP;DLs;mensal;faltando;;;;X;;;X;;;;
+S14;KSB1 centros de custo;SAP;DLs (CBAR);mensal;recebido (uso a confirmar);;;;;;;X;;;;
+S15;Relatorio diario de reprogramados (TXT);ERP revendas;DAs;diaria;faltando;;;;;;;;;X;;
+S16;Cadastro de clientes;ERP revendas / BI;DAs;eventual;faltando;;;;;;;;;X;;
+S17;Devolucoes por motivo e motorista;Consulta BI;DAs;mensal;faltando;;;;X;;;;;;X;
+S18;Volume, cargas e pedidos dos DAs;a confirmar (BI);DAs;mensal;faltando;;;;X;;;;;;X;
+S19;MONTAGEM DAS CARGAS - CB NORTE/SUL (rotas, placa, motorista, km, ajudantes, cubagem);planilha da operacao (WhatsApp);DAs;diaria;faltando;X;;;X;;;;;;;X
+S20;Ajudantes por carga DLs;informado pela base;DLs;diaria;faltando;;;;X;;;;;;;X
+D01;TRIXLOG telemetria;portal (digitado);todas;mensal;digitado;;;;X;;;;X;;;
+D02;Green Mile / Cashdrive;portal (digitado);todas;mensal;digitado;;;;X;;;;X;;;
+D03;CSAT/NPS entregas;pesquisa (digitado);DLs;mensal;digitado;;;;;;;;X;;;
+D04;Licencas, acidentes, tecnico de seguranca;controle interno (digitado);DLs;mensal;digitado;;;;;;;;X;;;
+D05;Metas (volume, faturamento, cubagem, montador, fill rate);planilhas de metas (digitado);todas;anual/mensal;digitado;X;;X;X;X;X;;X;;;X
+D06;Dias uteis e trabalhados por base;digitado;todas;mensal;digitado;;;;X;;X;;;;;
+D07;Particularidades 1x1;supervisores (digitado);todas;mensal;digitado;;;;;;;;;;;X

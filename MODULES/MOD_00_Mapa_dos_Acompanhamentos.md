@@ -82,3 +82,6 @@ Setas sólidas = link externo, macro ou cópia manual de valor. O KPI de outubro
 - Cada acompanhamento repete a mesma estrutura por unidade (abas CB NORTE, CB SUL, BARREIRAS/LOG I, JUAZEIRO/LOG II). No Hub isso vira uma coluna `unidade`.
 - Cadastros duplicados em várias planilhas: motoristas (apelido → nome completo), produtos (código Solar ↔ código CB, fator de conversão), áreas/rotas e ida-e-volta. Centralizar num cadastro único.
 - Datas aparecem como serial do Excel (ex.: 46296 = 2026-10-01).
+
+## Auditoria de nov/2026
+Os arquivos atuais (nov/2026) e as amostras dos relatórios-fonte foram conferidos em [[AUDITORIA/README|AUDITORIA]]. Lá estão a matriz de fontes, o checklist do que exportar e as fichas novas de REPROG (DAs), Transportes 1x1 e Imagens Frota.

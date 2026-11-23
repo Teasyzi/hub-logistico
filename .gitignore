@@ -23,3 +23,8 @@ __pycache__/
 ~$*
 Thumbs.db
 .DS_Store
+
+# Inventário gerado por code/tools/auditar_planilhas.ps1 (cabeçalhos podem trazer nomes de pessoas)
+AUDITORIA/arquivos.csv
+AUDITORIA/inventario.csv
+AUDITORIA/amostras.csv

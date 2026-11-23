@@ -12,6 +12,17 @@ tags: []
 ---
 # HubLogistico — Tarefas
 
+## Auditoria de 2026-11-23 ([[AUDITORIA/README]])
+- [x] Inventário das 12 pastas do escopo + conferência das amostras de `Relatorios fonte` (8 recebidas, layouts iguais às abas onde são coladas).
+- [x] Fichas por acompanhamento, matriz de fontes, checklist de relatórios, riscos, revisão do Hub e `DESIGN/PADRAO_VISUAL.md`.
+- [ ] Responder as perguntas P-01 a P-16 (`AUDITORIA/README.md`) e juntar as 11 amostras faltantes (`AUDITORIA/checklist_relatorios.md`).
+- [ ] Confirmar e corrigir: o Resumo de Planejamento importado em `#/montagem/importar` é detectado como `km_resumo` e o planejamento não é gravado (`AUDITORIA/revisao_hub.md` §1).
+- [ ] Montadores: aceitar `AAAA-MM-DD-listas-trabalhadas (n).xlsx`, sugerir a base pelos logins e sincronizar os totais com o Firebase.
+- [ ] Unificar as versões de import dos módulos JS (`?v=`), que hoje carregam módulos duplicados.
+- [ ] Aplicar o `DESIGN/PADRAO_VISUAL.md`: tokens de unidade, mapa único de unidades, sem hex/inline fora do CSS, componente único de abas.
+- [ ] Conferência numérica do Hub com as amostras de 23/11 (precisa de Python ou de login admin no site).
+- [ ] Card/link do Imagens Frota no painel do Hub.
+
 ## Em andamento
 - [x] Adicionar exportação para Montagem, PES e KM usando uma rotina XLSM compartilhada e modelos escolhidos localmente. Plano/padrão: [[2026-11-16 Exportar planilhas oficiais]].
 - [ ] Abrir os arquivos exportados de Montagem, PES e KM no Excel; conferir fórmulas/macros e comparar com planilhas oficiais antes do envio diário.
