@@ -112,6 +112,18 @@ export function lerKMsTXT(textoArquivo) {
   return lerAbastecimentos(ls[0].split('\t'), ls.slice(1).map((l) => l.split('\t')), 'no TXT');
 }
 
+// A mesma listagem salva como .xls (KMS.xls): na verdade é uma tabela HTML em Windows-1252. As quebras de linha
+// do cabeçalho (<br>) viram espaço; o rodapé "Parâmetros" não tem placa e fica de fora.
+export const ehListagemHTML = (inicio) => /^\s*<(table|html|!doctype)/i.test(inicio);
+export function lerKMsHTML(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  for (const br of doc.querySelectorAll('br')) br.replaceWith(' ');
+  const ls = [...doc.querySelectorAll('tr')].map((tr) => [...tr.querySelectorAll('td,th')].map((td) => td.textContent.replace(/\s+/g, ' ').trim()));
+  const i = ls.findIndex((r) => r.some((v) => /^data abastec/.test(normKM(v))));
+  if (i < 0) throw new Error('Não achei o cabeçalho da listagem de abastecimentos (Data Abastec) no .xls.');
+  return lerAbastecimentos(ls[i], ls.slice(i + 1), 'no .xls');
+}
+
 // Mesma leitura para o TXT e para a aba `Consulta` da planilha antiga (a listagem colada a partir da linha 3).
 function lerAbastecimentos(cabecalho, registros, onde) {
   const cab = cabecalho.map(normKM);
@@ -393,6 +405,10 @@ export async function lerArquivo(file, opcoes = {}) {
     return { tipo: 'km_abastecimentos', linhas: lerKMsTXT(textoArquivo) };
   }
   const buf = await file.arrayBuffer();
+  if (ehListagemHTML(new TextDecoder('windows-1252').decode(buf.slice(0, 512)))) {
+    const html = new TextDecoder('windows-1252').decode(buf);
+    if (/data\s*(<br\s*\/?>)?\s*abastec/i.test(html)) return { tipo: 'km_abastecimentos', linhas: lerKMsHTML(html) };
+  }
   const wb = XLSX.read(buf, { type: 'array', cellDates: false, cellFormula: false, cellStyles: false });
   const tipo = detectar(wb, opcoes.contexto);
   if (tipo === 'venda') return { tipo, linhas: lerVenda(wb.Sheets[abaCom(wb, 'Transporte')]) };

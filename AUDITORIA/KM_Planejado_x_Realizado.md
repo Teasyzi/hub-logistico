@@ -184,3 +184,10 @@ Teste com nov/26 (`code/tests_js/km_relatorios.html`), realizado até 23/11:
 - **Nomes:** em "Rotas do dia" e em "Por motorista · mês", o motorista aparece sempre com o nome completo do cadastro, sem o nome da montagem. Quem não tem cadastro continua com o nome do arquivo e a marca "sem cadastro". Salvar sem mexer no nome não cria troca de motorista; digitar outro nome cria a troca.
 - **Filtro por motorista** em "Rotas do dia". Em "Por motorista · mês", clicar no nome abre as rotas desse motorista no mês.
 - **Atenção:** na mesma listagem, 19/11 e 21/11 também vieram com poucos lançamentos (4 e 10, contra uns 65 num dia normal). Eles contam no acumulado, porque só o dia da extração e o dia de hoje saem.
+
+### Listagem de abastecimentos em .xls (2026-11-23, noite)
+- **O que parecia erro de leitura:** o planejado estava acima do realizado. A comparação mostrou que o TXT era lido corretamente (o Hub soma o mesmo que o arquivo). O problema era a hora em que ele foi tirado. O TXT, tirado às 08:56, tinha 860 abastecimentos; o `KMS.xls`, tirado às 16:29 do mesmo dia, tem 967. A diferença está em 19/11 (4 → 71) e 21/11 (10 → 50), lançados no sistema depois. Um abastecimento de 23/11 também teve o km corrigido (589 → 313).
+- **Até 21/11 com o .xls:** Norte 94.177 km planejados × 108.303 km realizados (+15,0%); Sul 61.709 × 70.524 (+14,3%). Com o TXT da manhã, a Norte dava +0,1%.
+- **Importação:** o Hub aceita a listagem salva como `.xls`, que na verdade é uma tabela HTML em Windows-1252. As colunas são as mesmas do TXT; a unidade vem do "Nome Local Custo aba.". O `.txt` continua aceito.
+- **Reimportar a listagem substitui o período que ela cobre** (do primeiro ao último dia do arquivo, em cada mês). Antes, o Hub só somava as linhas novas: um lançamento corrigido no sistema ficava duplicado (o km antigo e o novo) e um lançamento apagado continuava contando.
+- **Cuidado:** os abastecimentos entram no sistema com dias de atraso. Uma listagem tirada cedo deixa dias anteriores incompletos, não só o dia da extração.

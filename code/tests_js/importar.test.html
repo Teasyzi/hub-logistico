@@ -33,6 +33,17 @@ try {
   XLSX.utils.book_append_sheet(rt, XLSX.utils.aoa_to_sheet([['Centro', 'Transporte', 'Motivo Nome']]), 'Sheet1');
   ok('Retorno na Montagem → retorno', I.detectar(rt, 'montagem') === 'retorno');
 
+  // Listagem de abastecimentos salva como .xls: tabela HTML em Windows-1252, cabeçalho com <BR> e rodapé de parâmetros.
+  const td = (v) => `<TD><Font Face="Arial"> ${v}</Font></TD>`;
+  const htmlKMS = `<TABLE border="1"><TR><TH><B>N. veiculo</B></TH><TH><B>Placa</B></TH><TH><B>Data<BR>Abastec</B></TH><TH><B>Km's<BR>Percorridos</B></TH><TH><B>N. local<BR>atual</B></TH><TH><B>Nome Local Custo aba.</B></TH></TR>`
+    + `<TR>${td('344')}${td('AAA1A11')}${td('03/11/2026')}${td('1.192,0')}${td('FILIAL II')}${td('CB SUL')}</TR>`
+    + `<TR>${td('347')}${td('BBB2B22')}${td('19/11/2026')}${td('263,0')}${td('FILIAL II')}${td('CB NORTE')}</TR>`
+    + `<TR>${td('')}${td('')}${td('')}${td('1.455')}${td('')}${td('')}</TR></TABLE><TABLE><TR><TD>Periodo dos abastecimentos:</TD><TD>01/11/2026 a 23/11/2026</TD></TR></TABLE>`;
+  const kms = await I.lerArquivo(new File([htmlKMS], 'KMS.xls'), { contexto: 'km' });
+  ok('KMS.xls (HTML) → km_abastecimentos com 2 linhas, km com milhar e unidade pelo custo',
+    kms.tipo === 'km_abastecimentos' && kms.linhas.length === 2 && kms.linhas[0].km === 1192 && kms.linhas[0].unidade === 'SUL'
+    && kms.linhas[1].unidade === 'NORTE' && kms.linhas[1].data === '2026-11-19');
+
   // Arquivo real (opcional): o Resumo de Planejamento recebido.
   const url = new URLSearchParams(location.search).get('resumo');
   if (url) {

@@ -4,10 +4,10 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261123-10';
-import { lerArquivo, num } from './importar.js?v=20261123-10';
-import * as V from './views.js?v=20261123-10';
-import { hojeKM } from './km.js?v=20261123-10';
+import * as D from './dados.js?v=20261123-11';
+import { lerArquivo, num } from './importar.js?v=20261123-11';
+import * as V from './views.js?v=20261123-11';
+import { hojeKM } from './km.js?v=20261123-11';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -572,9 +572,9 @@ function ligarEdicaoKM(unidade, mes, lancamentos) {
 async function telaKMImportar() {
   const mes = mesP(location.hash.split('/')[3]) || mesAtual(), topo = await topoKM('importar', mes, 'Importar arquivos', false);
   const hist = historicoKM(await D.ultimasImportacoes('km'));
-  html(`${topo}<p class="sub">TXT de abastecimentos e planilhas de rotas. Os dados são lidos neste navegador; nomes e placas ficam restritos à área administrativa.</p>
+  html(`${topo}<p class="sub">Listagem de abastecimentos (KMS.xls ou o TXT) e planilhas de rotas. Reimportar a listagem substitui os dias que ela cobre. Os dados são lidos neste navegador; nomes e placas ficam restritos à área administrativa.</p>
 <label>Mês das abas de montagem sem mês/ano <input id="mesImport" type="month" value="${mes}"></label> <label>Unidade para Resumo: <select id="unidadeImport"><option value="AUTO">Detectar pelo arquivo</option><option value="CBAR">Barreiras</option><option value="CCRT">Juazeiro</option></select></label>
-<div class="drop" id="drop"><p>Arraste KMs.txt e as planilhas de rotas aqui ou selecione os arquivos</p><input type="file" id="arqs" multiple accept=".txt,.xls,.xlsx,.xlsm"></div><div id="res"></div>
+<div class="drop" id="drop"><p>Arraste a listagem de abastecimentos (KMS.xls ou .txt) e as planilhas de rotas aqui ou selecione os arquivos</p><input type="file" id="arqs" multiple accept=".txt,.xls,.xlsx,.xlsm"></div><div id="res"></div>
 <h2>Últimas importações de KM</h2><div id="histKM">${hist}</div>`);
   const drop = document.getElementById('drop');
   const processar = async (files) => {

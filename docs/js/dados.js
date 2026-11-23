@@ -14,7 +14,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { calcular, motivos } from './calc.js?v=20261117-5';
 import { placarPES } from './pes.js';
-import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-10';
+import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-11';
 import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-2';
 
 export const UNIDADES = {
@@ -314,14 +314,14 @@ export async function gravarTabelasKM(tabelas) {
 async function gravarParcialKM(unidade, mes, tipo, linhas, extra = {}) {
   const ref = refKM(unidade, mes), atual = (await getDoc(ref)).data() || {};
   const base = atual[tipo] || [];
-  const sig = (x) => tipo === 'rotas' ? `${x.data}|${x.placa || x.veiculo || ''}|${x.motorista || ''}|${x.carga || ''}|${x.categoria || ''}`
-    : `${x.data}|${x.placa || ''}|${x.km}|${x.local || ''}`;
-  const incoming = new Set(linhas.map(sig));
   const datas = new Set(linhas.map((x) => x.data));
+  // Abastecimentos: a listagem nova substitui todo o período que ela cobre (do primeiro ao último dia do arquivo
+  // no mês). Assim um lançamento digitado depois, corrigido (km trocado) ou apagado no sistema não fica duplicado.
+  const ds = [...datas].sort(), de = ds[0], ate = ds.at(-1);
   const keep = tipo === 'rotas' ? base.filter((x) => !datas.has(x.data))
-    : base.filter((x) => !incoming.has(sig(x)));
-  // Reimportar uma listagem mais antiga não puxa a data de extração para trás (os dados novos continuam lá).
-  if (extra.extracaoAbastecimentos && atual.extracaoAbastecimentos > extra.extracaoAbastecimentos) extra = { ...extra, extracaoAbastecimentos: atual.extracaoAbastecimentos };
+    : base.filter((x) => x.data < de || x.data > ate);
+  // Se ficaram dias depois do arquivo (listagem mais antiga que a já gravada), a data de extração não volta para trás.
+  if (extra.extracaoAbastecimentos && keep.some((x) => x.data > ate) && atual.extracaoAbastecimentos > extra.extracaoAbastecimentos) extra = { ...extra, extracaoAbastecimentos: atual.extracaoAbastecimentos };
   await setDoc(ref, { unidade, mes, [tipo]: [...keep, ...linhas], ...extra, atualizado: serverTimestamp() }, { merge: true });
 }
 
