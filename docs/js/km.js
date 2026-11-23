@@ -142,6 +142,19 @@ export function idaDaRota(r, busca) {
   return { valor: m.ida, origem: m.base ? `base ${m.base}` : 'valor do motorista' };
 }
 
+// Rota cujo km já parece incluir a ida e volta da base: o km da rota chega a 85% (ou mais) da ida e volta
+// automática do motorista. Na planilha essas rotas tinham a ida e volta zerada à mão; aqui ficam marcadas
+// para o admin revisar. Some quando o admin digita a ida e volta da rota (0 para zerar, ou o próprio valor).
+export const LIMITE_IDA_NA_ROTA_KM = 0.85;
+export function idaNaRotaKM(r, busca) {
+  if (r.idaManual != null || r.idaVolta != null) return false;
+  const i = idaDaRota(r, busca);
+  return i.valor > 0 && (Number(r.km) || 0) >= LIMITE_IDA_NA_ROTA_KM * i.valor;
+}
+
+// Dia de hoje (fuso do navegador), AAAA-MM-DD.
+export const hojeKM = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
 // Nome completo do motorista da rota (ou o nome do arquivo, quando não tem cadastro).
 export const nomeMotoristaKM = (r, busca) => !r.motorista ? '' : !busca || busca.vazia || semAtribuicaoKM(r.motorista) ? String(r.motorista).trim() : busca.resolver(r.motorista).nome;
 
@@ -174,7 +187,9 @@ function idaPorDia(rs, busca) {
 }
 const localUnidade = (s) => ({ 'MATRIZ': 'NORTE', 'FILIAL II': 'SUL', 'FILIAL I': 'CBAR', 'FILIAL III': 'CCRT' })[String(s || '').trim().toLocaleUpperCase('pt-BR')];
 
-export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], parametros = {}, ajustes = {}, secoes = {}, lancamentos = {} }) {
+// O realizado do dia da extração da listagem de abastecimentos (e do dia de hoje) ainda está incompleto: o dia
+// aparece, mas fica fora do acumulado, como os dias depois do último abastecimento. extracao = {UNIDADE: 'AAAA-MM-DD'}.
+export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], parametros = {}, ajustes = {}, secoes = {}, lancamentos = {}, extracao = {}, hoje = hojeKM() }) {
   const rotas = aplicarAjustesKM(rotasBrutas, ajustes);
   const dias = diasDoMes(mes);
   const unidades = {};
@@ -208,12 +223,13 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     revisao.duplicadas = dups.size;
     revisao.espelhos = espelhos.size;
     revisao.semTabela = c !== 'CCRT' && busca.vazia && rs.length > 0;
-    const diasComRealizado = dias.filter((d) => porDia[d].abastecimentos > 0);
+    const limite = [hoje, extracao[c]].filter(Boolean).sort()[0];
+    const diasComRealizado = dias.filter((d) => porDia[d].abastecimentos > 0 && d < limite);
     const ultimoDia = diasComRealizado.at(-1) || null;
     const exibidos = dias.map((data) => {
       const d = porDia[data];
       return { ...d, diferenca: d.realizado - d.planejado, dispersao: d.planejado ? d.realizado / d.planejado - 1 : null,
-        acumulado: !ultimoDia || data > ultimoDia };
+        acumulado: !ultimoDia || data > ultimoDia, parcial: data >= limite && (d.abastecimentos > 0 || data === limite) };
     });
     const incluidos = exibidos.filter((d) => ultimoDia && d.data <= ultimoDia);
     const planejado = incluidos.reduce((s, d) => s + d.planejado, 0);
@@ -225,6 +241,8 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     revisao.semCadastro = c === 'CCRT' ? [] : semCadastroKM(rs, busca);
     revisao.semBase = c === 'CCRT' ? 0 : rs.filter((r) => idaDaRota(r, busca).origem === 'sem base').length;
     revisao.foraDaTabela = revisao.semCadastro.reduce((s, x) => s + x.rotas, 0) + revisao.semBase;
+    revisao.idaNaRota = c === 'CCRT' ? 0 : rs.filter((r) => idaNaRotaKM(r, busca)).length;
+    revisao.extracao = extracao[c] || null;
     revisao.foraDaSecao = doMes.filter((r) => !r.excluida && !rotaNaSecao(r, secoes[c])).length;
     unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || as.length > 0, revisao, dias: exibidos, ultimoDia, duplicadas: [...dups], espelhos: Object.fromEntries(espelhos), totais: { planejado, realizado, diferenca, dispersao,
       custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : dispersao <= (Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
@@ -240,13 +258,8 @@ function detalheMotoristas(unidade, mes, rotas, abastecimentos, busca, ultimoDia
   const rs = rotas.filter((r) => ate(r.data));
   // Agrupa pelo nome completo do cadastro: o apelido e o nome completo da mesma pessoa viram uma linha só.
   const nome = (r) => nomeMotoristaKM(r, busca) || 'Sem identificação';
-  const doArquivo = new Map(), semCad = new Set();
-  for (const r of rs) {
-    const n = nome(r), o = String(r.motorista || '').trim();
-    if (!doArquivo.has(n)) doArquivo.set(n, new Set());
-    if (o) doArquivo.get(n).add(o);
-    if (r.motorista && !semAtribuicaoKM(r.motorista) && !busca.vazia && !busca.resolver(r.motorista).cadastrado) semCad.add(n);
-  }
+  const semCad = new Set();
+  for (const r of rs) if (r.motorista && !semAtribuicaoKM(r.motorista) && !busca.vazia && !busca.resolver(r.motorista).cadastrado) semCad.add(nome(r));
   const mot = new Map(), placaKm = new Map(), motPlaca = new Map();
   const pega = (n) => { if (!mot.has(n)) mot.set(n, { motorista: n, placas: new Set(), dias: new Set(), rotas: 0, kmRotas: 0, idaVolta: 0, planejado: 0, realizado: 0 }); return mot.get(n); };
   for (const r of rs) {
@@ -263,7 +276,7 @@ function detalheMotoristas(unidade, mes, rotas, abastecimentos, busca, ultimoDia
   }
   const semRota = [...realPlaca].filter(([p]) => !placaKm.has(p));
   const lista = [...mot.values()].map((x) => ({ ...x, placas: [...x.placas].sort().join(', '), dias: x.dias.size,
-    nomesArquivo: [...(doArquivo.get(x.motorista) || [])].filter((o) => o.toLocaleUpperCase('pt-BR') !== x.motorista).sort(), semCadastro: semCad.has(x.motorista),
+    semCadastro: semCad.has(x.motorista),
     dispersao: x.planejado ? x.realizado / x.planejado - 1 : null }));
   lista.sort((a, b) => (b.dispersao ?? -9) - (a.dispersao ?? -9));
   if (semRota.length) lista.push({ motorista: 'Placas sem rota no mês', semRota: true, placas: semRota.map(([p]) => p).sort().join(', '), dias: 0, rotas: 0, kmRotas: 0, idaVolta: 0, planejado: 0,
@@ -275,8 +288,8 @@ export function agregadoPublicado(resultado) {
   return Object.fromEntries(Object.entries(resultado.unidades).map(([c, u]) => [c, {
     unidade: c, nome: u.nome, temDados: u.temDados, ultimoDia: u.ultimoDia, totais: u.totais,
     // Só números: o texto das observações fica na área do admin; o público vê apenas que o dia foi ajustado.
-    dias: u.dias.map(({ data, planejado, realizado, diferenca, dispersao, acumulado, kmRotas, idaVolta, ajusteRealizado, ajustePlanejado }) => ({
-      data, planejado, realizado, diferenca, dispersao, acumulado, kmRotas, idaVolta, ajustado: !!(ajusteRealizado || ajustePlanejado) })),
+    dias: u.dias.map(({ data, planejado, realizado, diferenca, dispersao, acumulado, parcial, kmRotas, idaVolta, ajusteRealizado, ajustePlanejado }) => ({
+      data, planejado, realizado, diferenca, dispersao, acumulado, parcial: !!parcial, kmRotas, idaVolta, ajustado: !!(ajusteRealizado || ajustePlanejado) })),
   }]));
 }
 

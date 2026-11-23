@@ -4,9 +4,10 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261123-9';
-import { lerArquivo, num } from './importar.js?v=20261123-9';
-import * as V from './views.js?v=20261123-9';
+import * as D from './dados.js?v=20261123-10';
+import { lerArquivo, num } from './importar.js?v=20261123-10';
+import * as V from './views.js?v=20261123-10';
+import { hojeKM } from './km.js?v=20261123-10';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -508,11 +509,19 @@ function ligarEdicaoKM(unidade, mes, lancamentos) {
       tr.classList.toggle('exc', tr.querySelector('.exc').checked || dup || (!!tr.dataset.secao && caixasSecao().length > 0 && !s.includes(tr.dataset.secao)));
     } };
   const filtrar = () => {
-    const dia = document.getElementById('diaRotas').value, f = document.getElementById('filtroRotas').value;
-    for (const tr of linhas()) tr.hidden = (dia !== 'todos' && tr.dataset.dia !== dia) || (f !== 'todas' && !tr.dataset.grupos.split(' ').includes(f));
+    const dia = document.getElementById('diaRotas').value, f = document.getElementById('filtroRotas').value, mot = document.getElementById('motRotas').value;
+    for (const tr of linhas()) tr.hidden = (dia !== 'todos' && tr.dataset.dia !== dia) || (mot && tr.dataset.mot !== mot) || (f !== 'todas' && !tr.dataset.grupos.split(' ').includes(f));
   };
   document.getElementById('diaRotas').onchange = filtrar;
   document.getElementById('filtroRotas').onchange = filtrar;
+  document.getElementById('motRotas').onchange = filtrar;
+  // No resumo por motorista, o nome abre as rotas do motorista no mês inteiro.
+  for (const b of document.querySelectorAll('button.ver-mot')) b.onclick = () => {
+    const sel = document.getElementById('motRotas');
+    if (![...sel.options].some((o) => o.value === b.dataset.mot)) return;
+    sel.value = b.dataset.mot; document.getElementById('diaRotas').value = 'todos'; filtrar();
+    document.getElementById('rotas').scrollIntoView({ behavior: 'smooth' });
+  };
   for (const b of document.querySelectorAll('button.ver-dia')) b.onclick = () => {
     document.getElementById('diaRotas').value = b.dataset.dia; filtrar();
     document.getElementById('rotas').scrollIntoView({ behavior: 'smooth' });
@@ -529,9 +538,12 @@ function ligarEdicaoKM(unidade, mes, lancamentos) {
     try {
       const ajustes = [];
       for (const tr of linhas()) {
-        const motorista = tr.querySelector('.mot').value.trim(), excluir = tr.querySelector('.exc').checked, manter = !!tr.querySelector('.man')?.checked;
+        // O campo mostra o nome completo. Sem mudança, fica a troca que já existia; voltar ao nome completo do arquivo desfaz a troca.
+        const campo = tr.querySelector('.mot'), valor = campo.value.trim();
+        const motorista = valor === campo.defaultValue.trim() ? tr.dataset.troca : valor.toLocaleUpperCase('pt-BR') === tr.dataset.padrao.toLocaleUpperCase('pt-BR') ? '' : valor;
+        const excluir = tr.querySelector('.exc').checked, manter = !!tr.querySelector('.man')?.checked;
         const idaTxt = tr.querySelector('.ida')?.value.trim() ?? '';
-        const trocou = motorista && motorista !== tr.dataset.original, temIda = idaTxt !== '';
+        const trocou = !!motorista, temIda = idaTxt !== '';
         if (trocou || excluir || temIda || manter) ajustes.push({ chave: tr.dataset.chave, ...(trocou ? { motorista } : {}), ...(excluir ? { excluir: true } : {}), ...(temIda ? { idaVolta: num(idaTxt) } : {}), ...(manter ? { manter: true } : {}) });
       }
       await D.gravarAjustesKM(unidade, mes, ajustes, caixasSecao().length ? secoesMarcadas() : null);
@@ -571,11 +583,14 @@ async function telaKMImportar() {
       try {
         const x = await lerArquivo(f, { mes: document.getElementById('mesImport').value, unidade: document.getElementById('unidadeImport').value });
         let n = 0, tipo = x.tipo;
-        if (x.tipo === 'km_abastecimentos') n = await D.gravarAbastecimentosKM(x.linhas);
+        // Dia da extração: o menor entre a data do arquivo e hoje. O realizado desse dia fica fora do acumulado.
+        const hoje = hojeKM(), doArquivo = f.lastModified ? new Date(f.lastModified - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) : hoje;
+        const extraidoEm = doArquivo < hoje ? doArquivo : hoje;
+        if (x.tipo === 'km_abastecimentos') n = await D.gravarAbastecimentosKM(x.linhas, extraidoEm);
         else if (['km_rotas', 'km_resumo', 'km_historico'].includes(x.tipo)) {
           n = await D.gravarRotasKM(x.rotas);
           // A planilha antiga também traz a listagem de abastecimentos na aba Consulta.
-          if (x.tipo === 'km_historico' && x.linhas?.length) n += await D.gravarAbastecimentosKM(x.linhas);
+          if (x.tipo === 'km_historico' && x.linhas?.length) n += await D.gravarAbastecimentosKM(x.linhas, extraidoEm);
           // …e a tabela de ida e volta e os apelidos, que passam a valer para todos os meses.
           if (x.tipo === 'km_historico' && x.tabelas) tipo += ` · ida e volta de ${await D.gravarTabelasKM(x.tabelas)} motoristas`;
         }

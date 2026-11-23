@@ -14,7 +14,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { calcular, motivos } from './calc.js?v=20261117-5';
 import { placarPES } from './pes.js';
-import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-9';
+import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-10';
 import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-2';
 
 export const UNIDADES = {
@@ -255,19 +255,20 @@ export async function lerDadosKM(mes) {
   const unidades = Object.keys(UNIDADES_KM);
   const anterior = mesAnteriorKM(mes);
   const [docs, docsAnt] = await Promise.all([Promise.all(unidades.map((c) => getDoc(refKM(c, mes)))), Promise.all(unidades.map((c) => getDoc(refKM(c, anterior))))]);
-  const rotas = [], abastecimentos = [], ajustes = {}, secoes = {}, lancamentos = {};
+  const rotas = [], abastecimentos = [], ajustes = {}, secoes = {}, lancamentos = {}, extracao = {};
   docs.forEach((snap, i) => {
     const d = snap.data() || {}, c = unidades[i];
     rotas.push(...(d.rotas || []).map((r) => ({ ...r, unidade: c })));
     abastecimentos.push(...(d.abastecimentos || []).map((a) => ({ ...a, unidade: c })));
     ajustes[c] = d.ajustes || [];
     if (Array.isArray(d.secoes)) secoes[c] = d.secoes;
+    if (d.extracaoAbastecimentos) extracao[c] = d.extracaoAbastecimentos;
     // Km que o mês anterior mandou para este (fechamento) entra aqui também.
     const vindos = (docsAnt[i].data()?.lancamentos || []).filter((l) => l.para?.startsWith(mes)).map((l) => ({ ...l, doMesAnterior: true }));
     lancamentos[c] = [...(d.lancamentos || []), ...vindos];
   });
   const parametros = Object.fromEntries(await Promise.all(unidades.map(async (c) => [c, await lerParametrosKM(c, mes)])));
-  return { rotas, abastecimentos, parametros, ajustes, secoes, lancamentos };
+  return { rotas, abastecimentos, parametros, ajustes, secoes, lancamentos, extracao };
 }
 const mesAnteriorKM = (mes) => { const [a, m] = mes.split('-').map(Number); return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`; };
 
@@ -310,7 +311,7 @@ export async function gravarTabelasKM(tabelas) {
   return n;
 }
 
-async function gravarParcialKM(unidade, mes, tipo, linhas) {
+async function gravarParcialKM(unidade, mes, tipo, linhas, extra = {}) {
   const ref = refKM(unidade, mes), atual = (await getDoc(ref)).data() || {};
   const base = atual[tipo] || [];
   const sig = (x) => tipo === 'rotas' ? `${x.data}|${x.placa || x.veiculo || ''}|${x.motorista || ''}|${x.carga || ''}|${x.categoria || ''}`
@@ -319,7 +320,9 @@ async function gravarParcialKM(unidade, mes, tipo, linhas) {
   const datas = new Set(linhas.map((x) => x.data));
   const keep = tipo === 'rotas' ? base.filter((x) => !datas.has(x.data))
     : base.filter((x) => !incoming.has(sig(x)));
-  await setDoc(ref, { unidade, mes, [tipo]: [...keep, ...linhas], atualizado: serverTimestamp() }, { merge: true });
+  // Reimportar uma listagem mais antiga não puxa a data de extração para trás (os dados novos continuam lá).
+  if (extra.extracaoAbastecimentos && atual.extracaoAbastecimentos > extra.extracaoAbastecimentos) extra = { ...extra, extracaoAbastecimentos: atual.extracaoAbastecimentos };
+  await setDoc(ref, { unidade, mes, [tipo]: [...keep, ...linhas], ...extra, atualizado: serverTimestamp() }, { merge: true });
 }
 
 export async function gravarRotasKM(linhas) {
@@ -329,10 +332,11 @@ export async function gravarRotasKM(linhas) {
   return linhas.length;
 }
 
-export async function gravarAbastecimentosKM(linhas) {
+// extraidoEm: dia em que a listagem foi tirada do sistema. O realizado desse dia ainda está incompleto e fica fora do acumulado.
+export async function gravarAbastecimentosKM(linhas, extraidoEm = null) {
   const grupos = new Map();
   for (const a of linhas) { const k = `${a.unidade}|${a.data.slice(0, 7)}`; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a); }
-  for (const [k, as] of grupos) { const [c, m] = k.split('|'); await gravarParcialKM(c, m, 'abastecimentos', as); }
+  for (const [k, as] of grupos) { const [c, m] = k.split('|'); await gravarParcialKM(c, m, 'abastecimentos', as, extraidoEm ? { extracaoAbastecimentos: extraidoEm } : {}); }
   return linhas.length;
 }
 
