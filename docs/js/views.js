@@ -1,5 +1,5 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js';
+import { UNIDADES } from './dados.js?v=20261123-1';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -102,7 +102,7 @@ export function graficoVendidoRetorno(dias, altura = 290) {
 // ---------------------------------------------------------------- painel principal (só admin)
 export function painelPrincipal() {
   const acomp = [['Montagem de cargas (DLs)', '#/montagem', 'ativo · Barreiras e Juazeiro'], ['KPI Distribuição e Logística', null, 'próxima fase'],
-    ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', null, 'planejado'], ['Montadores', '#/montadores/NORTE', 'em validação · dados locais'],
+    ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', '#/cargas', 'novo · CB Norte e CB Sul (Consulta BI)'], ['Montadores', '#/montadores/NORTE', 'em validação · dados locais'],
     ['Perdas de estoque', null, 'planejado'], ['KM planejado × realizado', '#/km', 'em validação · 4 unidades'], ['Retorno por motivo', null, 'planejado'],
     ['Fill rate', null, 'planejado'], ['Gestão à vista', null, 'planejado'], ['Custos de descarga', null, 'planejado']];
   return `<h1>Painel principal</h1><p class="sub">Acompanhamentos do Hub. Cada um tem link próprio para enviar por e-mail; quem recebe vê só aquele acompanhamento.</p>
@@ -329,3 +329,60 @@ export function paginaKMMotoristas(u, { mes, topo }) {
   const rows = u.motoristas.map((x) => `<tr><td class="t">${E(x.motorista)}</td><td>${E(x.placa || '–')}</td><td>${fi(x.planejado)}</td><td>${fi(x.realizado)}</td><td>${fi(x.realizado-x.planejado)}</td><td>${fi(x.semRota || 0)}</td></tr>`).join('');
   return `${topo}<p><a href="#/km/resumo/${mes}">← Resumo</a></p><h2>Detalhe por motorista e placa · ${E(u.nome)}</h2><div class="tw scroll"><table><thead><tr><th class="t">Motorista</th><th>Placa</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Abast. sem rota</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="t">Sem rotas ou abastecimentos.</td></tr>'}</tbody></table></div><p class="small">Somente CB Norte e CB Sul têm atribuição por placa e dia. Nomes e placas ficam restritos ao administrador.</p>`;
 }
+
+// ---------------------------------------------------------------- Cargas em aberto (DAs)
+export function abasCargas(ativa, data, admin) {
+  const q = data ? `/${data}` : '';
+  const a = [['resumo', 'Resumo', `#/cargas/resumo${q}`], ['NORTE', 'CB Norte', `#/cargas/NORTE${q}`], ['SUL', 'CB Sul', `#/cargas/SUL${q}`]];
+  const adm = admin ? [['importar', 'Importar', '#/cargas/importar'], ['publicar', 'Publicar', `#/cargas/publicar${q}`]] : [];
+  return `<nav class="abas">${a.map(([k, t, h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
+    + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
+}
+
+const fdataAno = (iso) => `${fdata(iso)}/${iso.slice(0, 4)}`;
+// Reaproveita id="selMes" para ligarTopo() funcionar igual aos outros acompanhamentos.
+export function seletorData(datas, data) {
+  return `Extração: <select id="selMes">${datas.map((d) => `<option value="${d}" ${d === data ? 'selected' : ''}>${fdataAno(d)}</option>`).join('')}</select>`;
+}
+
+function tilesCargas(r) {
+  const ma = r.maisAntiga;
+  return `<div class="tiles">
+ <div class="tile"><div class="l">Vendas em aberto</div><div class="v">${fi(r.qtd)}</div><div class="d">${fi(r.clientes)} clientes</div></div>
+ <div class="tile"><div class="l">Cx unit em aberto</div><div class="v">${fi(r.cxu)}</div><div class="d">sem acerto no ERP</div></div>
+ <div class="tile"><div class="l">Mais antiga</div><div class="v">${ma ? `${fi(ma.dias)} ${ma.dias === 1 ? 'dia' : 'dias'}` : '–'}</div><div class="d">${ma ? `emissão ${fdata(ma.emissao)} · cliente ${E(ma.cli)}` : 'nenhuma venda em aberto'}</div></div>
+ <div class="tile"><div class="l">Tempo médio de acerto</div><div class="v">${r.acerto?.diasMedio == null ? '–' : `${fd(r.acerto.diasMedio, 1)} dias`}</div><div class="d">${r.acerto ? `${fi(r.acerto.qtd)} vendas já acertadas no período` : 'sem vendas acertadas no export'}</div></div>
+</div>`;
+}
+
+function graficoCargas(r) {
+  return grafico(r.porEmissao, 'cxu', r.cor, null, '', fk, fk);
+}
+
+const notaFaixas = '<p class="small">Dias em aberto = data da extração − data de emissão. As cores das faixas são só visuais: não há meta oficial para cargas em aberto.</p>';
+
+export function paginaCargasResumo(res, { data, topo, admin }) {
+  const rs = Object.entries(res.revendas);
+  const total = { qtd: rs.reduce((s, [, r]) => s + r.qtd, 0), cxu: rs.reduce((s, [, r]) => s + r.cxu, 0) };
+  const linhas = rs[0][1].faixas.map((f, i) => `<tr><td class="t ${f.classe}">${E(f.rotulo)}</td>${rs.map(([, r]) => `<td>${fi(r.faixas[i].qtd)}</td><td>${fi(r.faixas[i].cxu)}</td>`).join('')}</tr>`).join('');
+  const tabela = `<div class="tw scroll"><table><thead><tr><th class="t" rowspan="2">Dias em aberto</th>${rs.map(([, r]) => `<th class="grp" colspan="2">${E(r.nome)}</th>`).join('')}</tr>
+<tr>${rs.map(() => '<th>Vendas</th><th>Cx unit</th>').join('')}</tr></thead><tbody>${linhas}
+<tr class="tot"><td class="t">TOTAL</td>${rs.map(([, r]) => `<td>${fi(r.qtd)}</td><td>${fi(r.cxu)}</td>`).join('')}</tr></tbody></table></div>`;
+  const blocos = rs.map(([c, r]) => `<section class="bloco"><div class="faixa">${E(r.nome)} <a class="btn sec" href="#/cargas/${c}/${data}">Lista de clientes →</a></div><div class="corpo">
+${tilesCargas(r)}<h3>Cx unit em aberto por data de emissão</h3>${r.porEmissao.length ? graficoCargas(r) : '<p class="small">Nenhuma venda em aberto.</p>'}</div></section>`).join('');
+  return `${topo}<p class="sub">Vendas emitidas e ainda não acertadas no ERP, extraídas da Consulta BI em ${fdataAno(data)}${res.emissaoDe ? ` · emissões de ${fdata(res.emissaoDe)} a ${fdata(res.emissaoAte)}` : ''}.</p>
+<div class="tiles"><div class="tile"><div class="l">Vendas em aberto · total</div><div class="v">${fi(total.qtd)}</div></div><div class="tile"><div class="l">Cx unit em aberto · total</div><div class="v">${fi(total.cxu)}</div></div></div>
+<h2>Por faixa de dias em aberto</h2>${tabela}${notaFaixas}<div class="g2">${blocos}</div>`;
+}
+
+export function paginaCargasRevenda(r, { data, topo, admin }) {
+  const linhas = r.lista.map((l) => `<tr><td class="t">${E(l.cli)}</td>${admin ? `<td class="t">${E(l.nome || '')}</td>` : ''}<td>${fdataAno(l.emissao)}</td><td class="${faixaClasse(l.dias)}">${fi(l.dias)}</td><td>${fi(l.cxu)}</td></tr>`).join('');
+  return `${topo}<p><a href="#/cargas/resumo/${data}">← Resumo</a></p>${tilesCargas(r)}
+<h2>Cx unit em aberto por data de emissão</h2><div class="card">${r.porEmissao.length ? graficoCargas(r) : '<p class="small">Nenhuma venda em aberto.</p>'}</div>
+<h2>Vendas em aberto · da mais antiga para a mais recente</h2>${notaFaixas}
+<div class="tw scroll"><table><thead><tr><th class="t">Cliente (código)</th>${admin ? '<th class="t">Razão social</th>' : ''}<th>Emissão</th><th>Dias em aberto</th><th>Cx unit</th></tr></thead>
+<tbody>${linhas || `<tr><td class="t small" colspan="${admin ? 5 : 4}">Nenhuma venda em aberto.</td></tr>`}
+<tr class="tot"><td class="t">TOTAL</td>${admin ? '<td></td>' : ''}<td></td><td></td><td>${fi(r.cxu)}</td></tr></tbody></table></div>`;
+}
+
+const faixaClasse = (dias) => (dias > 10 ? 'c-no' : dias >= 6 ? 'c-mid' : '');

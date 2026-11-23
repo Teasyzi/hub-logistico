@@ -42,3 +42,15 @@ Controlar vendas emitidas e não acertadas (mercadoria entregue sem prestação 
 - Ingestão da exportação BI com data de extração; histórico diário do estoque de pendências (aging).
 - Dashboard: aging por faixa (0–2, 3–5, 6–10, > 10 dias), top clientes, carga mais antiga, evolução diária.
 - **Candidato a piloto**: uma entrada, uma regra, resultado visível no primeiro dia.
+
+## Implementação no site (2026-11-23)
+- Rotas: `#/cargas/resumo/AAAA-MM-DD`, `#/cargas/NORTE|SUL/AAAA-MM-DD`; admin: `#/cargas/importar`, `#/cargas/publicar/AAAA-MM-DD`.
+- Leitura e cálculo: `docs/js/cargas.js`. O arquivo é reconhecido pelo cabeçalho (Data_Acerto + Venda Caixa Unitária), não pelo nome.
+- Regra confirmada com o export de 23/11: a planilha oficial = linhas com `Data_Acerto = "-"`. Resultado: 3.373 vendas (Norte 1.771, Sul 1.602), 324.628 cx unit; a planilha tinha ~3.378.
+- As linhas já acertadas do mesmo export viram o **tempo médio de acerto** (acerto − emissão).
+- Dias em aberto = data da extração (informada na importação) − emissão, sem `HOJE()`.
+- Firestore:
+  - `cargas_dados/{data}` guarda a foto com razão social (só admin);
+  - `estado/cargas` guarda a lista de datas;
+  - `cargas_publicado/{data}` e `meta/publicacoes_cargas` são lidos pelos leitores, que veem só o código do cliente.
+- Teste: `code/tests_js/cargas.test.html` (sintético + arquivo real opcional).

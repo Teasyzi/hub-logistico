@@ -127,3 +127,5 @@ table.pes td:nth-child(4){font-size:12.5px}
 @media(max-width:1100px){main{max-width:100%;padding:18px 18px 44px}.montagem-resumo{gap:14px}.tiles{grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr))}}
 @media(max-width:820px){main{padding:16px 12px 36px}.montagem-resumo{grid-template-columns:minmax(0,1fr)}.g2{grid-template-columns:minmax(0,1fr)!important}.abas{gap:3px}.abas a{padding:8px 10px}.abas a.adm{margin-left:0}.pes-dls{max-width:none}.tile .v{font-size:20px}}
 @media(max-width:520px){header{padding:9px 11px;gap:7px 10px}header b{font-size:15px}main{padding:14px 9px 30px}h1{font-size:17px}.sub{font-size:12px}.abas{border-bottom-width:1px;margin:8px 0 13px}.abas a{font-size:10.5px;padding:7px 8px}.faixa{padding:8px 10px;font-size:12px}.bloco .corpo{padding:9px}.grid,.g2,.tiles{grid-template-columns:minmax(0,1fr)}.tile .v{font-size:19px}th,td{padding:5px 6px}.kv td{padding:6px 8px}.btn{padding:7px 10px;font-size:12px}.drop{padding:18px 12px}.legenda{gap:7px;font-size:10.5px}}
+.campo-link{width:100%;max-width:640px}
+.bloco .corpo h3{margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.35px;color:var(--ink2)}

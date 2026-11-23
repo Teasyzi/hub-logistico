@@ -38,7 +38,7 @@ Gera `arquivos.csv`, `inventario.csv` e `amostras.csv`. Os três ficam **fora do
 | PES – PED Logístico | ✅ implementado | ✅ + ✍️ | já está |
 | Montadores | 🟡 só no navegador | ✅ | sincronizar com o Firebase e aceitar o nome `(n)` |
 | KM | 🟡 em validação | ✅ DLs · ❌ Norte/Sul (S19) | validar com as amostras |
-| Cargas em aberto | ❌ | ✅ (S07) | **sim: piloto recomendado** |
+| Cargas em aberto | ✅ implementado em 23/11 | ✅ (S07) | já está; falta publicar as regras do Firestore |
 | Perdas DL's | ❌ | ✅ MB59 · ❌ inventário | sim, sem o inventário no início |
 | Retorno por motivo | ❌ | ✅ DLs · ❌ DAs (S17) | DLs sim; DAs depois da amostra |
 | Transportes 1x1 | ❌ (sem MOD) | ❌ S19/S20 | depois da amostra S19 |
@@ -67,7 +67,7 @@ Gera `arquivos.csv`, `inventario.csv` e `amostras.csv`. Os três ficam **fora do
 |---|---|---|
 | P-01 | Quem gera o `MONTAGEM DAS CARGAS` de CB Norte/Sul, de qual sistema, e ele pode ficar numa pasta fixa da rede (fim do link do WhatsApp)? | KM Norte/Sul, 1x1, KPI |
 | P-02 | Origem da despesa usada no CPK do KM | KM |
-| P-03 | Filtro aplicado no export do BI de cargas em aberto (18.971 linhas no export × ~3.378 na planilha) e se o TXT `VDGR0017` ainda é usado | Cargas em aberto |
+| P-03 | ~~Filtro do export do BI~~ (resolvido: `Data_Acerto = "-"`). Falta só: o TXT `VDGR0017` ainda é usado no fechamento? | Cargas em aberto |
 | P-04 | Qual consulta (BI/ERP) dá a base de insuficiência, e se ela pode trazer o código do produto | Fill rate |
 | P-05 | Para que serve o KSB1 (conferência contábil ou indicador novo)? Existe para CCRT? | Perdas |
 | P-06 | Qual transação SAP gera as diferenças de inventário, e quando | Perdas |

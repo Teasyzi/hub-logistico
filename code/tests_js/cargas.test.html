@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Testes Cargas em aberto</title>
+<!-- Abrir servido por HTTP a partir da raiz do repo.
+     ?arquivo=<url do export da Consulta BI>&data=AAAA-MM-DD testa e mostra as páginas com o arquivo real (não versionado).
+     ?tema=light|dark|contraste  ·  ?pagina=resumo|NORTE|SUL  ·  ?admin=0 mostra a visão do leitor (dados publicados). -->
+<link rel="stylesheet" href="../../docs/css/hub.css">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<body>
+<main><ul id="r"></ul><p id="fim">rodando…</p><div id="app"></div></main>
+<script type="module">
+const q = new URLSearchParams(location.search);
+if (q.get('tema')) document.documentElement.dataset.theme = q.get('tema');
+const $r = document.getElementById('r');
+let ok_ = 0, falhas = 0;
+const ok = (nome, cond) => { cond ? ok_++ : falhas++; $r.insertAdjacentHTML('beforeend', `<li>${cond ? '✓' : '✕ FALHA'} ${nome}</li>`); };
+const perto = (a, b, tol = 0.01) => Math.abs(a - b) <= tol;
+try {
+  const C = await import('../../docs/js/cargas.js?v=20261123-1');
+
+  // Sintético: cabeçalho na 1ª linha, 2 revendas, 1 linha acertada.
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Revenda', 'Cli (Cód)', 'Cli Razão Social', 'Data_Acerto', 'Data Emissão', 'Venda Caixa Unitária'],
+    ['CB CE Norte', '1-1', 'A', '-', 46343, 100], ['CB CE Norte', '1-2', 'B', '-', 46348, 50.5],
+    ['CB CE Sul', '2-1', 'C', '-', 46330, 10], ['CB CE Sul', '2-2', 'D', 46340, 46338, 999],
+  ]), 'Sheet1');
+  ok('reconhece a Consulta BI pelo cabeçalho', C.ehConsultaCargas(wb));
+  const { linhas } = C.lerConsultaCargas(wb);
+  const foto = C.montarFoto(linhas, '2026-11-23');
+  const res = C.calcularCargas(foto);
+  ok('3 vendas em aberto (Norte 2, Sul 1)', foto.abertas.length === 3 && res.revendas.NORTE.qtd === 2 && res.revendas.SUL.qtd === 1);
+  ok('dias em aberto: 46343 = 17/11 → 6 dias em 23/11', res.revendas.NORTE.maisAntiga.dias === 6 && res.revendas.NORTE.maisAntiga.emissao === '2026-11-17');
+  ok('faixa > 10 dias no Sul (emissão 05/11 = 18 dias)', res.revendas.SUL.faixas[3].qtd === 1);
+  ok('tempo médio de acerto Sul = 2 dias', res.revendas.SUL.acerto.diasMedio === 2);
+  const pub = C.agregadoPublicadoCargas(res);
+  ok('publicado não leva razão social', !JSON.stringify(pub).includes('"nome":"A"') && pub.revendas.NORTE.lista.every((l) => !('nome' in l)));
+
+  // Arquivo real (opcional)
+  const url = q.get('arquivo');
+  if (url) {
+    const data = q.get('data') || '2026-11-23';
+    const real = XLSX.read(await (await fetch(url)).arrayBuffer(), { type: 'array' });
+    const lido = C.lerConsultaCargas(real), f = C.montarFoto(lido.linhas, data), r = C.calcularCargas(f);
+    ok(`real: ${C.ehConsultaCargas(real)} reconhecido · ${lido.linhas.length} linhas, ${lido.ignoradas} ignoradas`, C.ehConsultaCargas(real));
+    ok(`real: ${f.abertas.length} vendas em aberto (Norte ${r.revendas.NORTE.qtd}, Sul ${r.revendas.SUL.qtd})`, true);
+    ok(`real: cx unit em aberto ${(r.revendas.NORTE.cxu + r.revendas.SUL.cxu).toFixed(1)}`, true);
+    ok(`real: foto cabe no Firestore (${Math.round(JSON.stringify(f).length / 1024)} KB < 900 KB)`, JSON.stringify(f).length < 900000);
+    const esperado = q.get('esperado');   // "abertas,norte,sul,cxu"
+    if (esperado) {
+      const [a, n, s, cx] = esperado.split(',').map(Number);
+      ok('real: bate com o esperado', f.abertas.length === a && r.revendas.NORTE.qtd === n && r.revendas.SUL.qtd === s && perto(r.revendas.NORTE.cxu + r.revendas.SUL.cxu, cx, 0.5));
+    }
+    const V = await import('../../docs/js/views.js?v=20261123-3');
+    const admin = q.get('admin') !== '0', pagina = q.get('pagina') || 'resumo';
+    const dados = admin ? r : C.agregadoPublicadoCargas(r);
+    const topo = `<h1>Cargas em aberto — prévia</h1>${V.abasCargas(pagina, data, admin)}`;
+    document.getElementById('app').innerHTML = pagina === 'resumo'
+      ? V.paginaCargasResumo(dados, { data, topo, admin }) : V.paginaCargasRevenda(dados.revendas[pagina], { data, topo, admin });
+  }
+} catch (e) { ok('erro: ' + e.message, false); console.error(e); }
+document.getElementById('fim').textContent = `${ok_} ok, ${falhas} falha(s)`;
+</script>
+</body>
+</html>

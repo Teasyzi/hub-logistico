@@ -15,6 +15,7 @@ import {
 import { calcular, motivos } from './calc.js?v=20261117-5';
 import { placarPES } from './pes.js';
 import { calcularKM, agregadoPublicado, UNIDADES_KM } from './km.js';
+import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-1';
 
 export const UNIDADES = {
   CBAR: { nome: 'DL Barreiras', cor: 1 },
@@ -328,6 +329,54 @@ export async function lerKMPublicado(unidade, mes) {
 }
 export async function mesesKMPublicados() {
   return (await getDoc(doc(db, 'meta', 'publicacoes_km'))).data()?.meses || [];
+}
+
+// ---------------------------------------------------------------- Cargas em aberto (DAs)
+//   cargas_dados/{AAAA-MM-DD}      foto da Consulta BI no dia (lista com razão social; só admin)
+//   estado/cargas                  {datas:[...]} fotos importadas (só admin)
+//   cargas_publicado/{AAAA-MM-DD}  {data, resultado (JSON, sem razão social), publicadoEm, por}
+//   meta/publicacoes_cargas        {datas:[...]}
+export async function gravarCargas(foto) {
+  const tam = JSON.stringify(foto).length;
+  if (tam > 900000) throw new Error(`A foto do dia ficou grande demais para o banco (${Math.round(tam / 1024)} KB). Confira se o export do BI é só do mês.`);
+  await setDoc(doc(db, 'cargas_dados', foto.data), { ...foto, atualizado: serverTimestamp(), por: auth.currentUser?.email || null });
+  const ref = doc(db, 'estado', 'cargas'), datas = new Set((await getDoc(ref)).data()?.datas || []);
+  datas.add(foto.data);
+  await setDoc(ref, { datas: [...datas].sort().reverse(), atualizado: serverTimestamp() }, { merge: true });
+}
+
+export async function datasCargas() {
+  return (await getDoc(doc(db, 'estado', 'cargas'))).data()?.datas || [];
+}
+
+export async function lerCargas(data) {
+  const d = (await getDoc(doc(db, 'cargas_dados', data))).data();
+  return d ? { foto: d, atualizado: d.atualizado?.toDate?.() || null } : null;
+}
+
+export async function calcularCargasAoVivo(data) {
+  const x = await lerCargas(data);
+  return x ? { resultado: calcularCargas(x.foto), atualizado: x.atualizado } : null;
+}
+
+export async function publicarCargas(data) {
+  const x = await calcularCargasAoVivo(data);
+  if (!x) throw new Error('Não há foto da Consulta BI importada para esta data.');
+  await setDoc(doc(db, 'cargas_publicado', data), {
+    data, resultado: JSON.stringify(agregadoPublicadoCargas(x.resultado)), publicadoEm: serverTimestamp(), por: auth.currentUser?.email || null,
+  });
+  const ref = doc(db, 'meta', 'publicacoes_cargas'), datas = new Set((await getDoc(ref)).data()?.datas || []);
+  datas.add(data);
+  await setDoc(ref, { datas: [...datas].sort().reverse(), atualizado: serverTimestamp() }, { merge: true });
+}
+
+export async function lerCargasPublicado(data) {
+  const d = (await getDoc(doc(db, 'cargas_publicado', data))).data();
+  return d ? { resultado: JSON.parse(d.resultado), publicadoEm: d.publicadoEm?.toDate?.(), por: d.por } : null;
+}
+
+export async function datasCargasPublicadas() {
+  return (await getDoc(doc(db, 'meta', 'publicacoes_cargas'))).data()?.datas || [];
 }
 
 export async function souAdmin(uid) {

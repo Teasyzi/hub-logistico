@@ -4,9 +4,9 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261117-7';
+import * as D from './dados.js?v=20261123-1';
 import { lerArquivo, num } from './importar.js?v=20261123-1';
-import * as V from './views.js?v=20261123-2';
+import * as V from './views.js?v=20261123-3';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -15,6 +15,7 @@ import { exportarKM } from './exportar_km.js?v=20261117-3';
 import { conectarModeloExportacao } from './modelos.js?v=20261117-3';
 import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores, temCadastroMontadores } from './montadores.js?v=20261117-10';
 import { exportarMontadores } from './exportar_montadores.js?v=20261117-4';
+import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261123-1';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
@@ -40,10 +41,10 @@ function historicoMontagem(importacoes) {
   return `<div class="tw scroll"><table><thead><tr><th class="t">Quando</th><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Centro</th><th>Linhas</th><th class="t">Período / data</th><th class="t">Por</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
 }
 
-function historicoKM(importacoes) {
+function historicoKM(importacoes, nome = 'KM') {
   const linhas = importacoes.length ? importacoes.map((r) => `<tr><td class="t">${quandoImportou(r)}</td><td class="t">${V.E(r.arquivo)}</td>
 <td class="t">${V.E(r.tipo)}</td><td>${r.linhas ?? ''}</td><td class="t">${V.E(r.periodo || '')}</td><td class="t">${V.E(r.por || '')}</td></tr>`).join('')
-    : '<tr><td colspan="6" class="t small">Ainda não há importações de KM.</td></tr>';
+    : `<tr><td colspan="6" class="t small">Ainda não há importações de ${V.E(nome)}.</td></tr>`;
   return `<div class="tw scroll"><table><thead><tr><th class="t">Quando</th><th class="t">Arquivo</th><th class="t">Tipo</th><th>Linhas</th><th class="t">Período</th><th class="t">Por</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
 }
 
@@ -66,7 +67,7 @@ function cabecalhoSite(titulo) {
         estado.modoAntesDaVisita = estado.modo;
         estado.visualizarComoVisitante = true; estado.modo = 'publicado';
         const p = (location.hash.replace(/^#/, '') || '/').split('/').filter(Boolean), mes = p.map(mesP).find(Boolean) || mesAtual();
-        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : `#/montagem/resumo/${mes}`;
+        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : p[0] === 'cargas' ? '#/cargas/resumo' : `#/montagem/resumo/${mes}`;
         if (location.hash === destino) rotear(); else location.hash = destino;
       } else {
         estado.visualizarComoVisitante = false; estado.modo = estado.modoAntesDaVisita || 'rascunho';
@@ -625,6 +626,113 @@ async function telaMontadoresExportar(mes) {
   ligarTopo((m) => `#/montadores/exportar/${m}`);
 }
 
+// ---------------------------------------------------------------- Cargas em aberto (DAs, foto diária da Consulta BI)
+const dataP = (s) => (/^\d{4}-\d{2}-\d{2}$/.test(s || '') ? s : null);
+const hojeLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const rascunhoCargas = () => adminNaTela() && estado.modo === 'rascunho';
+
+async function datasDisponiveisCargas() {
+  return rascunhoCargas() ? D.datasCargas() : D.datasCargasPublicadas();
+}
+
+async function topoCargas(aba, data, titulo, comData = true) {
+  let ctrl = '';
+  if (comData) {
+    const datas = await datasDisponiveisCargas();
+    if (data && !datas.includes(data)) datas.unshift(data);
+    if (datas.length) ctrl = V.seletorData(datas, data);
+    if (adminNaTela() && ['resumo', 'NORTE', 'SUL'].includes(aba)) {
+      ctrl += ` · <select id="selModo"><option value="rascunho" ${estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho (dados importados)</option>`
+        + `<option value="publicado" ${estado.modo === 'publicado' ? 'selected' : ''}>Publicado (o que os leitores veem)</option></select> `
+        + (estado.modo === 'rascunho' ? '<span class="badge">rascunho</span>' : '<span class="badge pub">publicado</span>');
+    }
+  }
+  return `<h1>Cargas em aberto — ${V.E(titulo)}</h1><p class="sub">${ctrl}</p>${statusAtualizacao(null, 'statusAtualizacao')}${V.abasCargas(aba, data, adminNaTela())}`;
+}
+
+async function resultadoCargas(data) {
+  if (rascunhoCargas()) {
+    const x = await D.calcularCargasAoVivo(data);
+    return x ? { resultado: x.resultado, em: x.atualizado } : null;
+  }
+  const p = await D.lerCargasPublicado(data);
+  return p ? { resultado: p.resultado, em: p.publicadoEm } : null;
+}
+
+async function telaCargas(aba, dataPedida) {
+  html('<p class="small">Carregando cargas em aberto…</p>');
+  const data = dataPedida || (await datasDisponiveisCargas())[0] || null;
+  const rota = (d) => (aba === 'resumo' ? `#/cargas/resumo/${d}` : `#/cargas/${aba}/${d}`);
+  const topo = await topoCargas(aba, data, aba === 'resumo' ? 'Resumo' : V.E({ NORTE: 'CB Norte', SUL: 'CB Sul' }[aba]));
+  const x = data ? await resultadoCargas(data) : null;
+  if (!x) {
+    const msg = rascunhoCargas() ? 'Ainda não há Consulta BI importada para esta data.' : 'As cargas em aberto ainda não foram publicadas.';
+    html(`${topo}<div class="aviso">${msg}</div>${rascunhoCargas() ? '<p><a class="btn" href="#/cargas/importar">Importar Consulta BI</a></p>' : ''}`);
+  } else if (aba === 'resumo') {
+    html(V.paginaCargasResumo(x.resultado, { data, topo, admin: adminNaTela() }));
+  } else {
+    html(V.paginaCargasRevenda(x.resultado.revendas[aba], { data, topo, admin: rascunhoCargas() }));
+  }
+  await atualizarStatus(x?.em || null);
+  ligarTopo(rota);
+}
+
+async function telaCargasImportar() {
+  const topo = await topoCargas('importar', null, 'Importar Consulta BI', false);
+  const hist = historicoKM(await D.ultimasImportacoes('cargas'), 'Cargas em aberto');
+  html(`${topo}<p class="sub">Export da <b>Consulta BI</b> de vendas sem acerto (colunas Revenda, Cli (Cód), Cli Razão Social, Data_Acerto, Data Emissão, Venda Caixa Unitária). O nome do arquivo pode ser o código que o BI gera.
+O arquivo é lido neste navegador. A razão social fica só na área administrativa; os leitores veem o código do cliente.</p>
+<div class="modelo-box"><label>ARQUIVO DA CONSULTA BI (.XLSX)<br><input type="file" id="arqCargas" accept=".xlsx,.xls"></label>
+<label>DATA DA EXTRAÇÃO<br><input type="date" id="dataCargas" value="${hojeLocal()}"></label>
+<button class="btn" id="importarCargas">IMPORTAR</button></div>
+<p class="small">Os dias em aberto são contados até a data da extração. Ao escolher o arquivo, ela é preenchida com a data em que o arquivo foi salvo; confira antes de importar. Importar de novo a mesma data substitui a foto daquele dia.</p>
+<div id="res"></div><h2>Últimas importações</h2><div id="hist">${hist}</div>`);
+  const arq = document.getElementById('arqCargas'), dt = document.getElementById('dataCargas');
+  arq.onchange = () => { const f = arq.files?.[0]; if (f?.lastModified) dt.value = new Date(f.lastModified - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+  document.getElementById('importarCargas').onclick = async (e) => {
+    const f = arq.files?.[0], out = document.getElementById('res'), data = dataP(dt.value);
+    if (!f) { out.innerHTML = erro('Escolha o arquivo da Consulta BI.'); return; }
+    if (!data) { out.innerHTML = erro('Informe a data da extração.'); return; }
+    e.target.disabled = true; out.innerHTML = '<p class="small">Lendo o arquivo…</p>';
+    try {
+      const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: false, cellFormula: false, cellStyles: false });
+      if (!ehConsultaCargas(wb)) throw new Error('Este arquivo não parece ser a Consulta BI de cargas em aberto (faltam as colunas Data_Acerto e Venda Caixa Unitária).');
+      const { linhas, ignoradas } = lerConsultaCargas(wb);
+      const foto = montarFoto(linhas, data);
+      if (foto.emissaoAte && foto.emissaoAte > data) throw new Error(`Há emissões depois da data da extração (${V.fdata(foto.emissaoAte)}). Confira a data.`);
+      await D.gravarCargas(foto);
+      const porRev = ['NORTE', 'SUL'].map((c) => {
+        const ab = foto.abertas.filter((l) => l.rev === c);
+        return `<tr><td class="t">${{ NORTE: 'CB Norte', SUL: 'CB Sul' }[c]}</td><td>${V.fi(ab.length)}</td><td>${V.fi(ab.reduce((s, l) => s + l.cxu, 0))}</td><td>${V.fi(foto.acertadas[c]?.qtd || 0)}</td></tr>`;
+      }).join('');
+      await D.registrarImportacao({ arquivo: f.name, tipo: 'consulta BI', linhas: linhas.length, periodo: `extração ${V.fdata(data)}/${data.slice(0, 4)}`, acompanhamento: 'cargas' });
+      out.innerHTML = `<p class="st ok">✓ Foto de ${V.fdata(data)}/${data.slice(0, 4)} gravada: ${V.fi(linhas.length)} linhas lidas${ignoradas ? `, ${V.fi(ignoradas)} ignoradas (revenda ou emissão vazia)` : ''}.</p>
+<div class="tw scroll"><table><thead><tr><th class="t">Revenda</th><th>Vendas em aberto</th><th>Cx unit em aberto</th><th>Já acertadas</th></tr></thead><tbody>${porRev}</tbody></table></div>
+<p><a class="btn sec" href="#/cargas/resumo/${data}">Conferir o resumo</a> <a class="btn" href="#/cargas/publicar/${data}">Publicar</a></p>`;
+      document.getElementById('hist').innerHTML = historicoKM(await D.ultimasImportacoes('cargas'), 'Cargas em aberto');
+    } catch (err) { out.innerHTML = erro(err); }
+    e.target.disabled = false;
+  };
+}
+
+async function telaCargasPublicar(dataPedida) {
+  const data = dataPedida || (await D.datasCargas())[0] || null;
+  const topo = await topoCargas('publicar', data, 'Publicar');
+  const link = `${location.origin}${location.pathname}#/cargas/resumo`;
+  if (!data) { html(`${topo}<div class="aviso">Importe uma Consulta BI antes de publicar.</div>`); return; }
+  html(`${topo}<p>Publica a foto de ${V.fdata(data)}/${data.slice(0, 4)}: totais, faixas de dias e a lista por código de cliente. A razão social não é publicada.</p>
+<p><a class="btn sec" href="#/cargas/resumo/${data}">Conferir antes</a> <button class="btn" id="pub">Publicar cargas em aberto de ${V.fdata(data)}</button> <span id="msg"></span></p>
+<h2>Link para enviar por e-mail</h2><p class="small">Abre sempre a última foto publicada.</p><p><input type="text" readonly value="${V.E(link)}" class="campo-link"> <button class="btn sec" id="copiar">Copiar</button></p>`);
+  document.getElementById('copiar').onclick = () => navigator.clipboard.writeText(link);
+  document.getElementById('pub').onclick = async (e) => {
+    e.target.disabled = true;
+    try { await D.publicarCargas(data); document.getElementById('msg').innerHTML = '<span class="st ok">✓ publicado</span>'; }
+    catch (err) { document.getElementById('msg').innerHTML = erro(err); }
+    e.target.disabled = false;
+  };
+  ligarTopo((d) => `#/cargas/publicar/${d}`);
+}
+
 // ---------------------------------------------------------------- painel principal e acessos (admin)
 function telaPainel() {
   html(V.painelPrincipal());
@@ -710,6 +818,14 @@ async function rotear() {
       if (sub === 'parametros') return await telaKMParametros(mesP(p[2]) || mesAtual());
       if (sub === 'publicar') return await telaKMPublicar(mesP(p[2]) || mesAtual());
       if (sub === 'motoristas') return await telaKMMotoristas(p[2], mesP(p[3]) || mesAtual());
+    }
+    if (p[0] === 'cargas') {
+      cabecalhoSite('Cargas em aberto');
+      const sub = p[1] || 'resumo';
+      if (sub === 'resumo' || sub === 'NORTE' || sub === 'SUL') return await telaCargas(sub, dataP(p[2]));
+      if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
+      if (sub === 'importar') return await telaCargasImportar();
+      if (sub === 'publicar') return await telaCargasPublicar(dataP(p[2]));
     }
     if (p[0] === 'montadores') {
       cabecalhoSite('Montadores');

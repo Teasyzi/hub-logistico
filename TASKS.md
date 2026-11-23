@@ -23,6 +23,8 @@ tags: []
 - [ ] Aplicar o `DESIGN/PADRAO_VISUAL.md`: tokens de unidade, mapa único de unidades, sem hex/inline fora do CSS, componente único de abas.
 - [ ] Conferência numérica do Hub com as amostras de 23/11 (precisa de Python ou de login admin no site).
 - [ ] Card/link do Imagens Frota no painel do Hub.
+- [x] Cargas em aberto no site (`#/cargas`), conferido com a Consulta BI de 23/11 (3.373 vendas em aberto, igual à planilha).
+- [ ] Publicar no console do Firebase as regras novas de `docs/firestore.rules` (cargas_dados, cargas_publicado, meta/publicacoes_cargas) antes de usar o Cargas em aberto.
 
 ## Em andamento
 - [x] Adicionar exportação para Montagem, PES e KM usando uma rotina XLSM compartilhada e modelos escolhidos localmente. Plano/padrão: [[2026-11-16 Exportar planilhas oficiais]].
