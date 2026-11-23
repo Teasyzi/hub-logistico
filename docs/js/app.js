@@ -5,7 +5,7 @@ import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import * as D from './dados.js?v=20261117-7';
-import { lerArquivo, num } from './importar.js';
+import { lerArquivo, num } from './importar.js?v=20261123-1';
 import * as V from './views.js?v=20261117-10';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
@@ -189,7 +189,9 @@ Histórico: planilhas antigas "MM - Montagem de Cargas" e "Reprogramação DL's"
       out.innerHTML = `<p class="small">Lendo ${V.E(f.name)}…</p>`;
       let r;
       try {
-        const x = await lerArquivo(f);
+        const x = await lerArquivo(f, { contexto: 'montagem' });
+        // Arquivo de outro acompanhamento (ex.: rotas do KM) não é registrado como importado aqui.
+        if (!['venda', 'retorno', 'resumo', 'montagem', 'reprog'].includes(x.tipo)) x.tipo = null;
         r = { arquivo: f.name, tipo: x.tipo || 'não reconhecido', centro: '', linhas: 0, periodo: '' };
         if (x.tipo === 'venda' || x.tipo === 'retorno') {
           r.linhas = x.linhas.length;

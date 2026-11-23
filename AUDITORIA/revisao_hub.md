@@ -19,11 +19,11 @@ O que foi conferido:
 |---|---|
 | Layout VOLUMES DE VENDAS / ZSD0092 | ✅ igual. `detectar()` reconhece pelas colunas `Taxa Ocupação` + `Cxs Unitaria`, então o nome do arquivo não importa |
 | Layout VOLUMES DE RETORNOS / ZSD0090 | ✅ igual. Reconhecido por `Motivo Nome` |
-| Resumo de Planejamento CBAR_V5 / CCRT | ⚠️ **provável bug no site**. Ver abaixo |
+| Resumo de Planejamento CBAR_V5 / CCRT | ✅ **corrigido em 23/11** (bug confirmado com as amostras reais). Ver abaixo |
 | Pendência: coluna E da Reprog Barreiras nov (1,99% → 1,74%) | continua aberta (planilha oficial) |
 | Pendência: fator de cubo 1,6 × 1,66 (KPI) | continua aberta |
 
-> [!bug] O Resumo de Planejamento importado pela Montagem pode ser lido como "rotas do KM"
+> [!bug] (CORRIGIDO 23/11) O Resumo de Planejamento importado pela Montagem era lido como "rotas do KM"
 > Em `docs/js/importar.js`, `detectar()` testa `km_resumo` **antes** de `resumo`:
 > - `km_resumo` = aba `Resumo Geral` com "Carga" na coluna B a partir da linha 9 e `C8` preenchido;
 > - na amostra de 23/11, `B10 = "Carga"` e `C8 = HOJE()+2`, então a condição é verdadeira.
@@ -92,3 +92,9 @@ Num computador com Python e com o `hub.ini` configurado:
 4. No site, como admin:
    - importar as 4 listas do Easy Pallet de 19/11 e comparar com `Acompanhamento de Montadores - Novembro'26.xlsx` (abas `DA`/`DL`, data 19/11);
    - importar a Listagem e os Resumos no KM e comparar com `KM Planejado x Realizado - Novembro.xlsm` (`Analise por dia`).
+
+## 7. Correções aplicadas
+- **2026-11-23 · Resumo de Planejamento na Montagem.**
+  - `detectar(wb, contexto)` passou a receber a tela que importa. Com `contexto = 'montagem'`, `Resumo Geral` + `Paradas` → `resumo`. O KM e as chamadas sem contexto mantêm `km_resumo`.
+  - A tela da Montagem descarta tipos de outros acompanhamentos, que antes eram registrados como importados.
+  - Teste: `code/tests_js/importar.test.html?resumo=<url do .xlsm>`. Passou com os dois Resumos de 23/11: CBAR (data 21/11, 9 cargas) e CCRT (data 21/11, 22 cargas).

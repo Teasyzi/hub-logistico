@@ -48,7 +48,7 @@ Gera `arquivos.csv`, `inventario.csv` e `amostras.csv`. Os três ficam **fora do
 | Imagens Frota | site próprio | — | card/link no Hub (fase A) |
 
 ## Ordem proposta (esforço × dependência)
-1. **Correções no que já existe:**
+1. **Correções no que já existe** (o bug do Resumo foi corrigido em 23/11):
    - bug do Resumo de Planejamento na Montagem;
    - nome `(n)` e sincronização do Montadores;
    - import único de versão (C1);

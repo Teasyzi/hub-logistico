@@ -72,8 +72,12 @@ function abaCom(wb, coluna) {
     .some((l) => l && l.some((v) => v != null && String(v).trim() === coluna)));
 }
 
-export function detectar(wb) {
+// `contexto` = tela que está importando ('montagem' | 'km' | undefined). O Resumo de Planejamento
+// (abas 'Resumo Geral' + 'Paradas') serve às duas telas: na Montagem é o planejamento do dia
+// ('resumo'); no KM são as rotas ('km_resumo').
+export function detectar(wb, contexto) {
   const abas = new Set(wb.SheetNames);
+  if (contexto === 'montagem' && abas.has('Resumo Geral') && abas.has('Paradas')) return 'resumo';
   if (abas.has('Planejado Norte') || abas.has('Planejado Sul') || abas.has('Planejado Barreiras') || abas.has('Planejado Juazeiro')) return 'km_historico';
   if ([...abas].some((n) => /MONTAGEM.*CARGAS/i.test(n)) || [...abas].some((n) => /^(\d{1,2}|\d{1,2}-\d{1,2})$/.test(n))) return 'km_rotas';
   if (abas.has('Resumo Geral')) {
@@ -302,7 +306,7 @@ export async function lerArquivo(file, opcoes = {}) {
   }
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array', cellDates: false, cellFormula: false, cellStyles: false });
-  const tipo = detectar(wb);
+  const tipo = detectar(wb, opcoes.contexto);
   if (tipo === 'venda') return { tipo, linhas: lerVenda(wb.Sheets[abaCom(wb, 'Transporte')]) };
   if (tipo === 'retorno') return { tipo, linhas: lerRetorno(wb.Sheets[abaCom(wb, 'Transporte')]) };
   if (tipo === 'resumo') return { tipo, plan: lerResumo(wb) };

@@ -1,0 +1,50 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Testes importar.js</title>
+<!-- Abrir servido por HTTP a partir da raiz do repo. Com ?resumo=<url-do-Resumo-de-Planejamento.xlsm>
+     também testa o arquivo real (não versionado). -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<ul id="r"></ul><p id="fim">rodando…</p>
+<script type="module">
+const $r = document.getElementById('r');
+let ok_ = 0, falhas = 0;
+const ok = (nome, cond) => { cond ? ok_++ : falhas++; $r.insertAdjacentHTML('beforeend', `<li>${cond ? '✓' : '✕ FALHA'} ${nome}</li>`); };
+try {
+  const I = await import('../../docs/js/importar.js');
+
+  // Resumo de Planejamento sintético: 'Resumo Geral' com data em C8 e "Carga" em B10, mais 'Paradas'.
+  const wb = XLSX.utils.book_new();
+  const rg = XLSX.utils.aoa_to_sheet([]);
+  XLSX.utils.sheet_add_aoa(rg, [[46347]], { origin: 'C8' });
+  XLSX.utils.sheet_add_aoa(rg, [['Carga', 'Veiculo', 'Crachá', 'Nome Motorista', 'Área', 'Entregas']], { origin: 'B10' });
+  XLSX.utils.sheet_add_aoa(rg, [['AC0001', 'C0001', '1', 'X', 'Y', 3]], { origin: 'B11' });
+  XLSX.utils.book_append_sheet(wb, rg, 'Resumo Geral');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Unidade', 'Carga', 'Sequência']]), 'Paradas');
+
+  ok('Resumo sintético na Montagem → resumo', I.detectar(wb, 'montagem') === 'resumo');
+  ok('Resumo sintético no KM → km_resumo', I.detectar(wb, 'km') === 'km_resumo');
+  ok('Resumo sintético sem contexto → km_resumo (comportamento anterior)', I.detectar(wb) === 'km_resumo');
+
+  // Venda/retorno continuam reconhecidos pelo cabeçalho, com ou sem contexto.
+  const v = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(v, XLSX.utils.aoa_to_sheet([['Centro', 'Transporte', 'Taxa Ocupação', 'Cxs Unitaria']]), 'Sheet1');
+  ok('Venda na Montagem → venda', I.detectar(v, 'montagem') === 'venda');
+  const rt = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(rt, XLSX.utils.aoa_to_sheet([['Centro', 'Transporte', 'Motivo Nome']]), 'Sheet1');
+  ok('Retorno na Montagem → retorno', I.detectar(rt, 'montagem') === 'retorno');
+
+  // Arquivo real (opcional): o Resumo de Planejamento recebido.
+  const url = new URLSearchParams(location.search).get('resumo');
+  if (url) {
+    const buf = await (await fetch(url)).arrayBuffer();
+    const nome = decodeURIComponent(url.split('/').pop());
+    const real = XLSX.read(buf, { type: 'array', cellDates: false, cellFormula: false, cellStyles: false });
+    ok(`${nome}: Montagem → resumo`, I.detectar(real, 'montagem') === 'resumo');
+    ok(`${nome}: KM → km_resumo`, I.detectar(real, 'km') === 'km_resumo');
+    const x = await I.lerArquivo(new File([buf], nome), { contexto: 'montagem' });
+    ok(`${nome}: lerArquivo(montagem) traz plan com centro e data`, x.tipo === 'resumo' && !!x.plan?.centro && /^\d{4}-\d{2}-\d{2}$/.test(x.plan?.data || ''));
+    $r.insertAdjacentHTML('beforeend', `<li>plan: ${JSON.stringify(x.plan).slice(0, 300)}</li>`);
+  }
+} catch (e) { ok('erro: ' + e.message, false); }
+document.getElementById('fim').textContent = `${ok_} ok, ${falhas} falha(s)`;
+</script>
