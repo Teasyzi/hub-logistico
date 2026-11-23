@@ -18,7 +18,7 @@ let ok_ = 0, falhas = 0;
 const ok = (nome, cond) => { cond ? ok_++ : falhas++; $r.insertAdjacentHTML('beforeend', `<li>${cond ? '✓' : '✕ FALHA'} ${nome}</li>`); };
 const perto = (a, b, tol = 0.01) => Math.abs(a - b) <= tol;
 try {
-  const C = await import('../../docs/js/cargas.js?v=20261123-1');
+  const C = await import('../../docs/js/cargas.js?v=20261123-2');
 
   // Sintético: cabeçalho na 1ª linha, 2 revendas, 1 linha acertada.
   const wb = XLSX.utils.book_new();
@@ -33,7 +33,9 @@ try {
   const res = C.calcularCargas(foto);
   ok('3 vendas em aberto (Norte 2, Sul 1)', foto.abertas.length === 3 && res.revendas.NORTE.qtd === 2 && res.revendas.SUL.qtd === 1);
   ok('dias em aberto: 46343 = 17/11 → 6 dias em 23/11', res.revendas.NORTE.maisAntiga.dias === 6 && res.revendas.NORTE.maisAntiga.emissao === '2026-11-17');
-  ok('faixa > 10 dias no Sul (emissão 05/11 = 18 dias)', res.revendas.SUL.faixas[3].qtd === 1);
+  ok('Norte: a venda de 6 dias conta como crítica', res.revendas.NORTE.faixas[2].qtd === 1);
+  ok('Sul com emissão 05/11 (18 dias) fica em crítico', res.revendas.SUL.faixas[2].nivel === 'critico' && res.revendas.SUL.faixas[2].qtd === 1);
+  ok('6 dias = crítico, 5 = atenção, 2 = normal', C.faixaDe(6).nivel === 'critico' && C.faixaDe(5).nivel === 'atencao' && C.faixaDe(2).nivel === 'ok');
   ok('tempo médio de acerto Sul = 2 dias', res.revendas.SUL.acerto.diasMedio === 2);
   const pub = C.agregadoPublicadoCargas(res);
   ok('publicado não leva razão social', !JSON.stringify(pub).includes('"nome":"A"') && pub.revendas.NORTE.lista.every((l) => !('nome' in l)));
@@ -53,7 +55,7 @@ try {
       const [a, n, s, cx] = esperado.split(',').map(Number);
       ok('real: bate com o esperado', f.abertas.length === a && r.revendas.NORTE.qtd === n && r.revendas.SUL.qtd === s && perto(r.revendas.NORTE.cxu + r.revendas.SUL.cxu, cx, 0.5));
     }
-    const V = await import('../../docs/js/views.js?v=20261123-3');
+    const V = await import('../../docs/js/views.js?v=20261123-4');
     const admin = q.get('admin') !== '0', pagina = q.get('pagina') || 'resumo';
     const dados = admin ? r : C.agregadoPublicadoCargas(r);
     const topo = `<h1>Cargas em aberto — prévia</h1>${V.abasCargas(pagina, data, admin)}`;

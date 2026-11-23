@@ -54,3 +54,4 @@ Controlar vendas emitidas e não acertadas (mercadoria entregue sem prestação 
   - `estado/cargas` guarda a lista de datas;
   - `cargas_publicado/{data}` e `meta/publicacoes_cargas` são lidos pelos leitores, que veem só o código do cliente.
 - Teste: `code/tests_js/cargas.test.html` (sintético + arquivo real opcional).
+- Urgência (definida pela gestão em 23/11/2026): até 2 dias normal · 3 a 5 dias atenção · **6 dias ou mais crítico**, porque a carga não pode chegar a 7 dias sem acerto. A regra fica em `DIAS_CRITICO` (`docs/js/cargas.js`).

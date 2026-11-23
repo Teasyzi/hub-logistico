@@ -6,12 +6,13 @@ export const REVENDAS = {
   NORTE: { nome: 'CB Norte', bi: 'CB CE Norte', cor: 'var(--s1)' },
   SUL: { nome: 'CB Sul', bi: 'CB CE Sul', cor: 'var(--s2)' },
 };
-// Faixas de dias em aberto (proposta do MOD_Cargas_em_Aberto; não há meta oficial).
+// Urgência pelos dias em aberto (regra da gestão, 23/11/2026): uma carga não pode chegar a 7 dias
+// sem acerto, então 6 dias ou mais já é crítico. 3–5 dias = atenção.
+export const DIAS_CRITICO = 6;
 export const FAIXAS = [
-  { rotulo: '0–2 dias', de: 0, ate: 2, classe: '' },
-  { rotulo: '3–5 dias', de: 3, ate: 5, classe: '' },
-  { rotulo: '6–10 dias', de: 6, ate: 10, classe: 'c-mid' },
-  { rotulo: 'mais de 10 dias', de: 11, ate: Infinity, classe: 'c-no' },
+  { rotulo: '0–2 dias', de: 0, ate: 2, classe: '', nivel: 'ok' },
+  { rotulo: '3–5 dias · atenção', de: 3, ate: DIAS_CRITICO - 1, classe: 'c-mid', nivel: 'atencao' },
+  { rotulo: `${DIAS_CRITICO} dias ou mais · crítico`, de: DIAS_CRITICO, ate: Infinity, classe: 'c-no', nivel: 'critico' },
 ];
 export const faixaDe = (dias) => FAIXAS.find((f) => dias >= f.de && dias <= f.ate) || FAIXAS[0];
 
@@ -101,7 +102,7 @@ export function calcularCargas(foto) {
       .sort((a, b) => b.dias - a.dias || b.cxu - a.cxu);
     const faixas = FAIXAS.map((f) => {
       const xs = lista.filter((l) => l.dias >= f.de && l.dias <= f.ate);
-      return { rotulo: f.rotulo, classe: f.classe, qtd: xs.length, cxu: xs.reduce((s, l) => s + l.cxu, 0) };
+      return { rotulo: f.rotulo, classe: f.classe, nivel: f.nivel, qtd: xs.length, cxu: xs.reduce((s, l) => s + l.cxu, 0) };
     });
     const porDia = new Map();
     for (const l of lista) { const d = porDia.get(l.emissao) || { data: l.emissao, qtd: 0, cxu: 0 }; d.qtd++; d.cxu += l.cxu; porDia.set(l.emissao, d); }

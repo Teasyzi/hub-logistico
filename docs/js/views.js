@@ -1,5 +1,6 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261123-1';
+import { UNIDADES } from './dados.js?v=20261123-2';
+import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -345,12 +346,15 @@ export function seletorData(datas, data) {
   return `Extração: <select id="selMes">${datas.map((d) => `<option value="${d}" ${d === data ? 'selected' : ''}>${fdataAno(d)}</option>`).join('')}</select>`;
 }
 
+const criticas = (r) => r.faixas.find((f) => f.nivel === 'critico') || { qtd: 0, cxu: 0 };
+
 function tilesCargas(r) {
-  const ma = r.maisAntiga;
+  const ma = r.maisAntiga, cr = criticas(r);
   return `<div class="tiles">
+ <div class="tile"><div class="l">Críticas · ${DIAS_CRITICO}+ dias</div><div class="v ${cr.qtd ? 't-down' : 't-up'}">${fi(cr.qtd)}</div><div class="d">${cr.qtd ? `${fi(cr.cxu)} cx unit · limite: ${DIAS_CRITICO + 1} dias` : `nenhuma venda com ${DIAS_CRITICO} dias ou mais`}</div></div>
  <div class="tile"><div class="l">Vendas em aberto</div><div class="v">${fi(r.qtd)}</div><div class="d">${fi(r.clientes)} clientes</div></div>
  <div class="tile"><div class="l">Cx unit em aberto</div><div class="v">${fi(r.cxu)}</div><div class="d">sem acerto no ERP</div></div>
- <div class="tile"><div class="l">Mais antiga</div><div class="v">${ma ? `${fi(ma.dias)} ${ma.dias === 1 ? 'dia' : 'dias'}` : '–'}</div><div class="d">${ma ? `emissão ${fdata(ma.emissao)} · cliente ${E(ma.cli)}` : 'nenhuma venda em aberto'}</div></div>
+ <div class="tile"><div class="l">Mais antiga</div><div class="v ${ma && ma.dias >= DIAS_CRITICO ? 't-down' : ''}">${ma ? `${fi(ma.dias)} ${ma.dias === 1 ? 'dia' : 'dias'}` : '–'}</div><div class="d">${ma ? `emissão ${fdata(ma.emissao)} · cliente ${E(ma.cli)}` : 'nenhuma venda em aberto'}</div></div>
  <div class="tile"><div class="l">Tempo médio de acerto</div><div class="v">${r.acerto?.diasMedio == null ? '–' : `${fd(r.acerto.diasMedio, 1)} dias`}</div><div class="d">${r.acerto ? `${fi(r.acerto.qtd)} vendas já acertadas no período` : 'sem vendas acertadas no export'}</div></div>
 </div>`;
 }
@@ -359,11 +363,11 @@ function graficoCargas(r) {
   return grafico(r.porEmissao, 'cxu', r.cor, null, '', fk, fk);
 }
 
-const notaFaixas = '<p class="small">Dias em aberto = data da extração − data de emissão. As cores das faixas são só visuais: não há meta oficial para cargas em aberto.</p>';
+const notaFaixas = `<p class="small">Dias em aberto = data da extração − data de emissão. Urgência: até 2 dias normal · 3 a ${DIAS_CRITICO - 1} dias atenção · ${DIAS_CRITICO} dias ou mais crítico (a carga não pode chegar a ${DIAS_CRITICO + 1} dias sem acerto).</p>`;
 
 export function paginaCargasResumo(res, { data, topo, admin }) {
   const rs = Object.entries(res.revendas);
-  const total = { qtd: rs.reduce((s, [, r]) => s + r.qtd, 0), cxu: rs.reduce((s, [, r]) => s + r.cxu, 0) };
+  const total = { qtd: rs.reduce((s, [, r]) => s + r.qtd, 0), cxu: rs.reduce((s, [, r]) => s + r.cxu, 0), criticas: rs.reduce((s, [, r]) => s + criticas(r).qtd, 0) };
   const linhas = rs[0][1].faixas.map((f, i) => `<tr><td class="t ${f.classe}">${E(f.rotulo)}</td>${rs.map(([, r]) => `<td>${fi(r.faixas[i].qtd)}</td><td>${fi(r.faixas[i].cxu)}</td>`).join('')}</tr>`).join('');
   const tabela = `<div class="tw scroll"><table><thead><tr><th class="t" rowspan="2">Dias em aberto</th>${rs.map(([, r]) => `<th class="grp" colspan="2">${E(r.nome)}</th>`).join('')}</tr>
 <tr>${rs.map(() => '<th>Vendas</th><th>Cx unit</th>').join('')}</tr></thead><tbody>${linhas}
@@ -371,7 +375,7 @@ export function paginaCargasResumo(res, { data, topo, admin }) {
   const blocos = rs.map(([c, r]) => `<section class="bloco"><div class="faixa">${E(r.nome)} <a class="btn sec" href="#/cargas/${c}/${data}">Lista de clientes →</a></div><div class="corpo">
 ${tilesCargas(r)}<h3>Cx unit em aberto por data de emissão</h3>${r.porEmissao.length ? graficoCargas(r) : '<p class="small">Nenhuma venda em aberto.</p>'}</div></section>`).join('');
   return `${topo}<p class="sub">Vendas emitidas e ainda não acertadas no ERP, extraídas da Consulta BI em ${fdataAno(data)}${res.emissaoDe ? ` · emissões de ${fdata(res.emissaoDe)} a ${fdata(res.emissaoAte)}` : ''}.</p>
-<div class="tiles"><div class="tile"><div class="l">Vendas em aberto · total</div><div class="v">${fi(total.qtd)}</div></div><div class="tile"><div class="l">Cx unit em aberto · total</div><div class="v">${fi(total.cxu)}</div></div></div>
+<div class="tiles"><div class="tile"><div class="l">Críticas · ${DIAS_CRITICO}+ dias · total</div><div class="v ${total.criticas ? 't-down' : 't-up'}">${fi(total.criticas)}</div></div><div class="tile"><div class="l">Vendas em aberto · total</div><div class="v">${fi(total.qtd)}</div></div><div class="tile"><div class="l">Cx unit em aberto · total</div><div class="v">${fi(total.cxu)}</div></div></div>
 <h2>Por faixa de dias em aberto</h2>${tabela}${notaFaixas}<div class="g2">${blocos}</div>`;
 }
 
@@ -385,4 +389,4 @@ export function paginaCargasRevenda(r, { data, topo, admin }) {
 <tr class="tot"><td class="t">TOTAL</td>${admin ? '<td></td>' : ''}<td></td><td></td><td>${fi(r.cxu)}</td></tr></tbody></table></div>`;
 }
 
-const faixaClasse = (dias) => (dias > 10 ? 'c-no' : dias >= 6 ? 'c-mid' : '');
+const faixaClasse = (dias) => faixaDe(dias).classe;

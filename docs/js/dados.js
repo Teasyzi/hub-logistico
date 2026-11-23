@@ -15,7 +15,7 @@ import {
 import { calcular, motivos } from './calc.js?v=20261117-5';
 import { placarPES } from './pes.js';
 import { calcularKM, agregadoPublicado, UNIDADES_KM } from './km.js';
-import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-1';
+import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-2';
 
 export const UNIDADES = {
   CBAR: { nome: 'DL Barreiras', cor: 1 },

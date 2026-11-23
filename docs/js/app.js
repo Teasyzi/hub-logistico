@@ -4,9 +4,9 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261123-1';
+import * as D from './dados.js?v=20261123-2';
 import { lerArquivo, num } from './importar.js?v=20261123-1';
-import * as V from './views.js?v=20261123-3';
+import * as V from './views.js?v=20261123-4';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -15,7 +15,7 @@ import { exportarKM } from './exportar_km.js?v=20261117-3';
 import { conectarModeloExportacao } from './modelos.js?v=20261117-3';
 import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores, temCadastroMontadores } from './montadores.js?v=20261117-10';
 import { exportarMontadores } from './exportar_montadores.js?v=20261117-4';
-import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261123-1';
+import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261123-2';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
