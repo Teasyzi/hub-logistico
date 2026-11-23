@@ -170,6 +170,7 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     aplicarLancamentosKM(porDia, lancamentos[c]);
     revisao.duplicadas = dups.size;
     revisao.espelhos = espelhos.size;
+    revisao.semTabela = c !== 'CCRT' && busca.vazia && rs.length > 0;
     const diasComRealizado = dias.filter((d) => porDia[d].abastecimentos > 0);
     const ultimoDia = diasComRealizado.at(-1) || null;
     const exibidos = dias.map((data) => {
@@ -182,46 +183,43 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     const realizado = incluidos.reduce((s, d) => s + d.realizado, 0);
     const diferenca = realizado - planejado;
     const dispersao = planejado ? realizado / planejado - 1 : null;
-    const motoristas = ['NORTE', 'SUL'].includes(c) ? detalheMotoristas(c, mes, rs, as, busca) : [];
+    const motoristas = ['NORTE', 'SUL'].includes(c) ? detalheMotoristas(c, mes, rs, as, busca, ultimoDia) : [];
     revisao.foraDaTabela = rs.filter((r) => idaDaRota(r, busca).origem === 'fora da tabela').length;
     revisao.foraDaSecao = doMes.filter((r) => !r.excluida && !rotaNaSecao(r, secoes[c])).length;
     unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || as.length > 0, revisao, dias: exibidos, ultimoDia, duplicadas: [...dups], espelhos: Object.fromEntries(espelhos), totais: { planejado, realizado, diferenca, dispersao,
-      custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : Math.abs(dispersao) <= (Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
+      custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : dispersao <= (Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
   }
   return { mes, unidades };
 }
 
-function detalheMotoristas(unidade, mes, rotas, abastecimentos, busca) {
-  const mapa = new Map();
-  const chave = (motorista, placa) => `${String(motorista || 'SEM IDENTIFICAÇÃO').trim()}|${String(placa || '').trim().toUpperCase()}`;
-  for (const r of rotas) {
-    if (!r.data?.startsWith(mes)) continue;
-    const k = chave(r.motorista, r.placa), x = mapa.get(k) || { motorista: r.motorista || 'Sem identificação', placa: r.placa || '', planejado: 0, realizado: 0, rotas: 0, semRota: 0 };
-    x.planejado += Number(r.km) || 0; x.rotas++;
-    mapa.set(k, x);
+// Resumo do mês por motorista (Norte/Sul). O abastecimento cobre os km desde o abastecimento anterior, então
+// casar pelo dia não funciona. Aqui o realizado do mês de cada placa é dividido entre os motoristas que rodaram
+// com ela, na proporção do km planejado de cada um. Só entram dias até o último abastecimento lançado.
+function detalheMotoristas(unidade, mes, rotas, abastecimentos, busca, ultimoDia) {
+  const ate = (d) => d?.startsWith(mes) && (!ultimoDia || d <= ultimoDia);
+  const rs = rotas.filter((r) => ate(r.data));
+  const nome = (r) => String(r.motorista || 'Sem identificação').trim();
+  const mot = new Map(), placaKm = new Map(), motPlaca = new Map();
+  const pega = (n) => { if (!mot.has(n)) mot.set(n, { motorista: n, placas: new Set(), dias: new Set(), rotas: 0, kmRotas: 0, idaVolta: 0, planejado: 0, realizado: 0 }); return mot.get(n); };
+  for (const r of rs) {
+    const x = pega(nome(r)), km = Number(r.km) || 0, p = String(r.placa || '').toUpperCase();
+    x.rotas++; x.kmRotas += km; x.planejado += km; x.dias.add(r.data);
+    if (p) { x.placas.add(p); placaKm.set(p, (placaKm.get(p) || 0) + km); motPlaca.set(`${nome(r)}|${p}`, (motPlaca.get(`${nome(r)}|${p}`) || 0) + km); }
   }
-  for (const { r, valor } of idaPorDia(rotas.filter((r) => r.data?.startsWith(mes)), busca)) mapa.get(chave(r.motorista, r.placa)).planejado += valor;
-  const porPlacaDia = new Map();
-  for (const r of rotas) if (r.placa && r.data?.startsWith(mes)) {
-    const k = `${r.data}|${String(r.placa).toUpperCase()}`;
-    if (!porPlacaDia.has(k)) porPlacaDia.set(k, []);
-    porPlacaDia.get(k).push(r);
+  for (const { r, valor } of idaPorDia(rs, busca)) { const x = pega(nome(r)); x.idaVolta += valor; x.planejado += valor; }
+  const realPlaca = new Map();
+  for (const a of abastecimentos) if (ate(a.data)) { const p = String(a.placa || '').toUpperCase(); realPlaca.set(p, (realPlaca.get(p) || 0) + (Number(a.km) || 0)); }
+  for (const [k, km] of motPlaca) {
+    const [n, p] = k.split('|'), tot = placaKm.get(p) || 0;
+    if (tot && realPlaca.has(p)) mot.get(n).realizado += realPlaca.get(p) * km / tot;
   }
-  for (const a of abastecimentos) {
-    if (!a.data?.startsWith(mes)) continue;
-    const candidatas = porPlacaDia.get(`${a.data}|${String(a.placa || '').toUpperCase()}`) || [];
-    const motoristas = [...new Set(candidatas.map((r) => r.motorista || 'Sem identificação'))];
-    const r = candidatas.length && motoristas.length === 1 ? candidatas[0] : null;
-    if (r) {
-      const x = mapa.get(chave(r.motorista, r.placa));
-      if (x) x.realizado += Number(a.km) || 0;
-    } else {
-      const label = candidatas.length ? 'Atribuição ambígua' : 'Sem rota';
-      const k = chave(label, a.placa), x = mapa.get(k) || { motorista: label, placa: a.placa || '', planejado: 0, realizado: 0, rotas: 0, semRota: 0 };
-      x.realizado += Number(a.km) || 0; x.semRota++; mapa.set(k, x);
-    }
-  }
-  return [...mapa.values()].sort((a, b) => b.realizado - b.planejado - (a.realizado - a.planejado));
+  const semRota = [...realPlaca].filter(([p]) => !placaKm.has(p));
+  const lista = [...mot.values()].map((x) => ({ ...x, placas: [...x.placas].sort().join(', '), dias: x.dias.size,
+    dispersao: x.planejado ? x.realizado / x.planejado - 1 : null }));
+  lista.sort((a, b) => (b.dispersao ?? -9) - (a.dispersao ?? -9));
+  if (semRota.length) lista.push({ motorista: 'Placas sem rota no mês', semRota: true, placas: semRota.map(([p]) => p).sort().join(', '), dias: 0, rotas: 0, kmRotas: 0, idaVolta: 0, planejado: 0,
+    realizado: semRota.reduce((s, [, v]) => s + v, 0), dispersao: null });
+  return lista;
 }
 
 export function agregadoPublicado(resultado) {

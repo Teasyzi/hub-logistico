@@ -1,7 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261123-7';
+import { UNIDADES } from './dados.js?v=20261123-8';
 import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
-import { buscaIdaVoltaKM, idaDaRota, rotaNaSecao, SECOES_PADRAO_KM } from './km.js?v=20261123-7';
+import { buscaIdaVoltaKM, idaDaRota, rotaNaSecao, SECOES_PADRAO_KM } from './km.js?v=20261123-8';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -301,8 +301,10 @@ export function paginaMontadoresUnidade(base, rows, {mes, topo}) {
   return `${topo}<p class="sub">${E(unidadeMontador[base])} · ${E(nomeMes(mes))}</p><div class="g2 montadores-rankings"><section class="bloco"><div class="faixa">Ranking do mês · caixas</div><div class="corpo">${tabelaRanking(porMes,'Caixas no mês')}</div></section><section class="bloco"><div class="faixa">Último dia com montagem · ${ultimaData ? fdata(ultimaData) : '–'} · CX/H</div><div class="corpo">${tabelaRanking(porUltimoDia,'CX/H')}</div></section></div>${avisos ? `<div class="aviso">${avisos}</div>` : ''}<h2>Detalhamento diário por montador</h2><p class="small">A matriz mostra somente CX/H por dia. Passe o mouse sobre o valor para consultar erros, paletes, misto, LP duplo, container e gaveta. Verde indica pelo menos 350 CX/H.</p>${detalhamento}`;
 }
 
-// Farol da dispersão: dentro da meta = verde; até o dobro = amarelo; acima = vermelho.
-export const farolKM = (disp, meta = 0.05) => disp == null ? '' : Math.abs(disp) <= meta ? 'c-ok' : Math.abs(disp) <= meta * 2 ? 'c-mid' : 'c-no';
+// Farol da dispersão: verde quando o realizado fica igual ou abaixo do planejado (foi bem no dia); amarelo até
+// a meta acima do planejado (5%); vermelho além disso. Dia planejado sem nenhum abastecimento fica neutro.
+export const farolKM = (disp, meta = 0.05) => disp == null ? '' : disp <= 0 ? 'c-ok' : disp <= meta ? 'c-mid' : 'c-no';
+const semRealKM = (d) => !!(d && Math.round(d.planejado) && !Math.round(d.realizado));
 const fsinal = (x) => x == null ? '–' : `${x > 0 ? '+' : ''}${fi(x)}`;
 const fpSinal = (x) => x == null ? '–' : `${x > 0 ? '+' : ''}${fp(x, 1)}`;
 const temDadoKM = (d) => d && (Math.round(d.planejado) || Math.round(d.realizado));
@@ -327,27 +329,28 @@ export function graficoKM(dias, meta = 0.05, altura = 270) {
     const op = d.acumulado ? ' opacity="0.45"' : '';
     s += `<rect x="${(cx - bw - 1).toFixed(1)}" y="${y(d.planejado).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, base - y(d.planejado)).toFixed(1)}" rx="2" class="km-plan"${op}><title>${dica}</title></rect>`
       + `<rect x="${(cx + 1).toFixed(1)}" y="${y(d.realizado).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, base - y(d.realizado)).toFixed(1)}" rx="2" class="km-real"${op}><title>${dica}</title></rect>`
-      + `<text class="val ${corDisp[farolKM(d.dispersao, meta)] || ''}" x="${cx.toFixed(1)}" y="${(y(Math.max(d.planejado, d.realizado)) - 6).toFixed(1)}" text-anchor="middle">${d.dispersao == null ? 's/ plan.' : fpSinal(d.dispersao)}</text>`
+      + `<text class="val ${semRealKM(d) ? '' : corDisp[farolKM(d.dispersao, meta)] || ''}" x="${cx.toFixed(1)}" y="${(y(Math.max(d.planejado, d.realizado)) - 6).toFixed(1)}" text-anchor="middle">${d.dispersao == null ? 's/ plan.' : semRealKM(d) ? 's/ real.' : fpSinal(d.dispersao)}</text>`
       + `<text x="${cx.toFixed(1)}" y="${altura - 7}" text-anchor="middle">${fdata(d.data)}</text>`;
   });
   return s + `<line x1="${pl}" x2="${w - pr}" y1="${base}" y2="${base}" stroke="var(--axis)"/></svg>`;
 }
 
-const legendaFarolKM = (meta) => `<div class="legenda"><span><i class="c-ok"></i>dentro da meta (±${fp(meta, 0)})</span><span><i class="c-mid"></i>até ±${fp(meta * 2, 0)}</span><span><i class="c-no"></i>acima de ±${fp(meta * 2, 0)}</span><span>dispersão = realizado ÷ planejado − 1</span></div>`;
+const legendaFarolKM = (meta) => `<div class="legenda"><span><i class="c-ok"></i>realizado igual ou abaixo do planejado</span><span><i class="c-mid"></i>até ${fp(meta, 0)} acima</span><span><i class="c-no"></i>mais de ${fp(meta, 0)} acima</span><span>dispersão = realizado ÷ planejado − 1 · "sem real." = dia planejado sem abastecimento lançado</span></div>`;
 
 function avisosRevisaoKM(c, u, mes) {
   const r = u.revisao || {}, itens = [];
+  const semTab = r.semTabela ? `<div class="aviso"><b>A tabela de ida e volta desta unidade está vazia</b>, por isso a ida e volta está zerada em todas as rotas. Importe a planilha "KM Planejado x Realizado" de um mês fechado em <a href="#/km/parametros/${mes}">⚙ Parâmetros</a>. Ela vale para todos os meses.</div>` : '';
   if (r.freteirosPendentes) itens.push(`${fi(r.freteirosPendentes)} rota(s) de FRETEIRO contando no planejado (${fi(r.kmFreteirosPendentes)} km)`);
   if (r.duplicadas) itens.push(`${fi(r.duplicadas)} rota(s) duplicada(s) fora do cálculo`);
   if (r.foraDaTabela) itens.push(`${fi(r.foraDaTabela)} rota(s) com motorista fora da tabela de ida e volta`);
-  return itens.length ? `<div class="aviso">${itens.join(' · ')}. <a href="#/km/${c}/${mes}">Revisar rotas →</a></div>` : '';
+  return semTab + (itens.length ? `<div class="aviso">${itens.join(' · ')}. <a href="#/km/${c}/${mes}">Revisar rotas →</a></div>` : '');
 }
 
 function cardUnidadeKM(c, u, { mes, admin }) {
   if (!u.temDados) return `<section class="bloco"><div class="faixa">${E(u.nome)}</div><div class="corpo"><div class="aviso">Sem dados de KM em ${nomeMes(mes)}.</div>${admin ? '<a class="btn sec" href="#/km/importar">Importar arquivos</a>' : ''}</div></section>`;
   const t = u.totais;
   return `<section class="bloco km-card"><div class="faixa">${E(u.nome)} <a class="btn sec" href="#/km/${c}/${mes}">Detalhe →</a></div><div class="corpo">
-<div class="km-disp ${farolKM(t.dispersao, t.meta)}"><div class="l">Dispersão do mês</div><div class="v">${fpSinal(t.dispersao)}</div><div class="d">${t.dentroMeta ? 'dentro' : 'fora'} da meta de ±${fp(t.meta, 0)}</div></div>
+<div class="km-disp ${farolKM(t.dispersao, t.meta)}"><div class="l">Dispersão do mês</div><div class="v">${fpSinal(t.dispersao)}</div><div class="d">${t.dispersao == null ? '' : t.dispersao <= 0 ? 'realizado abaixo do planejado' : t.dentroMeta ? `acima do planejado, dentro de +${fp(t.meta, 0)}` : `acima da meta de +${fp(t.meta, 0)}`}</div></div>
 <table class="kv km-kv"><tbody><tr><td>Planejado até ${u.ultimoDia ? fdata(u.ultimoDia) : '–'}</td><td>${fi(t.planejado)} km</td></tr><tr><td>Realizado</td><td>${fi(t.realizado)} km</td></tr><tr class="dest"><td>Diferença</td><td>${fsinal(t.diferenca)} km</td></tr><tr><td>Custo da dispersão</td><td>${fr(t.custo)}</td></tr></tbody></table>
 ${admin ? avisosRevisaoKM(c, u, mes) : ''}</div></section>`;
 }
@@ -362,6 +365,7 @@ export function paginaKMResumo(resultado, { mes, admin, topo }) {
     const dica = `Planejado ${fi(d.planejado)} · Realizado ${fi(d.realizado)} · Diferença ${fsinal(d.diferenca)} km${d.ajustado ? ' · dia com km remanejado' : ''}`;
     if (d.acumulado) return `<td class="km-cel pv" title="${E(dica)} · depois do último abastecimento lançado">${fi(d.planejado)}<span>planejado, sem realizado</span></td>`;
     if (!Math.round(d.planejado)) return `<td class="km-cel c-mid" title="${E(dica)}">sem plan.<span>${fsinal(d.realizado)} km</span></td>`;
+    if (semRealKM(d)) return `<td class="km-cel" title="${E(dica)} · nenhum abastecimento lançado no dia">sem real.<span>${fi(d.planejado)} km plan.</span></td>`;
     return `<td class="km-cel ${farolKM(d.dispersao, m)}" title="${E(dica)}">${fpSinal(d.dispersao)}${d.ajustado ? ' ↔' : ''}<span>${fsinal(d.diferenca)} km</span></td>`;
   };
   const matriz = datas.length ? `<h2>Dispersão por dia</h2><p class="small">Cada célula mostra a dispersão do dia e, embaixo, a diferença em km (realizado − planejado). Passe o mouse para ver planejado e realizado. Clique no nome da unidade para abrir as rotas.</p>
@@ -383,14 +387,14 @@ export function paginaKMUnidade(c, u, { mes, topo, admin, extras = '' }) {
     return `<tr class="${d.acumulado ? 'pv' : ''}" data-dia="${d.data}"><td class="t">${admin ? `<button type="button" class="lnk ver-dia" data-dia="${d.data}" title="Ver as rotas do dia">${fdata(d.data)}</button>` : fdata(d.data)}${d.acumulado ? ' *' : ''}</td>
 <td>${d.rotas == null ? '–' : fi(d.rotas)}</td><td>${d.kmRotas == null ? '–' : fi(d.kmRotas)}</td><td>${d.idaVolta == null ? '–' : fi(d.idaVolta)}</td>
 <td class="km-plan-c">${fi(d.planejado)}</td><td class="km-real-c">${fi(d.realizado)}</td><td>${fsinal(d.diferenca)}</td>
-<td class="${d.acumulado ? '' : farolKM(d.dispersao, t.meta)}">${d.dispersao == null ? (Math.round(d.realizado) ? 'sem plan.' : '–') : fpSinal(d.dispersao)}</td>
+<td class="${d.acumulado || semRealKM(d) ? '' : farolKM(d.dispersao, t.meta)}">${d.dispersao == null ? (Math.round(d.realizado) ? 'sem plan.' : '–') : semRealKM(d) ? 'sem real.' : fpSinal(d.dispersao)}</td>
 <td class="t">${ns.length || d.ajustado ? `<span class="nota" title="${E(dica || 'Dia com km remanejado')}">✎${ns.length > 1 ? ns.length : ''}</span>` : ''}</td></tr>`;
   }).join('');
   const tabela = `<div class="tw scroll"><table class="diario km km-dia"><thead><tr><th class="t">Dia</th><th>Rotas</th><th>Km das rotas</th><th>Ida e volta</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Dispersão</th><th class="t">Obs.</th></tr></thead>
 <tbody>${linhas || '<tr><td class="t" colspan="9">Sem dados neste mês.</td></tr>'}<tr class="tot"><td class="t">ACUMULADO</td><td></td><td></td><td></td><td>${fi(t.planejado)}</td><td>${fi(t.realizado)}</td><td>${fsinal(t.diferenca)}</td><td class="${farolKM(t.dispersao, t.meta)}">${fpSinal(t.dispersao)}</td><td></td></tr></tbody></table></div>
 <p class="small">Planejado = km das rotas + ida e volta (uma por motorista no dia). * Depois do último abastecimento lançado: fica fora do acumulado. ✎ = observação ou km remanejado (passe o mouse). CPK usado no custo: ${fr(t.cpk)}/km.</p>`;
   return `${topo}
-<div class="tiles"><div class="tile"><div class="l">Planejado até ${u.ultimoDia ? fdata(u.ultimoDia) : '–'}</div><div class="v">${fi(t.planejado)} km</div></div><div class="tile"><div class="l">Realizado</div><div class="v">${fi(t.realizado)} km</div></div><div class="tile"><div class="l">Diferença</div><div class="v">${fsinal(t.diferenca)} km</div></div><div class="tile km-disp ${farolKM(t.dispersao, t.meta)}"><div class="l">Dispersão</div><div class="v">${fpSinal(t.dispersao)}</div><div class="d">meta ±${fp(t.meta, 0)}</div></div><div class="tile"><div class="l">Custo da dispersão</div><div class="v">${fr(t.custo)}</div></div></div>
+<div class="tiles"><div class="tile"><div class="l">Planejado até ${u.ultimoDia ? fdata(u.ultimoDia) : '–'}</div><div class="v">${fi(t.planejado)} km</div></div><div class="tile"><div class="l">Realizado</div><div class="v">${fi(t.realizado)} km</div></div><div class="tile"><div class="l">Diferença</div><div class="v">${fsinal(t.diferenca)} km</div></div><div class="tile km-disp ${farolKM(t.dispersao, t.meta)}"><div class="l">Dispersão</div><div class="v">${fpSinal(t.dispersao)}</div><div class="d">meta: até +${fp(t.meta, 0)}</div></div><div class="tile"><div class="l">Custo da dispersão</div><div class="v">${fr(t.custo)}</div></div></div>
 ${admin ? avisosRevisaoKM(c, u, mes).replace(/ <a [^>]*>Revisar rotas →<\/a>/, ' Veja em "Rotas do dia", abaixo.') : ''}
 <section class="bloco"><div class="faixa">Planejado × realizado por dia</div><div class="corpo">${graficoKM(u.dias, t.meta)}${legendaFarolKM(t.meta)}</div></section>
 <h2>Relatório diário</h2>${tabela}${extras}`;
@@ -456,9 +460,12 @@ ${caixaSecoes}
 }
 
 export function blocoMotoristasKM(u) {
-  const rows = (u.motoristas || []).map((x) => { const dif = x.realizado - x.planejado, disp = x.planejado ? x.realizado / x.planejado - 1 : null;
-    return `<tr><td class="t">${E(x.motorista)}</td><td>${E(x.placa || '–')}</td><td>${fi(x.rotas)}</td><td>${fi(x.planejado)}</td><td>${fi(x.realizado)}</td><td>${fsinal(dif)}</td><td class="${farolKM(disp, u.totais.meta)}">${fpSinal(disp)}</td><td>${fi(x.semRota || 0)}</td></tr>`; }).join('');
-  return `<section class="bloco"><div class="faixa">Por motorista e placa · mês</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Motorista</th><th>Placa</th><th>Rotas</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Dispersão</th><th>Abast. sem rota</th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="t">Sem rotas ou abastecimentos.</td></tr>'}</tbody></table></div><p class="small">O realizado é atribuído pela placa e pelo dia da rota. Nomes e placas ficam restritos ao administrador.</p></div></section>`;
+  const ls = u.motoristas || [];
+  const rows = ls.map((x) => x.semRota
+    ? `<tr class="pv"><td class="t">${E(x.motorista)}</td><td class="t" title="${E(x.placas)}">${fi(x.placas.split(', ').length)} placa(s)</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>${fi(x.realizado)}</td><td>–</td><td>–</td></tr>`
+    : `<tr><td class="t">${E(x.motorista)}</td><td class="t">${E(x.placas || '–')}</td><td>${fi(x.dias)}</td><td>${fi(x.rotas)}</td><td>${fi(x.kmRotas)}</td><td>${fi(x.idaVolta)}</td><td>${fi(x.planejado)}</td><td>${fi(x.realizado)}</td><td>${fsinal(x.realizado - x.planejado)}</td><td class="${farolKM(x.dispersao, u.totais.meta)}">${fpSinal(x.dispersao)}</td></tr>`).join('');
+  return `<section class="bloco"><div class="faixa">Por motorista · mês</div><div class="corpo"><div class="tw scroll"><table class="km-mot"><thead><tr><th class="t">Motorista</th><th class="t">Placas</th><th>Dias</th><th>Rotas</th><th>Km das rotas</th><th>Ida e volta</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Dispersão</th></tr></thead><tbody>${rows || '<tr><td colspan="10" class="t">Sem rotas neste mês.</td></tr>'}</tbody></table></div>
+<p class="small">O abastecimento cobre os km rodados desde o abastecimento anterior, por isso o realizado não é casado dia a dia. O realizado do mês de cada placa é dividido entre os motoristas que rodaram com ela, na proporção do km planejado de cada um. Só entram dias até o último abastecimento lançado. "Placas sem rota no mês" são abastecimentos de placas que não aparecem em nenhuma rota (passe o mouse para ver quais).</p></div></section>`;
 }
 
 // ---------------------------------------------------------------- Cargas em aberto (DAs)

@@ -4,9 +4,9 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261123-7';
-import { lerArquivo, num } from './importar.js?v=20261123-7';
-import * as V from './views.js?v=20261123-7';
+import * as D from './dados.js?v=20261123-8';
+import { lerArquivo, num } from './importar.js?v=20261123-8';
+import * as V from './views.js?v=20261123-8';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -603,7 +603,21 @@ async function telaKMParametros(mes) {
   const padrao = mes === '2026-11' ? { NORTE: 2.46, SUL: 2.09, CBAR: 2.07, CCRT: 4.19 } : {};
   const numTxt = (v) => v == null ? '' : String(v).replace('.', ',');
   const linhas = cs.map((c) => `<tr><td class="t">${V.E(c)}</td><td><input type="text" data-c="${c}" data-k="cpk" value="${V.E(numTxt(pars[c].cpk ?? padrao[c]))}"></td><td><input type="text" data-c="${c}" data-k="meta" value="${V.E(numTxt((pars[c].meta ?? 0.05) * 100))}" placeholder="5"></td><td><textarea data-c="${c}" data-k="idaVolta" rows="4" placeholder="MOTORISTA=km, um por linha">${V.E(Object.entries(bases[c].idaVolta || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR')).map(([k,v]) => `${k}=${numTxt(v)}`).join('\n'))}</textarea><div class="small">${Object.keys(bases[c].apelidos || {}).length} apelido(s) importado(s)</div></td></tr>`).join('');
-  html(`${topo}<p class="sub">CPK em R$/km e meta em % (ex.: 5) valem para este mês. A <b>ida e volta por motorista</b> é uma tabela fixa, que vale para todos os meses. Ela é preenchida sozinha quando você importa uma planilha antiga "KM Planejado x Realizado" e pode ser editada aqui (MOTORISTA=km, um por linha). A ida e volta entra uma vez por motorista no dia, e dá para zerar uma rota específica em ⚙ Rotas.</p><div class="tw"><table><thead><tr><th class="t">Unidade</th><th>CPK</th><th>Meta ± %</th><th>Ida e volta por motorista (todos os meses)</th></tr></thead><tbody>${linhas}</tbody></table></div><p><button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>`);
+  html(`${topo}<p class="sub">CPK em R$/km e meta em % (ex.: 5) valem para este mês. A <b>ida e volta por motorista</b> é uma tabela fixa, que vale para todos os meses. Ela é preenchida sozinha quando você importa uma planilha antiga "KM Planejado x Realizado" e pode ser editada aqui (MOTORISTA=km, um por linha). A ida e volta entra uma vez por motorista no dia, e dá para zerar uma rota específica em ⚙ Rotas.</p><div class="tw"><table><thead><tr><th class="t">Unidade</th><th>CPK</th><th>Meta ± %</th><th>Ida e volta por motorista (todos os meses)</th></tr></thead><tbody>${linhas}</tbody></table></div><p><button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>
+<section class="bloco"><div class="faixa">Importar tabela de ida e volta</div><div class="corpo"><p class="small">Escolha uma planilha "KM Planejado x Realizado - <button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>`);lt;Mês<button class="btn" id="salvar">Salvar parâmetros</button> <span id="msg"></span></p>`);gt;.xlsm" de um mês fechado. O site lê só as tabelas de ida e volta (motorista → área → km, como o PROCV) e os apelidos da aba Planilha1, e substitui a tabela acima de todas as unidades. As rotas e os abastecimentos dessa planilha não são importados aqui.</p><p><input type="file" id="arqTabela" accept=".xlsm,.xlsx"> <span id="msgTabela"></span></p></div></section>`);
+  document.getElementById('arqTabela').onchange = async (e) => {
+    const msg = document.getElementById('msgTabela'), f = e.target.files[0];
+    if (!f) return;
+    msg.textContent = 'Lendo…';
+    try {
+      const x = await lerArquivo(f, { mes, contexto: 'km' });
+      if (x.tipo !== 'km_historico' || !x.tabelas) throw new Error('Este arquivo não é uma planilha KM Planejado x Realizado.');
+      const n = await D.gravarTabelasKM(x.tabelas);
+      if (!n) throw new Error('Não encontrei a tabela NOME MOTORISTA / ÁREA / IDA E VOLTA nas abas Planejado.');
+      await telaKMParametros(mes);
+      document.getElementById('msgTabela').innerHTML = `<span class="st ok">✓ ida e volta de ${n} motoristas importada</span>`;
+    } catch (err) { msg.innerHTML = erro(err); }
+  };
   document.getElementById('salvar').onclick = async (e) => {
     e.target.disabled = true;
     try {
