@@ -16,7 +16,8 @@ export const categoriaKM = (motorista) => /FRETEIRO/i.test(semAcento(motorista))
 export const eFreteiro = (r) => r.categoria === 'FRETEIRO' || /FRETEIRO/i.test(`${r.motorista || ''} ${r.veiculoTipo || ''}`);
 
 // Identifica a rota entre reimportações (os ajustes ficam guardados à parte e não se perdem ao reimportar o dia).
-export const chaveRotaKM = (r) => [r.data, r.carga, r.placa, r.motoristaOriginal ?? r.motorista, Number(r.km) || 0]
+// A seção entra só quando não é "ROTAS DO DIA": a mesma linha pode estar copiada em "SAÍDA PARA" no mesmo dia.
+export const chaveRotaKM = (r) => [r.data, r.carga, r.placa, r.motoristaOriginal ?? r.motorista, Number(r.km) || 0, ...(r.secao && r.secao !== 'ROTAS DO DIA' ? [r.secao] : [])]
   .map((x) => String(x ?? '').trim().toLocaleUpperCase('pt-BR')).join('|');
 
 // Ajustes do admin: trocar o motorista (ex.: rota lançada como FRETEIRO que foi feita por motorista da casa)
@@ -29,8 +30,63 @@ export function aplicarAjustesKM(rotas, ajustes = {}) {
     const trocou = !!a.motorista && a.motorista !== base.motoristaOriginal;
     const idaManual = a.idaVolta == null || a.idaVolta === '' ? null : Number(a.idaVolta);
     return { ...base, motorista: trocou ? a.motorista : base.motorista,
-      categoria: trocou ? categoriaKM(a.motorista) : base.categoria, excluida: !!a.excluir, ajustada: trocou || idaManual != null, idaManual };
+      categoria: trocou ? categoriaKM(a.motorista) : base.categoria, excluida: !!a.excluir, ajustada: trocou || idaManual != null, idaManual, manter: !!a.manter };
   });
+}
+
+// Rota repetida na montagem: mesmo dia, mesma placa (ou motorista, nos DLs) e mesma descrição, com km igual
+// ou quase (até 2%). A primeira fica; as outras saem do cálculo, a não ser que o admin marque "manter".
+export function duplicadasKM(rotas) {
+  const grupos = new Map(), dup = new Set();
+  for (const r of rotas) {
+    // Nos DLs (sem placa) a carga separa as rotas: várias do MOTORISTA GENERICO no mesmo dia não são repetição.
+    const k = [r.unidade, r.data, r.placa ? '' : r.carga || '', r.placa || normNome(r.motoristaOriginal ?? r.motorista), normNome(r.area)].join('|');
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(r);
+  }
+  for (const g of grupos.values()) {
+    const mantidas = [];
+    for (const r of g) {
+      const km = Number(r.km) || 0;
+      const igual = mantidas.some((m) => Math.abs((Number(m.km) || 0) - km) <= Math.max(1, 0.02 * (Number(m.km) || 0)));
+      if (igual && !r.manter) dup.add(r.chave); else mantidas.push(r);
+    }
+  }
+  return dup;
+}
+
+// Na Montagem Norte a mesma rota aparece duas vezes em dias vizinhos: em "CARGAS COM SAÍDA PARA <dia>" na véspera
+// e em "ROTAS DO DIA" no dia; ou em "ROTAS DO DIA" e depois em "FINALIZANDO ROTAS <dia>". Mesma placa, mesma
+// descrição e km igual (até 2%), em até 4 dias. A cópia nunca conta; devolve chave → dia da rota que vale.
+export function espelhosKM(rotas) {
+  const doDia = rotas.filter((r) => r.secao === 'ROTAS DO DIA' && r.placa);
+  const igual = (a, b) => a.unidade === b.unidade && a.placa === b.placa && normNome(a.area) === normNome(b.area)
+    && Math.abs((Number(a.km) || 0) - (Number(b.km) || 0)) <= Math.max(1, 0.02 * (Number(b.km) || 0));
+  const dias = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 864e5);
+  const saida = new Map();
+  for (const r of rotas) {
+    const depois = r.secao === 'SAÍDA PARA OUTRO DIA', antes = r.secao === 'FINALIZANDO ROTAS';
+    if (!r.placa || (!depois && !antes)) continue;
+    const alvo = doDia.filter((o) => igual(r, o) && (depois ? dias(o.data, r.data) : dias(r.data, o.data)) > 0 && Math.abs(dias(o.data, r.data)) <= 4)
+      .sort((a, b) => Math.abs(dias(a.data, r.data)) - Math.abs(dias(b.data, r.data)))[0];
+    if (alvo) saida.set(r.chave, alvo.data);
+  }
+  return saida;
+}
+
+// Lançamentos manuais da unidade no mês: mover km de um dia para outro (ex.: realizado de um dia sem
+// planejado vai para o dia seguinte; no fechamento, o planejado de rota que virou o mês vai para o
+// mês seguinte) e observações. {id, tipo: 'realizado'|'planejado'|'obs', de, para, km, texto}.
+export function aplicarLancamentosKM(porDia, lancamentos = []) {
+  for (const l of lancamentos) {
+    const km = Number(l.km) || 0;
+    if ((l.tipo === 'realizado' || l.tipo === 'planejado') && km) {
+      const campo = l.tipo === 'realizado' ? 'ajusteRealizado' : 'ajustePlanejado';
+      if (porDia[l.de]) { porDia[l.de][l.tipo] -= km; porDia[l.de][campo] -= km; }
+      if (porDia[l.para]) { porDia[l.para][l.tipo] += km; porDia[l.para][campo] += km; }
+    }
+    for (const d of new Set([l.de, l.para].filter(Boolean))) if (porDia[d] && (l.texto || l.tipo !== 'obs')) porDia[d].notas.push(l);
+  }
 }
 
 // Seções da Montagem Norte que entram no planejado (as rotas sem seção, como Sul e DLs, sempre entram).
@@ -81,15 +137,18 @@ function idaPorDia(rs, busca) {
 }
 const localUnidade = (s) => ({ 'MATRIZ': 'NORTE', 'FILIAL II': 'SUL', 'FILIAL I': 'CBAR', 'FILIAL III': 'CCRT' })[String(s || '').trim().toLocaleUpperCase('pt-BR')];
 
-export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], parametros = {}, ajustes = {}, secoes = {} }) {
+export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], parametros = {}, ajustes = {}, secoes = {}, lancamentos = {} }) {
   const rotas = aplicarAjustesKM(rotasBrutas, ajustes);
   const dias = diasDoMes(mes);
   const unidades = {};
   for (const [c, u] of Object.entries(UNIDADES_KM)) {
     const par = { meta: 0.05, cpk: mes === '2026-11' ? CPK_NOV_2026[c] : null, ...(parametros[c] || {}) };
-    const porDia = Object.fromEntries(dias.map((data) => [data, { data, planejado: 0, realizado: 0, rotas: 0, abastecimentos: 0 }]));
+    const porDia = Object.fromEntries(dias.map((data) => [data, { data, planejado: 0, realizado: 0, kmRotas: 0, idaVolta: 0, rotas: 0, abastecimentos: 0, ajusteRealizado: 0, ajustePlanejado: 0, notas: [] }]));
     const doMes = rotas.filter((r) => r.unidade === c && r.data?.startsWith(mes));
-    const rs = doMes.filter((r) => !r.excluida && rotaNaSecao(r, secoes[c]));
+    const espelhos = espelhosKM(doMes);
+    const ativas = doMes.filter((r) => !r.excluida && rotaNaSecao(r, secoes[c]) && !espelhos.has(r.chave));
+    const dups = duplicadasKM(ativas);
+    const rs = ativas.filter((r) => !dups.has(r.chave));
     const busca = buscaIdaVoltaKM(par);
     const fretPend = rs.filter(eFreteiro);
     const revisao = { freteirosPendentes: fretPend.length, kmFreteirosPendentes: fretPend.reduce((s, r) => s + (Number(r.km) || 0), 0),
@@ -97,16 +156,20 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     for (const r of rs) {
       if (!porDia[r.data]) continue;
       porDia[r.data].planejado += Number(r.km) || 0;
+      porDia[r.data].kmRotas += Number(r.km) || 0;
       porDia[r.data].rotas++;
     }
     // Ida e volta é uma vez por motorista/caminhão no dia, nunca uma vez por rota.
-    for (const { r, valor } of idaPorDia(rs, busca)) if (porDia[r.data]) porDia[r.data].planejado += valor;
+    for (const { r, valor } of idaPorDia(rs, busca)) if (porDia[r.data]) { porDia[r.data].planejado += valor; porDia[r.data].idaVolta += valor; }
     const as = abastecimentos.filter((a) => a.unidade === c && a.data?.startsWith(mes));
     for (const a of as) {
       if (!porDia[a.data]) continue;
       porDia[a.data].realizado += Number(a.km) || 0;
       porDia[a.data].abastecimentos++;
     }
+    aplicarLancamentosKM(porDia, lancamentos[c]);
+    revisao.duplicadas = dups.size;
+    revisao.espelhos = espelhos.size;
     const diasComRealizado = dias.filter((d) => porDia[d].abastecimentos > 0);
     const ultimoDia = diasComRealizado.at(-1) || null;
     const exibidos = dias.map((data) => {
@@ -122,7 +185,7 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     const motoristas = ['NORTE', 'SUL'].includes(c) ? detalheMotoristas(c, mes, rs, as, busca) : [];
     revisao.foraDaTabela = rs.filter((r) => idaDaRota(r, busca).origem === 'fora da tabela').length;
     revisao.foraDaSecao = doMes.filter((r) => !r.excluida && !rotaNaSecao(r, secoes[c])).length;
-    unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || as.length > 0, revisao, dias: exibidos, ultimoDia, totais: { planejado, realizado, diferenca, dispersao,
+    unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || as.length > 0, revisao, dias: exibidos, ultimoDia, duplicadas: [...dups], espelhos: Object.fromEntries(espelhos), totais: { planejado, realizado, diferenca, dispersao,
       custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : Math.abs(dispersao) <= (Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
   }
   return { mes, unidades };
@@ -164,7 +227,9 @@ function detalheMotoristas(unidade, mes, rotas, abastecimentos, busca) {
 export function agregadoPublicado(resultado) {
   return Object.fromEntries(Object.entries(resultado.unidades).map(([c, u]) => [c, {
     unidade: c, nome: u.nome, temDados: u.temDados, ultimoDia: u.ultimoDia, totais: u.totais,
-    dias: u.dias.map(({ data, planejado, realizado, diferenca, dispersao, acumulado }) => ({ data, planejado, realizado, diferenca, dispersao, acumulado })),
+    // Só números: o texto das observações fica na área do admin; o público vê apenas que o dia foi ajustado.
+    dias: u.dias.map(({ data, planejado, realizado, diferenca, dispersao, acumulado, kmRotas, idaVolta, ajusteRealizado, ajustePlanejado }) => ({
+      data, planejado, realizado, diferenca, dispersao, acumulado, kmRotas, idaVolta, ajustado: !!(ajusteRealizado || ajustePlanejado) })),
   }]));
 }
 

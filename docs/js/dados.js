@@ -14,7 +14,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { calcular, motivos } from './calc.js?v=20261117-5';
 import { placarPES } from './pes.js';
-import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-6';
+import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-7';
 import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-2';
 
 export const UNIDADES = {
@@ -253,17 +253,29 @@ export async function mesesPESPublicados() {
 const refKM = (unidade, mes) => doc(db, 'km_dados', `${unidade}_${mes}`);
 export async function lerDadosKM(mes) {
   const unidades = Object.keys(UNIDADES_KM);
-  const docs = await Promise.all(unidades.map((c) => getDoc(refKM(c, mes))));
-  const rotas = [], abastecimentos = [], ajustes = {}, secoes = {};
+  const anterior = mesAnteriorKM(mes);
+  const [docs, docsAnt] = await Promise.all([Promise.all(unidades.map((c) => getDoc(refKM(c, mes)))), Promise.all(unidades.map((c) => getDoc(refKM(c, anterior))))]);
+  const rotas = [], abastecimentos = [], ajustes = {}, secoes = {}, lancamentos = {};
   docs.forEach((snap, i) => {
     const d = snap.data() || {}, c = unidades[i];
     rotas.push(...(d.rotas || []).map((r) => ({ ...r, unidade: c })));
     abastecimentos.push(...(d.abastecimentos || []).map((a) => ({ ...a, unidade: c })));
     ajustes[c] = d.ajustes || [];
     if (Array.isArray(d.secoes)) secoes[c] = d.secoes;
+    // Km que o mês anterior mandou para este (fechamento) entra aqui também.
+    const vindos = (docsAnt[i].data()?.lancamentos || []).filter((l) => l.para?.startsWith(mes)).map((l) => ({ ...l, doMesAnterior: true }));
+    lancamentos[c] = [...(d.lancamentos || []), ...vindos];
   });
   const parametros = Object.fromEntries(await Promise.all(unidades.map(async (c) => [c, await lerParametrosKM(c, mes)])));
-  return { rotas, abastecimentos, parametros, ajustes, secoes };
+  return { rotas, abastecimentos, parametros, ajustes, secoes, lancamentos };
+}
+const mesAnteriorKM = (mes) => { const [a, m] = mes.split('-').map(Number); return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`; };
+
+// Lançamentos manuais (mover km entre dias/meses e observações) da unidade no mês. Só admin.
+export async function lerLancamentosKM(unidade, mes) { return (await getDoc(refKM(unidade, mes))).data()?.lancamentos || []; }
+export async function gravarLancamentosKM(unidade, mes, lancamentos) {
+  const dados = { unidade, mes, lancamentos, atualizado: serverTimestamp() };
+  await setDoc(refKM(unidade, mes), dados, { mergeFields: Object.keys(dados) });
 }
 
 // Rotas de uma unidade já com os ajustes aplicados, para a tela de revisão (só admin).
@@ -271,7 +283,7 @@ export async function lerRotasRevisaoKM(unidade, mes) {
   const [snap, parametros] = await Promise.all([getDoc(refKM(unidade, mes)), lerParametrosKM(unidade, mes)]);
   const d = snap.data() || {};
   const rotas = (d.rotas || []).map((r) => ({ ...r, unidade })).sort((a, b) => a.data.localeCompare(b.data) || String(a.secao || '').localeCompare(String(b.secao || '')));
-  return { rotas: aplicarAjustesKM(rotas, { [unidade]: d.ajustes || [] }), secoes: Array.isArray(d.secoes) ? d.secoes : null, parametros };
+  return { rotas: aplicarAjustesKM(rotas, { [unidade]: d.ajustes || [] }), secoes: Array.isArray(d.secoes) ? d.secoes : null, parametros, abastecimentos: d.abastecimentos || [] };
 }
 
 // Ajustes = [{chave, motorista?, excluir?, idaVolta?}] e seções da montagem que entram no planejado.

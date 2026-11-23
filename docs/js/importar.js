@@ -237,7 +237,8 @@ export function lerPlanejamentoHistoricoKM(wb) {
     if (ix < 0) continue;
     const cab = ls[ix].map(normKM), find = (...re) => cab.findIndex((v) => re.some((x) => x.test(v)));
     const idata = find(/^data$/), ikm = find(/^km$|km rota|distancia planejada|km planejado/), iTotal = find(/km total/);
-    const iplaca = find(/^placa$/), imot = find(/motorista/), iarea = find(/area/), iveic = find(/veiculo/), icarga = find(/carga|rom/);
+    // Rota = descrição da rota quando existir (Norte/Sul); a "área motorista" é a base do motorista, não a rota.
+    const idesc = find(/^descricao da rota$/), iplaca = find(/^placa$/), imot = find(/motorista/), iarea = idesc >= 0 ? idesc : find(/area/), iveic = find(/veiculo/), icarga = find(/carga|rom/);
     if (idata < 0 || (ikm < 0 && iTotal < 0)) continue;
     // Vale a coluna de km mais à esquerda: à direita ficam as tabelas de referência (em Juazeiro há um "KM"
     // na col. V que não é da rota). Se for a "KM TOTAL", ela já inclui a ida e volta.

@@ -131,3 +131,18 @@ table.pes td:nth-child(4){font-size:12.5px}
 .bloco .corpo h3{margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.35px;color:var(--ink2)}
 .km-rotas td input.mot{text-align:left;min-width:220px}.km-rotas tr.exc td{color:var(--muted)}.km-rotas tr.exc td input.mot{color:var(--muted)}
 .km-rotas td input.ida{width:72px;min-width:60px}label.chk{display:inline-flex;gap:4px;align-items:center;margin:0 14px 6px 0;white-space:nowrap}
+.grafico-legenda i.km-plan,svg .km-plan{background:var(--s2);fill:var(--s2)}.grafico-legenda i.km-real,svg .km-real{background:var(--s1);fill:var(--s1)}
+svg text.km-ok{fill:var(--good);font-weight:750}svg text.km-mid{fill:var(--mid);font-weight:750}svg text.km-no{fill:var(--bad);font-weight:750}
+.legenda i.c-ok,.legenda i.c-mid,.legenda i.c-no{border:1px solid currentColor}
+.km-cards{margin:4px 0 18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))!important;gap:12px}.km-card .corpo{padding:8px 10px}.km-card .km-kv td{padding:4px 6px;font-size:13px}.km-card .km-disp .v{font-size:26px}.km-card .faixa .btn{padding:4px 10px;font-size:12px}
+.km-disp{border-radius:8px;padding:10px 14px;margin-bottom:10px;background:var(--row)}.km-disp .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.35px}.km-disp .v{font-size:30px;font-weight:800;line-height:1.15}.km-disp .d{font-size:12px}
+.tile.km-disp{margin-bottom:0;border-left-color:currentColor}
+.km-farol td.km-cel{text-align:center;font-weight:750;line-height:1.15;min-width:92px}.km-farol td.km-cel span{display:block;font-size:11px;font-weight:500;opacity:.85}.km-farol td.km-cel.vazio{color:var(--muted);font-weight:400}.km-farol th a{color:inherit}
+table.km-dia td.km-plan-c,table.km-dia td.km-real-c{font-weight:700}
+button.lnk{background:none;border:0;padding:0;font:inherit;color:var(--brand);text-decoration:underline;cursor:pointer}
+.nota{cursor:help;font-weight:700;color:var(--mid)}
+.filtros-km label,.secoes-km label{margin-right:10px}.secoes-km{line-height:2}
+input[type=date]{padding:6px 8px;border:1px solid var(--axis);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit}
+.km-lanc td input[type=text]{text-align:left;min-width:90px}.km-lanc tr.novo td{background:var(--row)}
+#rotas,#lancamentos{margin-top:16px}
+.km-farol th{text-align:center}

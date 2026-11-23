@@ -155,3 +155,12 @@ Teste com nov/26 (`code/tests_js/km_relatorios.html`), realizado até 23/11:
 - CB Sul: 68.778 km planejados (a ida e volta da Sul é 0 na tabela) contra 63.681 rodados. As 15 rotas de FRETEIRO (1.813 km) aguardam revisão.
 - Barreiras e Juazeiro: só há o Resumo de 21/11, porque os diários de novembro ainda não foram importados.
 - Outubro continua batendo com a planilha oficial após as mudanças.
+
+### Telas novas, repetidas e remanejamentos (2026-11-23)
+- **Resumo:** um card por unidade com a dispersão do mês na cor do farol (verde até ±5%, amarelo até ±10%, vermelho acima disso), planejado, realizado, diferença e custo. Embaixo, a tabela "Dispersão por dia", com uma célula colorida por unidade e dia; ao passar o mouse aparecem o planejado e o realizado. Dias sem nenhum dado não aparecem.
+- **Página da unidade** (substitui as abas "Motoristas/placas" e "⚙ Rotas"): indicadores, gráfico planejado × realizado com a dispersão do dia em cima, relatório diário (rotas, km das rotas, ida e volta, planejado, realizado, diferença, dispersão, observação). Para o admin, também: rotas do dia (seção, carga, rota, placa, motorista, km, ida e volta, abastecido da placa no dia, situação, excluir), remanejamentos e observações, e o resumo por motorista e placa (Norte/Sul).
+- **Rotas repetidas:**
+  - *duplicada*: no mesmo dia, mesma placa (nos DLs, a carga e o motorista), mesma descrição e km com diferença de até 2%. A primeira conta; as outras saem, a não ser que o admin marque "manter". Em out/26 só a Sul tem duas assim ("ASSARE - PAGUE MENOS" em 26 e 30/10, 411 km), que a planilha oficial somou.
+  - *repete dd/mm*: rota de "SAÍDA PARA OUTRO DIA" ou "FINALIZANDO ROTAS" que é a mesma (placa, descrição e km) de uma "ROTAS DO DIA" de até 4 dias de distância. Nunca conta, mesmo com a seção marcada. Em nov/26, na Norte: 3 das 5 de "SAÍDA PARA" e 39 das 56 de "FINALIZANDO".
+- **Remanejamentos:** mover realizado ou planejado de um dia para outro, inclusive para o mês seguinte no fechamento (o mês seguinte recebe o km sozinho), com observação. Também dá para lançar só uma observação. Ficam em `km_dados.lancamentos`. O público vê só os números e a marca ↔ de dia ajustado, nunca o texto.
+- Na planilha antiga, a "rota" da Norte e da Sul passou a ser a DESCRIÇÃO DA ROTA, e não a ÁREA MOTORISTA, que é a base do motorista.

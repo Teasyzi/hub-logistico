@@ -1,9 +1,9 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>Prévia revisão de rotas KM</title>
-<!-- Prévia local da tela #/km/rotas, sem Firebase. Os arquivos vêm de /amostras/:
-     ?mes=AAAA-MM&u=NORTE&arq=<relatório de rotas ou planilha KM antiga>&tabelas=<planilha KM antiga, para a ida e volta>
-     Simula uma rota com ida e volta zerada e uma excluída. Os dados ficam só neste navegador. -->
+<title>Prévia KM</title>
+<!-- Prévia local das telas do KM, sem Firebase. Os arquivos vêm de /amostras/:
+     ?mes=AAAA-MM&tabelas=<planilha KM antiga, para a ida e volta>&arqs=<arquivo1>|<arquivo2>|…&pagina=resumo|NORTE|SUL|CBAR|CCRT
+     Simula um remanejamento e uma observação. Os dados ficam só neste navegador. -->
 <link rel="stylesheet" href="../../docs/css/hub.css">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <main id="app"><p>carregando…</p></main>
@@ -11,17 +11,29 @@
 const I = await import('../../docs/js/importar.js');
 const K = await import('../../docs/js/km.js');
 const V = await import('../../docs/js/views.js');
-const q = new URLSearchParams(location.search), mes = q.get('mes'), u = q.get('u') || 'NORTE';
+const q = new URLSearchParams(location.search), mes = q.get('mes'), pagina = q.get('pagina') || 'resumo';
 const baixar = async (n) => new File([await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer()], n);
-const x = await I.lerArquivo(await baixar(q.get('arq')), { mes, unidade: 'AUTO', contexto: 'km' });
-const t = q.get('tabelas') ? (await I.lerArquivo(await baixar(q.get('tabelas')), { mes, contexto: 'km' })).tabelas : {};
-const brutas = x.rotas.filter((r) => r.unidade === u && r.data.startsWith(mes)).sort((a, b) => a.data.localeCompare(b.data));
-const base = K.aplicarAjustesKM(brutas);
-const ajustes = { [u]: [base[0] && { chave: base[0].chave, idaVolta: 0 }, base[1] && { chave: base[1].chave, excluir: true }].filter(Boolean) };
-const rotas = K.aplicarAjustesKM(brutas, ajustes);
-document.getElementById('app').innerHTML = V.paginaKMRotas(u, { rotas, secoes: null, parametros: t[u] || {} }, { mes, topo: `<h1>KM planejado × realizado — Revisar rotas (prévia)</h1>${V.abasKM('rotas', mes, true)}` });
-document.getElementById('filtroRotas').onchange = (e) => {
-  for (const tr of document.querySelectorAll('tr[data-chave]')) tr.hidden = e.target.value !== 'todas' && !tr.dataset.grupos.split(' ').includes(e.target.value);
-};
-window.pronto = true;
+const parametros = {};
+if (q.get('tabelas')) {
+  const t = await I.lerArquivo(await baixar(q.get('tabelas')), { mes, contexto: 'km' });
+  for (const [c, v] of Object.entries(t.tabelas || {})) parametros[c] = { idaVolta: v.idaVolta, apelidos: v.apelidos };
+}
+const rotas = [], abastecimentos = [];
+for (const n of (q.get('arqs') || '').split('|').filter(Boolean)) {
+  const x = await I.lerArquivo(await baixar(n), { mes, unidade: 'AUTO', contexto: 'km' });
+  if (x.rotas) rotas.push(...x.rotas);
+  if (x.tipo === 'km_abastecimentos') abastecimentos.push(...x.linhas);
+}
+const lanc = [{ id: '1', tipo: 'realizado', de: `${mes}-03`, para: `${mes}-04`, km: 500, texto: 'teste: realizado sem planejado' }, { id: '2', tipo: 'obs', de: `${mes}-05`, texto: 'teste de observação' }];
+const lancamentos = Object.fromEntries(Object.keys(K.UNIDADES_KM).map((c) => [c, lanc]));
+const res = K.calcularKM({ mes, rotas, abastecimentos, parametros, lancamentos });
+const topo = (aba, t) => `<h1>KM planejado × realizado — ${t} (prévia)</h1>${V.abasKM(aba, mes, true)}`;
+if (pagina === 'resumo') document.getElementById('app').innerHTML = V.paginaKMResumo(res, { mes, admin: true, topo: topo('resumo', 'Resumo') });
+else {
+  const u = res.unidades[pagina];
+  const dados = { rotas: K.aplicarAjustesKM(rotas.filter((r) => r.unidade === pagina).sort((a, b) => a.data.localeCompare(b.data))), secoes: null, parametros: parametros[pagina] || {}, abastecimentos: abastecimentos.filter((a) => a.unidade === pagina) };
+  const extras = `${V.tabelaRotasKM(pagina, dados, { duplicadas: u.duplicadas, espelhos: u.espelhos })}${V.blocoLancamentosKM(lanc, { mes })}${['NORTE', 'SUL'].includes(pagina) ? V.blocoMotoristasKM(u) : ''}`;
+  document.getElementById('app').innerHTML = V.paginaKMUnidade(pagina, u, { mes, topo: topo(pagina, u.nome), admin: true, extras });
+}
+window.resultado = res; window.pronto = true;
 </script>
