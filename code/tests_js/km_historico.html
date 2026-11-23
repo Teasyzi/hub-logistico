@@ -58,6 +58,19 @@ try {
       <table><tr><th>dia</th><th>plan. oficial</th><th>plan. Hub</th><th>dif</th><th>real. oficial</th><th>real. Hub</th><th>dif</th></tr>
       ${linhas.map((l) => `<tr><td>${l.data}</td><td>${f1(l.op)}</td><td>${f1(l.hp)}</td><td class="${cls(l.dp)}">${f1(l.dp)}</td><td>${f1(l.or)}</td><td>${f1(l.hr)}</td><td class="${cls(l.dr)}">${f1(l.dr)}</td></tr>`).join('')}</table>`);
   }
+  // Ajustes: excluir todos os FRETEIRO e trocar o motorista de uma rota (sem nomes na saída).
+  const fret = K.aplicarAjustesKM(rotas).filter(K.eFreteiro);
+  const ajustes = {};
+  for (const r of fret) (ajustes[r.unidade] ||= []).push({ chave: r.chave, excluir: true });
+  const semFret = K.calcularKM({ mes, rotas, abastecimentos, ajustes });
+  out.ajustes = { freteiros: fret.length, kmFreteiros: fret.reduce((s, r) => s + r.km, 0),
+    pendentesAntes: Object.fromEntries(Object.entries(res.unidades).map(([c, u]) => [c, u.revisao])),
+    planejadoSemFreteiro: Object.fromEntries(Object.entries(semFret.unidades).map(([c, u]) => [c, u.dias.reduce((s, d) => s + d.planejado, 0)])) };
+  if (fret[0]) {
+    const troca = K.calcularKM({ mes, rotas, abastecimentos, ajustes: { [fret[0].unidade]: [{ chave: fret[0].chave, motorista: 'MOTORISTA DA CASA' }] } });
+    out.ajustes.trocaTiraDoPendente = troca.unidades[fret[0].unidade].revisao.freteirosPendentes === res.unidades[fret[0].unidade].revisao.freteirosPendentes - 1
+      && troca.unidades[fret[0].unidade].revisao.ajustadas === 1;
+  }
 } catch (e) { out.erros.push(e.message + '\n' + e.stack); $r.insertAdjacentHTML('beforeend', `<p>erro: ${e.message}</p>`); }
 document.getElementById('json').textContent = JSON.stringify(out);
 window.resultado = out;

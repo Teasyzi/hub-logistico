@@ -174,7 +174,7 @@ export function lerRotasMontagemKM(wb, mes) {
     for (const r of ls.slice(4)) {
       const km = num(r[norte ? 8 : 13]);
       if (!km || !r[2]) continue;
-      saida.push({ unidade: norte ? 'NORTE' : 'SUL', data, area: texto(r[1]), placa: String(r[2]).trim().toUpperCase(), motorista: texto(r[4]), km, idaVolta: null });
+      saida.push({ unidade: norte ? 'NORTE' : 'SUL', data, carga: texto(r[0]), area: texto(r[1]), placa: String(r[2]).trim().toUpperCase(), motorista: texto(r[4]), km, idaVolta: null });
     }
   }
   if (!saida.length) throw new Error('Não encontrei as rotas Norte/Sul. Confira as abas diárias e selecione o mês de referência.');
@@ -193,7 +193,7 @@ function lerResumoKM(wb, unidade) {
     if (!texto(r[1]) || !km) continue;
     // Não guardar crachá/veículo para BA/JN. O nome fica restrito ao admin para lookup de ida e volta;
     // ele não é usado para atribuir abastecimentos nem aparece no detalhe/público.
-    saida.push({ unidade, data, area: texto(r[5]), motorista, categoria, km, idaVolta: null });
+    saida.push({ unidade, data, carga: texto(r[1]), area: texto(r[5]), motorista, categoria, km, idaVolta: null });
   }
   return saida;
 }
@@ -225,7 +225,7 @@ export function lerPlanejamentoHistoricoKM(wb) {
       const motorista = texto(imot >= 0 ? r[imot] : null);
       saida.push({ unidade, data, area: texto(iarea >= 0 ? r[iarea] : null), ...(unidade === 'NORTE' || unidade === 'SUL'
         ? { placa: texto(iplaca >= 0 ? r[iplaca] : null), motorista, veiculo: texto(iveic >= 0 ? r[iveic] : null), carga: texto(icarga >= 0 ? r[icarga] : null) }
-        : { motorista, categoria: categoriaMotorista(motorista) }), km: kmRota, idaVolta: usaTotal ? 0 : iida >= 0 ? num(r[iida]) : null });
+        : { carga: texto(icarga >= 0 ? r[icarga] : null), motorista, categoria: categoriaMotorista(motorista) }), km: kmRota, idaVolta: usaTotal ? 0 : iida >= 0 ? num(r[iida]) : null });
     }
   }
   if (!saida.length) throw new Error('Não encontrei linhas de planejamento reconhecíveis na planilha histórica.');

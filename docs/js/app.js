@@ -4,9 +4,9 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261123-2';
-import { lerArquivo, num } from './importar.js?v=20261123-1';
-import * as V from './views.js?v=20261123-4';
+import * as D from './dados.js?v=20261123-5';
+import { lerArquivo, num } from './importar.js?v=20261123-5';
+import * as V from './views.js?v=20261123-5';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -500,6 +500,36 @@ async function telaKMMotoristas(unidade, mes) {
   ligarTopo((m) => `#/km/motoristas/${unidade}/${m}`);
 }
 
+async function telaKMRotas(unidade, mes) {
+  if (!['NORTE', 'SUL', 'CBAR', 'CCRT'].includes(unidade)) unidade = 'NORTE';
+  html('<p class="small">Carregando rotas…</p>');
+  const [topo, rotas] = await Promise.all([topoKM('rotas', mes, `Revisar rotas · ${V.nomeMes(mes)}`), D.lerRotasRevisaoKM(unidade, mes)]);
+  html(V.paginaKMRotas(unidade, rotas, { mes, topo }));
+  ligarTopo((m) => `#/km/rotas/${unidade}/${m}`);
+  const linhas = () => [...document.querySelectorAll('table.km-rotas tbody tr[data-chave]')];
+  document.getElementById('filtroRotas').onchange = (e) => {
+    for (const tr of linhas()) tr.hidden = e.target.value !== 'todas' && !tr.dataset.grupos.split(' ').includes(e.target.value);
+  };
+  document.getElementById('marcarFret').onclick = () => {
+    for (const tr of linhas()) if (/FRETEIRO/i.test(tr.querySelector('.mot').value)) { tr.querySelector('.exc').checked = true; tr.classList.add('exc'); }
+  };
+  for (const tr of linhas()) tr.querySelector('.exc').onchange = (e) => tr.classList.toggle('exc', e.target.checked);
+  document.getElementById('salvarRotas').onclick = async (e) => {
+    e.target.disabled = true;
+    try {
+      const ajustes = [];
+      for (const tr of linhas()) {
+        const motorista = tr.querySelector('.mot').value.trim(), excluir = tr.querySelector('.exc').checked;
+        const trocou = motorista && motorista !== tr.dataset.original;
+        if (trocou || excluir) ajustes.push({ chave: tr.dataset.chave, ...(trocou ? { motorista } : {}), ...(excluir ? { excluir: true } : {}) });
+      }
+      await D.gravarAjustesKM(unidade, mes, ajustes);
+      await telaKMRotas(unidade, mes);
+      document.getElementById('msg').innerHTML = `<span class="st ok">✓ ${ajustes.length} ajuste(s) salvos</span>`;
+    } catch (err) { document.getElementById('msg').innerHTML = erro(err); e.target.disabled = false; }
+  };
+}
+
 async function telaKMImportar() {
   const mes = mesP(location.hash.split('/')[3]) || mesAtual(), topo = await topoKM('importar', mes, 'Importar arquivos', false);
   const hist = historicoKM(await D.ultimasImportacoes('km'));
@@ -822,6 +852,7 @@ async function rotear() {
       if (sub === 'parametros') return await telaKMParametros(mesP(p[2]) || mesAtual());
       if (sub === 'publicar') return await telaKMPublicar(mesP(p[2]) || mesAtual());
       if (sub === 'motoristas') return await telaKMMotoristas(p[2], mesP(p[3]) || mesAtual());
+      if (sub === 'rotas') return await telaKMRotas(p[2], mesP(p[3]) || mesAtual());
     }
     if (p[0] === 'cargas') {
       cabecalhoSite('Cargas em aberto');

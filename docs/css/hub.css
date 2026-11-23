@@ -129,3 +129,4 @@ table.pes td:nth-child(4){font-size:12.5px}
 @media(max-width:520px){header{padding:9px 11px;gap:7px 10px}header b{font-size:15px}main{padding:14px 9px 30px}h1{font-size:17px}.sub{font-size:12px}.abas{border-bottom-width:1px;margin:8px 0 13px}.abas a{font-size:10.5px;padding:7px 8px}.faixa{padding:8px 10px;font-size:12px}.bloco .corpo{padding:9px}.grid,.g2,.tiles{grid-template-columns:minmax(0,1fr)}.tile .v{font-size:19px}th,td{padding:5px 6px}.kv td{padding:6px 8px}.btn{padding:7px 10px;font-size:12px}.drop{padding:18px 12px}.legenda{gap:7px;font-size:10.5px}}
 .campo-link{width:100%;max-width:640px}
 .bloco .corpo h3{margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.35px;color:var(--ink2)}
+.km-rotas td input.mot{text-align:left;min-width:220px}.km-rotas tr.exc td{color:var(--muted)}.km-rotas tr.exc td input.mot{color:var(--muted)}

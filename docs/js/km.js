@@ -10,16 +10,41 @@ export const UNIDADES_KM = {
 const CPK_NOV_2026 = { NORTE: 2.46, SUL: 2.09, CBAR: 2.07, CCRT: 4.19 };
 
 const chavePessoa = (r) => String(r.motorista || r.placa || '').trim().toLocaleUpperCase('pt-BR');
-const eFreteiro = (r) => r.categoria === 'FRETEIRO' || /FRETEIRO/i.test(`${r.motorista || ''} ${r.veiculoTipo || ''}`);
+const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+export const categoriaKM = (motorista) => /FRETEIRO/i.test(semAcento(motorista)) ? 'FRETEIRO'
+  : /GENERICO/i.test(semAcento(motorista)) ? 'MOTORISTA GENERICO' : /EXTRA/i.test(semAcento(motorista)) ? 'EXTRA' : 'NORMAL';
+export const eFreteiro = (r) => r.categoria === 'FRETEIRO' || /FRETEIRO/i.test(`${r.motorista || ''} ${r.veiculoTipo || ''}`);
+
+// Identifica a rota entre reimportações (os ajustes ficam guardados à parte e não se perdem ao reimportar o dia).
+export const chaveRotaKM = (r) => [r.data, r.carga, r.placa, r.motoristaOriginal ?? r.motorista, Number(r.km) || 0]
+  .map((x) => String(x ?? '').trim().toLocaleUpperCase('pt-BR')).join('|');
+
+// Ajustes do admin: trocar o motorista (ex.: rota lançada como FRETEIRO que foi feita por motorista da casa)
+// e excluir a rota do planejado. FRETEIRO não é mais excluído sozinho: o admin confere e exclui.
+export function aplicarAjustesKM(rotas, ajustes = {}) {
+  return rotas.map((r) => {
+    const lista = ajustes[r.unidade] || [], k = chaveRotaKM(r), a = lista.find((x) => x.chave === k);
+    const base = { ...r, motoristaOriginal: r.motoristaOriginal ?? r.motorista ?? null, chave: k };
+    if (!a) return { ...base, excluida: false, ajustada: false };
+    const trocou = !!a.motorista && a.motorista !== base.motoristaOriginal;
+    return { ...base, motorista: trocou ? a.motorista : base.motorista,
+      categoria: trocou ? categoriaKM(a.motorista) : base.categoria, excluida: !!a.excluir, ajustada: trocou };
+  });
+}
 const localUnidade = (s) => ({ 'MATRIZ': 'NORTE', 'FILIAL II': 'SUL', 'FILIAL I': 'CBAR', 'FILIAL III': 'CCRT' })[String(s || '').trim().toLocaleUpperCase('pt-BR')];
 
-export function calcularKM({ mes, rotas = [], abastecimentos = [], parametros = {} }) {
+export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], parametros = {}, ajustes = {} }) {
+  const rotas = aplicarAjustesKM(rotasBrutas, ajustes);
   const dias = diasDoMes(mes);
   const unidades = {};
   for (const [c, u] of Object.entries(UNIDADES_KM)) {
     const par = { meta: 0.05, cpk: mes === '2026-11' ? CPK_NOV_2026[c] : null, ...(parametros[c] || {}) };
     const porDia = Object.fromEntries(dias.map((data) => [data, { data, planejado: 0, realizado: 0, rotas: 0, abastecimentos: 0 }]));
-    const rs = rotas.filter((r) => r.unidade === c && r.data?.startsWith(mes) && !eFreteiro(r));
+    const doMes = rotas.filter((r) => r.unidade === c && r.data?.startsWith(mes));
+    const rs = doMes.filter((r) => !r.excluida);
+    const fretPend = rs.filter(eFreteiro);
+    const revisao = { freteirosPendentes: fretPend.length, kmFreteirosPendentes: fretPend.reduce((s, r) => s + (Number(r.km) || 0), 0),
+      excluidas: doMes.length - rs.length, ajustadas: doMes.filter((r) => r.ajustada).length };
     for (const r of rs) {
       if (!porDia[r.data]) continue;
       porDia[r.data].planejado += Number(r.km) || 0;
@@ -53,7 +78,7 @@ export function calcularKM({ mes, rotas = [], abastecimentos = [], parametros = 
     const diferenca = realizado - planejado;
     const dispersao = planejado ? realizado / planejado - 1 : null;
     const motoristas = ['NORTE', 'SUL'].includes(c) ? detalheMotoristas(c, mes, rs, as, par) : [];
-    unidades[c] = { unidade: c, nome: u.nome, temDados: rs.length > 0 || as.length > 0, dias: exibidos, ultimoDia, totais: { planejado, realizado, diferenca, dispersao,
+    unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || as.length > 0, revisao, dias: exibidos, ultimoDia, totais: { planejado, realizado, diferenca, dispersao,
       custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : Math.abs(dispersao) <= (Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
   }
   return { mes, unidades };
@@ -64,7 +89,7 @@ function detalheMotoristas(unidade, mes, rotas, abastecimentos, parametros) {
   const chave = (motorista, placa) => `${String(motorista || 'SEM IDENTIFICAÇÃO').trim()}|${String(placa || '').trim().toUpperCase()}`;
   const idaSomada = new Set();
   for (const r of rotas) {
-    if (!r.data?.startsWith(mes) || eFreteiro(r)) continue;
+    if (!r.data?.startsWith(mes)) continue;
     const k = chave(r.motorista, r.placa), x = mapa.get(k) || { motorista: r.motorista || 'Sem identificação', placa: r.placa || '', planejado: 0, realizado: 0, rotas: 0, semRota: 0 };
     x.planejado += Number(r.km) || 0; x.rotas++;
     const pessoa = chavePessoa(r), diaPessoa = `${r.data}|${pessoa || r.placa || ''}`;

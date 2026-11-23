@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Prévia revisão de rotas KM</title>
+<!-- Prévia local da tela #/km/rotas, sem Firebase: ?arq=<planilha KM antiga>&mes=AAAA-MM&u=CBAR.
+     Simula um motorista trocado e uma rota excluída. Os dados ficam só neste navegador. -->
+<link rel="stylesheet" href="../../docs/css/hub.css">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<main id="app"><p>carregando…</p></main>
+<script type="module">
+const I = await import('../../docs/js/importar.js');
+const K = await import('../../docs/js/km.js');
+const V = await import('../../docs/js/views.js');
+const q = new URLSearchParams(location.search), mes = q.get('mes'), u = q.get('u') || 'CBAR';
+const wb = XLSX.read(await (await fetch(q.get('arq'))).arrayBuffer(), { type: 'array' });
+const brutas = I.lerPlanejamentoHistoricoKM(wb).filter((r) => r.unidade === u && r.data.startsWith(mes)).sort((a, b) => a.data.localeCompare(b.data));
+const fret = K.aplicarAjustesKM(brutas).filter(K.eFreteiro);
+const ajustes = { [u]: [fret[0] && { chave: fret[0].chave, excluir: true }, fret[1] && { chave: fret[1].chave, motorista: 'MOTORISTA DA CASA (teste)' }].filter(Boolean) };
+const rotas = K.aplicarAjustesKM(brutas, ajustes);
+document.getElementById('app').innerHTML = V.paginaKMRotas(u, rotas, { mes, topo: `<h1>KM planejado × realizado — Revisar rotas (prévia)</h1>${V.abasKM('rotas', mes, true)}` });
+document.getElementById('filtroRotas').onchange = (e) => {
+  for (const tr of document.querySelectorAll('tr[data-chave]')) tr.hidden = e.target.value !== 'todas' && !tr.dataset.grupos.split(' ').includes(e.target.value);
+};
+window.pronto = true;
+</script>

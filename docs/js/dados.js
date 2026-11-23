@@ -14,7 +14,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { calcular, motivos } from './calc.js?v=20261117-5';
 import { placarPES } from './pes.js';
-import { calcularKM, agregadoPublicado, UNIDADES_KM } from './km.js';
+import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261123-5';
 import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-2';
 
 export const UNIDADES = {
@@ -254,14 +254,27 @@ const refKM = (unidade, mes) => doc(db, 'km_dados', `${unidade}_${mes}`);
 export async function lerDadosKM(mes) {
   const unidades = Object.keys(UNIDADES_KM);
   const docs = await Promise.all(unidades.map((c) => getDoc(refKM(c, mes))));
-  const rotas = [], abastecimentos = [];
+  const rotas = [], abastecimentos = [], ajustes = {};
   docs.forEach((snap, i) => {
     const d = snap.data() || {}, c = unidades[i];
     rotas.push(...(d.rotas || []).map((r) => ({ ...r, unidade: c })));
     abastecimentos.push(...(d.abastecimentos || []).map((a) => ({ ...a, unidade: c })));
+    ajustes[c] = d.ajustes || [];
   });
   const parametros = Object.fromEntries(await Promise.all(unidades.map(async (c) => [c, await lerParametrosKM(c, mes)])));
-  return { rotas, abastecimentos, parametros };
+  return { rotas, abastecimentos, parametros, ajustes };
+}
+
+// Rotas de uma unidade já com os ajustes aplicados, para a tela de revisão (só admin).
+export async function lerRotasRevisaoKM(unidade, mes) {
+  const d = (await getDoc(refKM(unidade, mes))).data() || {};
+  const rotas = (d.rotas || []).map((r) => ({ ...r, unidade })).sort((a, b) => a.data.localeCompare(b.data));
+  return aplicarAjustesKM(rotas, { [unidade]: d.ajustes || [] });
+}
+
+// Ajustes = [{chave, motorista?, excluir?}]. Ficam num campo próprio de km_dados, que a reimportação de rotas não apaga.
+export async function gravarAjustesKM(unidade, mes, ajustes) {
+  await setDoc(refKM(unidade, mes), { unidade, mes, ajustes, atualizado: serverTimestamp() }, { mergeFields: ['unidade', 'mes', 'ajustes', 'atualizado'] });
 }
 
 async function gravarParcialKM(unidade, mes, tipo, linhas) {

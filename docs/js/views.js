@@ -1,5 +1,5 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261123-2';
+import { UNIDADES } from './dados.js?v=20261123-5';
 import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -261,7 +261,7 @@ export function paginaPES(placares, { mes, admin, topo }) {
 export function abasKM(ativa, mes, admin) {
   const a = [['resumo', 'Resumo', `#/km/resumo/${mes}`], ['NORTE', 'CB NORTE', `#/km/NORTE/${mes}`], ['SUL', 'CB SUL', `#/km/SUL/${mes}`],
     ['CBAR', 'BARREIRAS', `#/km/CBAR/${mes}`], ['CCRT', 'JUAZEIRO', `#/km/CCRT/${mes}`]];
-  const adm = admin ? [['importar', 'Importar', '#/km/importar'], ['parametros', 'Parâmetros', `#/km/parametros/${mes}`], ['publicar', 'Publicar', `#/km/publicar/${mes}`], ['exportar', 'Exportar', `#/km/exportar/${mes}`]] : [];
+  const adm = admin ? [['importar', 'Importar', '#/km/importar'], ['rotas', 'Rotas', `#/km/rotas/NORTE/${mes}`], ['parametros', 'Parâmetros', `#/km/parametros/${mes}`], ['publicar', 'Publicar', `#/km/publicar/${mes}`], ['exportar', 'Exportar', `#/km/exportar/${mes}`]] : [];
   return `<nav class="abas">${a.map(([k,t,h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
     + `${adm.map(([k,t,h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
 }
@@ -319,11 +319,41 @@ export function paginaKMResumo(resultado, { mes, admin, topo }) {
       ? `<p><a class="btn sec" href="#/km/${c}/${mes}">Detalhe diário →</a></p>`
       : `<div class="tw scroll"><table class="diario km"><thead><tr><th class="t">Dia</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Dispersão</th></tr></thead><tbody>${linhas}<tr class="tot"><td class="t">ACUMULADO</td>${celulas(t)}</tr></tbody></table></div><p class="small">* Depois do último abastecimento lançado. CPK usado no custo: ${fr(t.cpk)}/km.</p>`;
     return `<section class="bloco"><div class="faixa">${E(u.nome)}${admin && ['NORTE','SUL'].includes(c) ? ` <a class="btn sec" href="#/km/motoristas/${c}/${mes}">Motoristas/placas →</a>` : ''}</div><div class="corpo">
+${admin && u.revisao?.freteirosPendentes ? `<div class="aviso">${fi(u.revisao.freteirosPendentes)} rota(s) de FRETEIRO ainda contam no planejado (${fi(u.revisao.kmFreteirosPendentes)} km). <a href="#/km/rotas/${c}/${mes}">Revisar rotas →</a></div>` : ''}
 <div class="tiles"><div class="tile"><div class="l">Planejado até ${u.ultimoDia ? fdata(u.ultimoDia) : '–'}</div><div class="v">${fi(t.planejado)} km</div></div><div class="tile"><div class="l">Realizado</div><div class="v">${fi(t.realizado)} km</div></div><div class="tile"><div class="l">Diferença · dispersão</div><div class="v">${fi(t.diferenca)} km · ${fp(t.dispersao)}</div><div class="d">${meta}</div></div><div class="tile"><div class="l">Custo da dispersão</div><div class="v">${fr(t.custo)}</div></div></div>
 ${detalhe}</div></section>`;
   }).join('<div style="height:16px"></div>');
   const resumo = unidades.length > 1 ? `<h2>Relatório diário por unidade</h2><div class="tw scroll"><table class="diario km km-matriz"><thead><tr><th rowspan="2" class="t">Dia</th>${grupos}</tr><tr>${sub}</tr></thead><tbody>${corpo}<tr class="tot"><td class="t">ACUMULADO</td>${acumulado}</tr></tbody></table></div><p class="small">* Os campos em cinza são posteriores ao último abastecimento informado naquela unidade e ficam fora do acumulado.</p>` : '';
   return `${topo}<p class="sub">KM planejado × realizado · visão diária no formato do relatório de quilometragem.</p>${resumo}${secoes}`;
+}
+
+// Revisão das rotas planejadas (só admin): trocar motorista e excluir rota (ex.: FRETEIRO confirmado).
+// O filtro é feito no navegador (atributo data-grupos de cada linha), sem mudar a rota da página.
+const NOMES_KM = { NORTE: 'CB Norte', SUL: 'CB Sul', CBAR: 'DL Barreiras', CCRT: 'DL Juazeiro' };
+export function paginaKMRotas(unidade, rotas, { mes, topo }) {
+  const fret = (r) => /FRETEIRO/i.test(`${r.categoria || ''} ${r.motorista || ''}`);
+  const comPlaca = ['NORTE', 'SUL'].includes(unidade);
+  const nomes = [...new Set(rotas.map((r) => r.motoristaOriginal).filter((n) => n && !/FRETEIRO/i.test(n)))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const pend = rotas.filter((r) => fret(r) && !r.excluida), kmPend = pend.reduce((s, r) => s + (Number(r.km) || 0), 0);
+  const grupos = (r) => [fret(r) || /FRETEIRO/i.test(r.motoristaOriginal || '') ? 'freteiro' : '', r.ajustada || r.excluida ? 'ajustadas' : '', r.excluida ? 'excluidas' : ''].filter(Boolean).join(' ');
+  const etiqueta = (r) => r.excluida ? '<span class="st no">excluída</span>' : fret(r) ? '<span class="badge">FRETEIRO · revisar</span>'
+    : r.ajustada ? '<span class="st ok">motorista trocado</span>' : /GENERICO|EXTRA/i.test(`${r.categoria || ''} ${r.motorista || ''}`) ? '<span class="tag">sem atribuição</span>' : '';
+  const linhas = rotas.map((r) => `<tr class="${r.excluida ? 'exc' : ''}" data-chave="${E(r.chave)}" data-original="${E(r.motoristaOriginal || '')}" data-grupos="${grupos(r)}">
+<td class="t">${fdata(r.data)}</td><td class="t">${E(r.carga || '–')}</td><td class="t">${E(r.area || '–')}</td>${comPlaca ? `<td class="t">${E(r.placa || '–')}</td>` : ''}
+<td class="t"><input type="text" class="mot" list="nomesKM" value="${E(r.motorista || '')}" title="No arquivo: ${E(r.motoristaOriginal || '–')}"></td>
+<td>${fd(r.km, 1)}</td><td>${etiqueta(r)}</td><td><input type="checkbox" class="exc" ${r.excluida ? 'checked' : ''} aria-label="Excluir rota"></td></tr>`).join('');
+  const unidadesNav = Object.entries(NOMES_KM).map(([c, n]) => `<a class="${c === unidade ? 'on' : ''}" href="#/km/rotas/${c}/${mes}">${n}</a>`).join('');
+  const opc = [['todas', 'Todas as rotas'], ['freteiro', 'Só FRETEIRO'], ['ajustadas', 'Ajustadas ou excluídas'], ['excluidas', 'Só excluídas']]
+    .map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
+  return `${topo}<nav class="abas">${unidadesNav}</nav>
+<p class="sub">Rotas do planejado de ${E(NOMES_KM[unidade])} em ${E(nomeMes(mes))}. Troque o motorista quando a rota veio com o nome errado (ex.: FRETEIRO que na verdade foi um motorista da casa) e marque <b>Excluir</b> nas rotas que não entram no planejado. Os ajustes continuam valendo depois de reimportar o dia.</p>
+${pend.length ? `<div class="aviso">${fi(pend.length)} rota(s) de FRETEIRO ainda contam no planejado (${fi(kmPend)} km). Confira e exclua as que realmente foram de freteiro.</div>` : '<p class="small">Nenhuma rota de FRETEIRO pendente nesta unidade.</p>'}
+<p><label>Mostrar <select id="filtroRotas">${opc}</select></label> <button class="btn sec" id="marcarFret" type="button">Marcar todas as de FRETEIRO para excluir</button></p>
+<datalist id="nomesKM">${nomes.map((n) => `<option value="${E(n)}">`).join('')}</datalist>
+<div class="tw scroll"><table class="km-rotas"><thead><tr><th class="t">Dia</th><th class="t">Carga</th><th class="t">Rota / área</th>${comPlaca ? '<th class="t">Placa</th>' : ''}<th class="t">Motorista</th><th>Km</th><th>Situação</th><th>Excluir</th></tr></thead>
+<tbody>${linhas || `<tr><td class="t" colspan="${comPlaca ? 8 : 7}">Nenhuma rota importada neste mês.</td></tr>`}</tbody></table></div>
+<p><button class="btn" id="salvarRotas">Salvar ajustes</button> <span id="msg"></span></p>
+<p class="small">Passe o mouse sobre o motorista para ver o nome que veio no arquivo. A ida e volta passa a seguir o motorista informado aqui.</p>`;
 }
 
 export function paginaKMMotoristas(u, { mes, topo }) {

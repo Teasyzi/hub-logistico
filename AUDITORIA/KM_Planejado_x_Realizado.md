@@ -117,3 +117,21 @@ Diferenças que ficam, porque o Hub segue a regra e a planilha não:
 | **abr/26–out/26** | CPK FROTA ROTA ACM 2026 | **2,46** | **2,09** | **2,07** | **4,19** |
 
 A CPK está parada desde **abril/26** (7 meses). A despesa e o km da tabela estão parados desde 2024 e não são a base da CPK atual.
+
+### Origem da CPK (pasta `Acompanhamento de CPK's`, conferida em 2026-11-23)
+- A pasta tem um `Acompanhamento CPK's - <mês>.xlsm` por fechamento. O mais recente é `2026\Acompanhamento CPK's - Fechamento Outubro.xlsm` (06/11/2026), com km lançado até **outubro/26** nas 4 unidades. As subpastas mensais de 2026 vão só até julho; agosto a outubro estão apenas dentro desse arquivo.
+- Como o arquivo calcula: a aba `Resumo por unidades` dá a CPK por categoria (pneus, peças e serviços, óleo, combustível, carroceria, funilaria, lavagem, oficina) = R$ utilizado ÷ KM realizada. O total fica em **CPK TOTAL OPERACIONAL**: `D20` Norte, `M20` Sul, `D37` Barreiras e `M37` Juazeiro. O período sai da célula `B1` da aba oculta `DINAMICA` (um mês ou "ACUMULADO ANO"). As abas `DADOS *` têm uma linha "ACUMULADO ANO" por unidade.
+- A KM REALIZADA de out/26 desse arquivo é igual ao realizado da planilha de KM em Sul (97.922), Barreiras (90.086) e Juazeiro (29.002). Na Norte é 176.864 contra 173.026.
+- **Os valores da planilha de KM não saem desse arquivo.** 2,46 / 2,09 / 2,07 / 4,19 (digitados desde abr/26) e os de 2025 (por exemplo, 2,2635 / 1,9537 / 2,3320 / 3,4527 em set/25) não aparecem em nenhuma versão, nem no mês nem no acumulado. Também não aparecem nos arquivos de KPI e Gestão à vista de 2026.
+- CPK TOTAL OPERACIONAL acumulada no ano, calculada a partir das linhas "ACUMULADO ANO":
+
+| Arquivo | Norte | Sul | Barreiras | Juazeiro |
+|---|---|---|---|---|
+| Fechamento Março/26 (jan–mar) | 2,1255 | 1,7686 | 1,8536 | 3,4262 |
+| Fechamento Abril/26 (jan–abr) | 2,0707 | 1,9099 | 2,0092 | 2,9695 |
+| Fechamento Outubro/26 (jan–out) | **2,2663** | **2,0503** | **2,2005** | **3,4310** |
+
+Pendente: saber com quem envia o "CPK FROTA ROTA ACM" se ele é outro recorte (só frota de rota) ou se é para usar o CPK TOTAL OPERACIONAL acumulado acima.
+
+### FRETEIRO e troca de motorista (2026-11-23)
+O Hub não exclui mais FRETEIRO sozinho. Em `#/km/rotas/<unidade>/<mês>` (só admin) dá para trocar o motorista de cada rota e marcar "Excluir". Há um botão para marcar todas as rotas de FRETEIRO de uma vez. O resumo avisa quantas rotas de FRETEIRO ainda contam no planejado. Os ajustes ficam em `km_dados/<unidade>_<mês>.ajustes`, separados das rotas, e continuam valendo depois de reimportar o dia.
