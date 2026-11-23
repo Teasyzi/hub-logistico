@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prévia de gráficos</title>
+<!-- Abrir servido por HTTP a partir da raiz do repo. ?tema=light|dark|contraste. Dados fictícios. -->
+<link rel="stylesheet" href="../../docs/css/hub.css">
+<body>
+<main id="app"></main>
+<script type="module">
+const tema = new URLSearchParams(location.search).get('tema');
+if (tema) document.documentElement.dataset.theme = tema;
+const V = await import('../../docs/js/views.js');
+const base = [['03', 15000, 190], ['04', 20500, 590], ['05', 18400, 120], ['06', 21500, 1480], ['07', 10800, 210], ['08', 16000, 70],
+  ['10', 26100, 680], ['11', 23000, 160], ['12', 21600, 1960], ['13', 18200, 680], ['14', 180, 0], ['16', 18800, 170], ['17', 17900, 750],
+  ['18', 23000, 70], ['19', 16100, 210], ['20', 8500, 150], ['23', 15000, 110], ['24', 1100, 0]];
+const dias = base.map(([d, v, r]) => ({ data: `2026-11-${d}`, volume_vendido_cxu: v, retorno_cxu: r }));
+document.getElementById('app').innerHTML = `<h2>Cx unit por dia · vendido e retorno</h2><div class="card">${V.graficoVendidoRetorno(dias)}</div>`;
+</script>
+</body>
+</html>

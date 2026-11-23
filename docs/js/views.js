@@ -71,33 +71,31 @@ export function grafico(dias, campo, corS, meta, rotulo, fmt = fi, fmtBarra = fk
   return s + '</svg>';
 }
 
-export function graficoVendidoRetorno(dias, altura = 270) {
-  const pts = dias.filter((d) => d.volume_vendido_cxu || d.retorno_cxu).map((d) => ({
-    ...d, indiceRetorno: d.volume_vendido_cxu > 0 ? (d.retorno_cxu || 0) / d.volume_vendido_cxu : null,
-  }));
+// Vendido × retorno por dia, as duas séries em CX UNIT no MESMO eixo (barras lado a lado), para a
+// comparação ser visual e proporcional. O % do vendido aparece em cima da barra de retorno.
+export function graficoVendidoRetorno(dias, altura = 290) {
+  const pts = dias.filter((d) => d.volume_vendido_cxu || d.retorno_cxu);
   if (!pts.length) return '<p class="small">Sem dados de volume neste período.</p>';
-  const w = 1000, pl = 58, pr = 54, pt = 26, pb = 34, base = altura - pb, topo = pt;
-  const maxVolume = Math.max(1, ...pts.map((d) => d.volume_vendido_cxu || 0)) * 1.12;
-  const maxIndice = Math.max(0.05, Math.ceil(Math.max(0, ...pts.map((d) => d.indiceRetorno || 0)) * 20) / 20);
-  const band = (w - pl - pr) / pts.length, bw = Math.min(32, band * 0.55);
-  const yVol = (v) => topo + (base - topo) * (1 - v / maxVolume);
-  const yPct = (v) => base - (base - topo) * (v / maxIndice);
-  let s = `<div class="grafico-legenda"><span><i class="vendido"></i>VENDIDO (CX UNIT)</span><span><i class="retorno"></i>ÍNDICE DE RETORNO (% DO VENDIDO)</span></div><svg viewBox="0 0 ${w} ${altura}" width="100%" role="img" aria-label="Volume vendido diário e índice de retorno sobre o vendido">`;
+  const w = 1000, pl = 50, pr = 10, pt = 34, pb = 24, base = altura - pb;
+  const topo = Math.max(1, ...pts.map((d) => Math.max(d.volume_vendido_cxu || 0, d.retorno_cxu || 0))) * 1.1;
+  const y = (v) => pt + (base - pt) * (1 - v / topo);
+  const band = (w - pl - pr) / pts.length, bw = Math.min(30, (band - 8) / 2);
+  let s = `<div class="grafico-legenda"><span><i class="vendido"></i>VENDIDO (CX UNIT)</span><span><i class="retorno"></i>RETORNO (CX UNIT · % DO VENDIDO)</span></div><svg viewBox="0 0 ${w} ${altura}" width="100%" role="img" aria-label="Caixas unitárias vendidas e retornadas por dia, na mesma escala">`;
   for (let k = 0; k <= 4; k++) {
-    const v = (maxVolume * k) / 4, yy = yVol(v), pct = maxIndice * k / 4;
-    s += `<line x1="${pl}" x2="${w-pr}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/><text x="${pl-7}" y="${(yy+4).toFixed(1)}" text-anchor="end">${fk(v)}</text><text x="${w-pr+7}" y="${(yy+4).toFixed(1)}" text-anchor="start">${fp(pct,0)}</text>`;
+    const v = (topo * k) / 4, yy = y(v);
+    s += `<line x1="${pl}" x2="${w - pr}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/><text x="${pl - 6}" y="${(yy + 4).toFixed(1)}" text-anchor="end">${fk(v)}</text>`;
   }
-  const pontos = [], passoData = Math.max(1, Math.ceil(pts.length / 16));
   pts.forEach((d, i) => {
-    const cx = pl + band * (i + 0.5), sold = d.volume_vendido_cxu || 0, returned = d.retorno_cxu || 0;
-    s += `<rect x="${(cx-bw/2).toFixed(1)}" y="${yVol(sold).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, base-yVol(sold)).toFixed(1)}" rx="2" fill="var(--brand)"><title>${fdata(d.data)} · vendido: ${fi(sold)} CX UNIT</title></rect>`;
-    if (d.indiceRetorno != null) pontos.push({ cx, y: yPct(d.indiceRetorno), data: d.data, valor: d.indiceRetorno, retorno: returned, vendido: sold });
-    if (i % passoData === 0 || i === pts.length - 1) s += `<text x="${cx.toFixed(1)}" y="${altura-9}" text-anchor="middle">${fdata(d.data)}</text>`;
+    const cx = pl + band * (i + 0.5), sold = d.volume_vendido_cxu || 0, ret = d.retorno_cxu || 0;
+    const pct = sold > 0 ? ret / sold : null, xv = cx - bw - 1, xr = cx + 1;
+    const dica = `${fdata(d.data)} · vendido ${fi(sold)} · retorno ${fi(ret)} CX UNIT${pct == null ? '' : ` (${fp(pct)} do vendido)`}`;
+    s += `<rect x="${xv.toFixed(1)}" y="${y(sold).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, base - y(sold)).toFixed(1)}" rx="2" fill="var(--brand)"><title>${dica}</title></rect>`
+      + `<rect x="${xr.toFixed(1)}" y="${y(ret).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, base - y(ret)).toFixed(1)}" rx="2" fill="var(--s2)"><title>${dica}</title></rect>`
+      + `<text class="val" x="${(xv + bw / 2).toFixed(1)}" y="${(y(sold) - 5).toFixed(1)}" text-anchor="middle">${fk(sold)}</text>`
+      + (pct == null ? '' : `<text class="val ret" x="${(xr + bw / 2).toFixed(1)}" y="${(y(ret) - 5).toFixed(1)}" text-anchor="middle">${fp(pct, 1)}</text>`)
+      + `<text x="${cx.toFixed(1)}" y="${altura - 7}" text-anchor="middle">${fdata(d.data)}</text>`;
   });
-  if (pontos.length) {
-    s += `<polyline points="${pontos.map((p) => `${p.cx.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}" fill="none" stroke="var(--s2)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
-    s += pontos.map((p) => `<circle cx="${p.cx.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="var(--surface)" stroke="var(--s2)" stroke-width="2"><title>${fdata(p.data)} · índice de retorno: ${fp(p.valor)} · ${fi(p.retorno)} / ${fi(p.vendido)} CX UNIT</title></circle>`).join('');
-  }
+  s += `<line x1="${pl}" x2="${w - pr}" y1="${base}" y2="${base}" stroke="var(--axis)"/>`;
   return s + '</svg>';
 }
 

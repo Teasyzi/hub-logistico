@@ -6,7 +6,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import * as D from './dados.js?v=20261117-7';
 import { lerArquivo, num } from './importar.js?v=20261123-1';
-import * as V from './views.js?v=20261117-10';
+import * as V from './views.js?v=20261123-2';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
