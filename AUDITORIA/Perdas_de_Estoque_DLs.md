@@ -203,3 +203,19 @@ Diferenças na planilha de Juazeiro (nov/26):
 |---|---|---|---|---|---|---|---|
 | Barreiras | 2.538,42 | 13.502,46 | 5.949,44 | 6.773,96 | 28.764,28 | 1.804,50 | 0,40% |
 | Juazeiro | 9.116,74 | 2.827,00 | 5.146,98 | 302,00 | 17.392,72 | 916,17 | 0,21% |
+
+## 13. O que ajustar nas planilhas (situação em 24/11)
+Já corrigido pelo usuário em nov/26: Inventário R/S/T (Barreiras e Juazeiro); Juazeiro `M17`, `M20` e `M9`; KPI `N27`/`N28` (faturamento ACM).
+
+Falta:
+1. **Barreiras nov/26, aba `base`, linha 314:** trocar `B314` e `G314` de 1209154 para **1924** (KAPO MOR PROMOPACK). Total de cx unit: −2.676,41 → −2.670,59.
+2. **Juazeiro nov/26, `Resumo`:** `M13`, `P13`, `P17` e `M23` ainda somam pelas colunas H e N. Dão certo hoje, mas só por coincidência. Passar todas para a coluna S (MOTIVO), como em Barreiras.
+3. **Divergências de de-para entre as duas abas `base`** (7, além do KAPO): 1000361, 1001942, 1201270, 1201271, 1201272, 1201431 e 1209218. Conferir qual DL está certo.
+4. **Linhas repetidas na `base` (vale a primeira):**
+   - Barreiras: G99/G276, G194/G301, G127/G318 e G212/G324 (mesmos valores); A288/A304.
+   - Juazeiro: G240/G299 (1209251, Qtd/Un 16 × 6), G99/G276, G211/G298 e G192/G323; A284/A296, A258/A323.
+5. **Por produto (linha 24 em diante):** hoje é colada como valor. Copiar as fórmulas da linha 22 para baixo, para a tabela não ficar desatualizada, como aconteceu em out/26.
+6. **Fechados (opcional):**
+   - Out/26 Barreiras: apagar as 144 linhas de 03/11 do `Relatório` (R$ 4.689,55, que já estão em novembro) e acertar o Inventário R/S.
+   - Out/26 Juazeiro: Inventário R/S/T e `Resumo` `M17`, `M20` e `M9`.
+   - Jan–set/26: só o MB59 de out/26 Barreiras tem linhas de outro mês.
