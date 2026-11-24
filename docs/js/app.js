@@ -4,11 +4,12 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261124-3';
-import { lerArquivo, num } from './importar.js?v=20261124-3';
-import * as V from './views.js?v=20261124-3';
-import { hojeKM } from './km.js?v=20261124-3';
-import { rotearPerdas } from './perdas_telas.js?v=20261124-3';
+import * as D from './dados.js?v=20261124-4';
+import { lerArquivo, num } from './importar.js?v=20261124-4';
+import * as V from './views.js?v=20261124-4';
+import { hojeKM } from './km.js?v=20261124-4';
+import { rotearPerdas } from './perdas_telas.js?v=20261124-4';
+import { rotearRetorno } from './retorno_telas.js?v=20261124-4';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
@@ -69,7 +70,7 @@ function cabecalhoSite(titulo) {
         estado.modoAntesDaVisita = estado.modo;
         estado.visualizarComoVisitante = true; estado.modo = 'publicado';
         const p = (location.hash.replace(/^#/, '') || '/').split('/').filter(Boolean), mes = p.map(mesP).find(Boolean) || mesAtual();
-        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : p[0] === 'cargas' ? '#/cargas/resumo' : p[0] === 'perdas' ? `#/perdas/resumo/${mes}` : `#/montagem/resumo/${mes}`;
+        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : p[0] === 'cargas' ? '#/cargas/resumo' : p[0] === 'perdas' ? `#/perdas/resumo/${mes}` : p[0] === 'retorno' ? `#/retorno/resumo/${mes}` : `#/montagem/resumo/${mes}`;
         if (location.hash === destino) rotear(); else location.hash = destino;
       } else {
         estado.visualizarComoVisitante = false; estado.modo = estado.modoAntesDaVisita || 'rascunho';
@@ -943,6 +944,10 @@ async function rotear() {
     if (p[0] === 'perdas') {
       cabecalhoSite('Perdas de estoque DLs');
       return await rotearPerdas(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
+    }
+    if (p[0] === 'retorno') {
+      cabecalhoSite('Retorno por motivo');
+      return await rotearRetorno(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'cargas') {
       cabecalhoSite('Cargas em aberto');

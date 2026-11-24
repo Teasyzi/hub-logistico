@@ -52,7 +52,7 @@ Pareto de motivos e retorno por motorista → reunião mensal. O índice de reto
 2. Qual é a regra única de motivos administrativos?
 
 ## 9. Situação no Hub
-**Não implementado** (fase 7). Os DLs podem reaproveitar a tabela `retorno` da Montagem, porque o layout já está confirmado. Os DAs dependem da amostra 3.
+Em validação desde 24/11/2026 (`#/retorno`), ver §12. Os DLs reaproveitam `venda/` e `retorno/` da Montagem. Os DAs usam as exportações do BI (§11).
 
 ## 10. Leitura completa de jan–out/2026 (24/11/2026)
 Lidas todas as células e fórmulas dos 10 arquivos de 2026 (sem os "(ANTIGO)") e conferidas contra as abas ocultas e contra a Montagem de Cargas do mesmo mês.
@@ -139,3 +139,32 @@ Lidas todas as células e fórmulas dos 10 arquivos de 2026 (sem os "(ANTIGO)") 
    - **Nenhuma das duas traz o volume (Saída)** dos DAs. Em jan/26 ele era a soma da coluna Saída da base do BI.
 7. **Retorno por motorista em R$.** Nos DLs o relatório só tem o valor da nota inteira (§10.1).
 8. **Meses fechados:** o usuário corrige à mão. A lista célula por célula fica fora do repositório, em `Retorno por motivo\CORRECOES_Retorno_2026.md`.
+
+## 12. Implementação no Hub (24/11/2026, `#/retorno`)
+- **Código:**
+  - `docs/js/retorno.js` (leitura e cálculo);
+  - `dados_retorno.js` (Firestore);
+  - `retorno_telas.js` (telas);
+  - prévia em `code/tests_js/retorno.preview.html`.
+- **DLs:** sem importação própria. Usam `venda/` e `retorno/` da Montagem (só `ext`, mês da Dt Remessa). O volume pode ser trocado em ⚙ Parâmetros.
+- **DAs:**
+  - ⚙ Importar recebe as duas exportações do BI, com o mês escolhido na tela. Também aceita a planilha antiga "MM. Retorno - <Mês>.xlsx", para trazer o histórico (motivos, motoristas e o volume `E5`).
+  - O volume (Saída) é digitado em ⚙ Parâmetros.
+- **Telas:**
+  - Resumo com as 4 unidades (% s/ cancelamento, % total, cancelamento, volume, principais motivos) e a evolução dos meses publicados.
+  - Página por unidade com o Pareto de motivos: o cancelamento aparece marcado como "fora do % s/ cancelamento" e os motivos em observação com marca.
+- **Motoristas:** o retorno por motorista (R$) aparece só no rascunho do admin. A publicação leva os números e os motivos, sem nomes, como nos outros acompanhamentos.
+- **Firestore:**
+  - novas coleções `retorno_dados`, `retorno_parametro` e `retorno_publicado`;
+  - novo documento `meta/publicacoes_retorno`;
+  - as regras precisam ser publicadas no console.
+- **Conferência na prévia (out/26), 16 de 16 valores iguais aos da auditoria:**
+  - Barreiras 3.788,178 / 456.146,062 = 0,830%;
+  - Juazeiro 4.831,290 / 451.169,118 = 1,071% (com as 6 linhas tardias que a Montagem já tem);
+  - Norte (12.178,649 − 7.563,611) / (699.590,05 − 7.563,611) = 0,667%;
+  - Sul (4.603,762 − 38,063) / (594.726,43 − 38,063) = 0,768%;
+  - R$ por motorista: Norte 170.987,98 e Sul 188.302,60.
+- **BI de nov/26 (parcial):** os totais batem com os arquivos (Norte 1.655,381 cx e R$ 55.698,46; Sul 875,432 cx e R$ 30.094,76). O Sul já mostra ERRO NA EMISSAO DA NOTA FISCAL (18,2 cx) em observação.
+- **Em aberto:**
+  - retorno por motorista dos DLs (o SAP não tem R$ por linha; dá para mostrar em cx unit);
+  - se os leitores devem ver os nomes dos motoristas.

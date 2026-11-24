@@ -58,6 +58,14 @@ service cloud.firestore {
       allow read: if admin() || leitor();
       allow write: if admin();
     }
+    match /retorno_publicado/{id} {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
+    match /meta/publicacoes_retorno {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
     match /meta/acesso {
       allow read, write: if admin();
     }
@@ -73,5 +81,7 @@ service cloud.firestore {
     match /cargas_dados/{id} { allow read, write: if admin(); }
     match /perdas_dados/{id}     { allow read, write: if admin(); }
     match /perdas_parametro/{id} { allow read, write: if admin(); }
+    match /retorno_dados/{id}     { allow read, write: if admin(); }
+    match /retorno_parametro/{id} { allow read, write: if admin(); }
   }
 }

@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Prévia Retorno</title>
+<!-- Prévia local das telas do Retorno por motivo, sem Firebase. Os arquivos vêm de /amostras/:
+     ?mes=AAAA-MM&montagem=<planilha da Montagem>&das=<arquivo1>|<arquivo2>&pagina=resumo|NORTE|SUL|CBAR|CCRT[&vol_NORTE=…]
+     Com ?conferir=out26 compara os totais de out/26 com os valores calculados à mão (AUDITORIA/Retorno_por_Motivo.md §10). -->
+<link rel="stylesheet" href="../../docs/css/hub.css">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<main id="app"><p>carregando…</p></main>
+<script type="module">
+const R = await import('../../docs/js/retorno.js');
+const T = await import('../../docs/js/retorno_telas.js');
+const I = await import('../../docs/js/importar.js');
+const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-10', pagina = q.get('pagina') || 'resumo';
+const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array' });
+const dados = {}, parametros = {};
+if (q.get('montagem')) {
+  const m = I.lerMontagemLegada(await ler(q.get('montagem')));
+  for (const c of R.DLS_RET) dados[c] = { venda: m.venda.filter((v) => v.centro === c), retorno: m.retorno.filter((r) => r.centro === c) };
+}
+const lidos = [];
+for (const n of (q.get('das') || '').split('|').filter(Boolean)) {
+  const x = R.lerArquivoRetorno(await ler(n));
+  lidos.push({ arquivo: n, tipo: x.tipo, unidades: Object.keys(x.unidades) });
+  // Como no Firestore: motivos e motoristas do arquivo substituem os do mês; o resto fica.
+  for (const [u, d] of Object.entries(x.unidades)) {
+    const a = (dados[u] ??= {});
+    if (d.motivos) a.motivos = d.motivos;
+    if (d.motoristas) a.motoristas = d.motoristas;
+    if (d.volume != null) a.volume = d.volume;
+    a.arquivos = { ...(a.arquivos || {}), ...(d.motivos ? { motivos: n } : {}), ...(d.motoristas ? { motoristas: n } : {}) };
+  }
+}
+for (const u of Object.keys(R.UNIDADES_RET)) if (q.get('vol_' + u)) parametros[u] = { volume: Number(q.get('vol_' + u)) };
+const res = R.calcularRetorno({ mes, dados, parametros });
+const topo = (aba, t) => `<h1>Retorno por motivo — ${t} (prévia)</h1>${T.abasRetorno(aba, mes, true)}`;
+let h = pagina === 'resumo' ? T.paginaResumoRetorno(res, { mes, admin: true, topo: topo('resumo', 'Resumo'), evolucao: [] })
+  : T.paginaUnidadeRetorno(pagina, res.unidades[pagina], { mes, admin: true, topo: topo(pagina, R.UNIDADES_RET[pagina]) });
+// Conferência de out/26 contra as contas feitas à mão na auditoria.
+if (q.get('conferir') === 'out26') {
+  const esperado = {
+    CBAR: { retorno: 3788.178, volume: 456146.062, pctSemCanc: 3788.178 / 456146.062 },
+    CCRT: { retorno: 4831.290, volume: 451169.118, pctSemCanc: 4831.290 / 451169.118 },
+    NORTE: { retorno: 12178.6488, cancelamento: 7563.6105, volume: 699590.05, pctSemCanc: (12178.6488 - 7563.6105) / (699590.05 - 7563.6105), totalRS: 170987.98 },
+    SUL: { retorno: 4603.7619, cancelamento: 38.0625, volume: 594726.43, pctSemCanc: (4603.7619 - 38.0625) / (594726.43 - 38.0625), totalRS: 188302.60 },
+  };
+  const linhas = [];
+  for (const [u, e] of Object.entries(esperado)) for (const [k, v] of Object.entries(e)) {
+    const got = res.unidades[u].totais[k], tol = k.startsWith('pct') ? 1e-7 : 0.01, ok = got != null && Math.abs(got - v) <= tol;
+    linhas.push({ u, k, esperado: v, calculado: got, ok });
+  }
+  window.conferencia = linhas;
+  h = `<div class="${linhas.every((l) => l.ok) ? 'okmsg' : 'erro'}">Conferência out/26: ${linhas.filter((l) => l.ok).length}/${linhas.length} batem</div>` + h;
+}
+document.getElementById('app').innerHTML = h;
+window.resultado = res; window.lidos = lidos; window.pronto = true;
+</script>
