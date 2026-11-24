@@ -60,7 +60,7 @@ Perdas R$ e % por DL → KPI (K18:N28), por link externo.
 3. Existe KSB1 para CCRT?
 
 ## 9. Situação no Hub
-**Não implementado** (fase 5). As fontes 1 e 2 estão confirmadas. Falta a amostra do inventário.
+**Em validação** desde 2026-11-24 (`#/perdas`). Veja o §12.
 
 ## 10. Análise das fórmulas (2026-11-23)
 Lidas as planilhas de nov/26 (as duas abertas), out/26 e set/26, o KPI e `Ajustes de preço - DL's.xlsx`.
@@ -157,3 +157,49 @@ Diferenças na planilha de Juazeiro (nov/26):
 | Custo por cx unit | 2,48 | **10,83** | −2,96 | **15,74** |
 | Perdas rota + estoque R$ (KPI) | 14.798,47 | 14.798,47 | 8.679,83 | 8.679,83 |
 | % KPI | 1,28% (tendência) | **1,73%** (acumulado) | 0,76% | **1,03%** |
+
+## 12. Módulo no Hub (2026-11-24)
+- **Telas:**
+  - Resumo com os dois DLs e a tabela por motivo.
+  - Página de cada DL: por motivo, por categoria, por dia de lançamento e por produto.
+  - Para o admin: Importar, Parâmetros e Publicar.
+  - Arquivos: `docs/js/perdas.js` (leitura e cálculo), `dados_perdas.js` (Firestore) e `perdas_telas.js`.
+- **Importação:**
+  - MB59 bruto (Barreiras .XLSX e Juazeiro .xls): substitui os dias que o arquivo cobre.
+  - Inventário (os dois layouts do SAP): substitui o do mês.
+  - Planilha "AAAA - MM Perdas de Estoque - <DL>.xlsx": MB59, inventário, cadastro de produtos e volume do DL.
+- **Volume e faturamento:** vêm da Montagem de Cargas do mês (ACM e tendência). Em ⚙ Parâmetros dá para digitar no lugar, e também o ajuste de preço (Perdas fech. op. = total + ajuste).
+- **Regras do Firestore:** novas coleções `perdas_dados`, `perdas_parametro`, `perdas_publicado` e o documento `meta/publicacoes_perdas`. O `docs/firestore.rules` precisa ser publicado no console.
+
+### Conferência com nov/26 (planilhas abertas, faturamento da Montagem do KPI)
+- **Barreiras:**
+  - Rota 12.401,17 / 779,35 cx · estoque 2.397,30 / 151,64 · transporte 1.896,62 / 152,26 · inventário 12.240,22 / 1.593,16 cx.
+  - Total R$ 28.935,31 · 2.676,41 cx (0,93% do volume) · KPI 1,73%.
+  - A tabela por categoria bate com a da planilha (ex.: SSD 12.176,15 / 8.815,72 / 1.502,11 / 1.720,90).
+- **Juazeiro:**
+  - Rota 2.439,99 / 144,69 · estoque 6.239,84 / 349,68 · transporte 126,47 / 13,75 · inventário 7.481,86 / 526,90.
+  - Total R$ 16.288,16 · 1.035,02 cx (0,35%) · KPI 1,03%.
+- **O MB59 bruto dá o mesmo que a aba Relatório**, com uma diferença: o de Barreiras tem 38 linhas do tipo **951 "TROCAS COMERCIAL"** (R$ 1.230,33) que não estão na planilha. O Hub mostra essas linhas à parte ("outros tipos de movimento") e não as soma.
+
+### Outros achados na conferência
+1. **Cadastro de produtos ("base") duplicado e divergente:**
+   - Cada planilha tem a sua aba `base`, e elas divergem em 8 itens.
+   - Em Barreiras, o de-para `1000226` (KAPO MOR TP 200ML PROMOPACK) aponta para o COD CB `1209154`. A primeira linha com esse código na coluna G (G254) é **DROP HALLS MENTOL 21UNX28G** (Qtd/Un 21, Fat.Conv2 0,10356). A linha certa do KAPO (Qtd/Un 36, Fat.Conv2 1,268064) está mais abaixo, em G314, e o PROCV nunca chega nela. Em Juazeiro o mesmo material aponta para `1924` (KAPO, certo).
+   - Efeito em nov/26: a sobra de 5 CX de KAPO no inventário vira 0,52 cx unit em vez de 6,34. O total de Barreiras dá 2.676,41 cx; com o de-para corrigido, 2.670,59.
+   - Em Juazeiro, `1209251` (BALA MENTOS) aparece duas vezes, com Qtd/Un 16 (G240) e 6 (G299).
+   - **No Hub:** cada DL tem o seu cadastro. Em código repetido vale a primeira linha, como o PROCV. As divergências aparecem em ⚙ Parâmetros.
+2. **Out/26 Barreiras contou 144 linhas duas vezes:**
+   - O MB59 colado na planilha de outubro tem 144 linhas lançadas em **03/11** (documento de 29/10): rota 3.774,01 + estoque 521,80 + transporte 393,74 = **R$ 4.689,55**.
+   - As mesmas 144 linhas estão na planilha de novembro.
+   - **No Hub:** cada linha conta no mês da data de lançamento. Ao importar uma planilha mensal, as linhas de outro mês são ignoradas, e o resultado da importação avisa.
+3. **Out/26: a tabela por categoria não bate com o Relatório:**
+   - As linhas por produto (24 em diante) são valores colados.
+   - Barreiras: rota 11.441,08 na tabela × 17.276,47 no painel (R$ 13.502,46 só de outubro).
+   - Juazeiro: inventário 8.792,66 × 9.116,74.
+   - O KPI de outubro leu `G19`/`G20` dessa tabela.
+
+### Out/26 pelo Hub (lançamentos de outubro)
+| DL | Inventário | Rota | Estoque | Transporte | Total R$ | Cx unit | % volume |
+|---|---|---|---|---|---|---|---|
+| Barreiras | 2.538,42 | 13.502,46 | 5.949,44 | 6.773,96 | 28.764,28 | 1.804,50 | 0,40% |
+| Juazeiro | 9.116,74 | 2.827,00 | 5.146,98 | 302,00 | 17.392,72 | 916,17 | 0,21% |

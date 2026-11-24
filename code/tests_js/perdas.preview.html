@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Prévia Perdas</title>
+<!-- Prévia local das telas de Perdas, sem Firebase. Os arquivos vêm de /amostras/:
+     ?mes=AAAA-MM&arqs=<arquivo1>|<arquivo2>|…&pagina=resumo|CBAR|CCRT[&fat_CBAR=…&fat_CCRT=…]
+     Também confere os números de nov/26 (planilhas de Perdas) contra os valores calculados à mão. -->
+<link rel="stylesheet" href="../../docs/css/hub.css">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<main id="app"><p>carregando…</p></main>
+<script type="module">
+const P = await import('../../docs/js/perdas.js');
+const T = await import('../../docs/js/perdas_telas.js');
+const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'resumo';
+const dados = { CBAR: { movimentos: [], inventario: [] }, CCRT: { movimentos: [], inventario: [] } };
+const bases = {};
+for (const n of (q.get('arqs') || '').split('|').filter(Boolean)) {
+  const wb = XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array' });
+  const x = P.lerPlanilhaPerdas(wb, n);
+  if (x.base && x.dl) bases[x.dl] = x.base;
+  // Como no Firestore: o MB59 substitui os dias que cobre; o inventário substitui o do mês.
+  for (const c of new Set(x.movimentos.map((m) => m.centro))) {
+    const novos = x.movimentos.filter((m) => m.centro === c), ds = novos.map((m) => m.data).sort();
+    dados[c].movimentos = [...dados[c].movimentos.filter((m) => m.data < ds[0] || m.data > ds.at(-1)), ...novos];
+  }
+  for (const c of new Set(x.inventario.map((i) => i.centro))) dados[c].inventario = x.inventario.filter((i) => i.centro === c);
+  for (const c of new Set(x.movimentos.map((m) => m.centro))) if (x.volume) dados[c].volumePlanilha = x.volume;
+}
+const montagem = Object.fromEntries(['CBAR', 'CCRT'].map((c) => [c, { fat_acm: Number(q.get('fat_' + c)) || null, fat_tendencia: Number(q.get('tend_' + c)) || null }]));
+const res = P.calcularPerdas({ mes, dados, bases, montagem });
+window.divergencias = P.divergenciasProdutos(bases);
+const topo = (aba, t) => `<h1>Perdas de estoque DLs — ${t} (prévia)</h1>${T.abasPerdas(aba, mes, true)}`;
+document.getElementById('app').innerHTML = pagina === 'resumo' ? T.paginaResumoPerdas(res, { mes, admin: true, topo: topo('resumo', 'Resumo') })
+  : T.paginaDLPerdas(pagina, res.dls[pagina], { mes, admin: true, topo: topo(pagina, res.dls[pagina].nome) });
+window.resultado = res; window.pronto = true;
+</script>
