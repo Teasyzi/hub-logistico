@@ -219,3 +219,34 @@ Falta:
    - Out/26 Barreiras: apagar as 144 linhas de 03/11 do `Relatório` (R$ 4.689,55, que já estão em novembro) e acertar o Inventário R/S.
    - Out/26 Juazeiro: Inventário R/S/T e `Resumo` `M17`, `M20` e `M9`.
    - Jan–set/26: só o MB59 de out/26 Barreiras tem linhas de outro mês.
+
+## 14. Planilhas corrigidas pelo usuário (conferência de 24/11, 16h30)
+- **Aba `base` reorganizada nos dois DLs:**
+  - Uma linha por material: A = COD SOLAR, B = COD CB, C = texto, D/E = PROCV na tabela de produtos.
+  - Tabela de produtos em **H:L** (Reduzido, Descrição, Categoria, Qtd/Un, Fat.Conv2), sem códigos repetidos.
+  - Tabela auxiliar em N:R, que as fórmulas não usam.
+  - Barreiras: 321 materiais; Juazeiro: 325.
+  - KAPO MOR e KAPO UVA PROMOPACK agora apontam para 1924 e 1832 (Qtd/Un 36, Fat.Conv2 1,268064).
+- **Fórmulas:**
+  - `Relatório` U/V/W e `Inventário` Q/R/S passaram para `base!H:K` e `base!H:L`, índices 4 e 5.
+  - `Inventário` T = S × J nos dois DLs.
+  - Juazeiro `Resumo`: M13, P13, M17, P17, M20 e M23 somam pela coluna S. M9 = SOMA(M17;P17;P23;M23). M3 = 0.
+- **O Hub dá o mesmo que as duas planilhas, centavo a centavo:**
+
+| | Barreiras | Juazeiro |
+|---|---|---|
+| Inventário R$ / cx | 12.240,22 / 1.587,34 | 7.481,86 / 526,90 |
+| Rota | 12.401,17 / 779,35 | 2.439,99 / 144,69 |
+| Estoque | 2.397,30 / 151,64 | 6.239,84 / 349,68 |
+| Transporte | 1.896,62 / 152,26 | 126,47 / 13,75 |
+| Total R$ / cx / % volume | 28.935,31 / 2.670,59 / 0,93% | 16.288,16 / 1.035,02 / 0,35% |
+| Custo por cx unit | 10,83 | 15,74 |
+| Rota + estoque (KPI) / % fat. ACM | 14.798,47 / 1,73% | 8.679,83 / 1,03% |
+
+- **Entre os dois cadastros:**
+  - 303 materiais existem nos dois. Só um converte diferente: **1000236 COCA-COLA PET 200ML** (Barreiras → 1011021, CX15, Fat.Conv2 0,5284; Juazeiro → 1000236, CX12, 0,42268).
+  - Arredondamentos na 5ª casa do Fat.Conv2: 1000158 KUAT PET 2L, 1000576 COCA-COLA LT 350ML e 1201270 DEL VAL LIMON.
+  - Em 13 materiais um DL usa o código reduzido curto e o outro o longo, com os mesmos fatores.
+- **Hub ajustado:**
+  - A comparação entre os cadastros usa o fator que cada material usa de fato.
+  - Produto com Fat.Conv2 0 (GÁS CARBÔNICO, Juazeiro) entra na categoria, sem cx unit.

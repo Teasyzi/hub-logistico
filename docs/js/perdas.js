@@ -91,7 +91,8 @@ export function lerBaseProdutos(rows) {
   for (const r of rows.slice(h.i + 1)) {
     if (!r) continue;
     if (txt(r[c.sol]) && txt(r[c.cb]) && !(txt(r[c.sol]) in solar)) solar[txt(r[c.sol])] = txt(r[c.cb]);
-    if (txt(r[c.red]) && numSAP(r[c.fc]) && !(txt(r[c.red]) in produtos)) produtos[txt(r[c.red])] = { d: txt(r[c.desc]), c: txt(r[c.cat]).toUpperCase(), q: numSAP(r[c.qtd]) || 1, f: numSAP(r[c.fc]) };
+    // Fat.Conv2 0 vale (ex.: GÁS CARBÔNICO): entra no R$ e na categoria, sem cx unit.
+    if (txt(r[c.red]) && (numSAP(r[c.fc]) || txt(r[c.cat])) && !(txt(r[c.red]) in produtos)) produtos[txt(r[c.red])] = { d: txt(r[c.desc]), c: txt(r[c.cat]).toUpperCase(), q: numSAP(r[c.qtd]) || 1, f: numSAP(r[c.fc]) };
   }
   return { solar, produtos };
 }
@@ -148,16 +149,15 @@ export function baseDoDL(bases = {}, dl) {
   return { solar: { ...(outro.solar || {}), ...(proprio.solar || {}) }, produtos: { ...(outro.produtos || {}), ...(proprio.produtos || {}) } };
 }
 
-// Produtos que os dois cadastros têm com valores diferentes (para o admin acertar).
+// Materiais que os dois DLs convertem de jeito diferente (para o admin acertar). Compara o que cada DL usa de fato
+// (de-para + produto): código reduzido curto num DL e longo no outro, com os mesmos fatores, não é divergência.
+// Diferença de arredondamento no Fat.Conv2 (até 0,0005) também não.
 export function divergenciasProdutos(bases = {}) {
-  const [a = {}, b = {}] = [bases.CBAR, bases.CCRT], out = [];
-  for (const k of Object.keys(a.produtos || {})) {
-    const x = a.produtos[k], y = b.produtos?.[k];
-    if (y && (Math.abs(x.f - y.f) > 1e-6 || x.q !== y.q || x.c !== y.c)) out.push({ tipo: 'produto', codigo: k, descricao: x.d || y.d, CBAR: `Qtd/Un ${x.q} · Fat.Conv2 ${x.f} · ${x.c}`, CCRT: `Qtd/Un ${y.q} · Fat.Conv2 ${y.f} · ${y.c}` });
-  }
-  for (const k of Object.keys(a.solar || {})) {
-    const x = a.solar[k], y = b.solar?.[k];
-    if (y && x !== y) out.push({ tipo: 'de-para', codigo: k, descricao: '', CBAR: `COD CB ${x}`, CCRT: `COD CB ${y}` });
+  const a = bases.CBAR || {}, b = bases.CCRT || {}, pa = buscaProdutos(a), pb = buscaProdutos(b), out = [];
+  for (const m of new Set([...Object.keys(a.solar || {}), ...Object.keys(b.solar || {})])) {
+    const x = pa(m), y = pb(m);
+    if (x && y && (x.q !== y.q || Math.abs(x.f - y.f) > 0.0005 || x.c !== y.c)) out.push({ tipo: 'material', codigo: m, descricao: x.d || y.d,
+      CBAR: `COD CB ${x.cb} · Qtd/Un ${x.q} · Fat.Conv2 ${x.f} · ${x.c}`, CCRT: `COD CB ${y.cb} · Qtd/Un ${y.q} · Fat.Conv2 ${y.f} · ${y.c}` });
   }
   return out;
 }
