@@ -123,3 +123,19 @@ Lidas todas as células e fórmulas dos 10 arquivos de 2026 (sem os "(ANTIGO)") 
 6. DAs: a consulta do BI no layout de jan/26 (base `norte`/`sul`) ainda existe? Com ela o Hub calcula motivo, motorista e volume; sem ela só dá para digitar.
 7. Retorno por motorista dos DAs: em R$ ou em cx unit? Nos DLs só existe valor por nota, não por linha.
 8. Corrigir os meses fechados (abr, mai, ago, out dos DLs; mai do Sul) ou só seguir daqui para frente?
+
+## 11. Decisões do usuário (24/11/2026)
+1. **Volume dos DLs** = soma de `Cxs Unitaria` da aba `Venda <DL>` da Montagem (venda bruta). No Hub sai da tabela de venda que a Montagem já importa.
+2. **DLs: só Externo.** O Interno (cancelamento de notas, SEFAZ, trocas, erro no pedido) fica fora.
+3. **Mês = Dt Remessa.** Retorno que é processado no mês seguinte continua no mês da remessa. Reimportar o relatório depois do fechamento substitui o mês.
+4. **"s/ cancelamento": sai só CANCELAMENTO DE NF**, do retorno e do volume, nos 4 centros. Acaba o −328. Motivos que já foram desconsiderados alguma vez (RETORNO DE CONSIGNAÇÃO, ERRO NA EMISSAO DA NOTA FISCAL) **contam**, mas aparecem **em observação** quando surgirem.
+5. **O % oficial (KPI e PES) é o "s/ cancelamento".**
+6. **DAs: fonte = duas exportações do BI**, uma linha por revenda (CB CE Norte / CB CE Sul):
+   - `Revenda | Dev Motivo | Dev (Caixa Unitária)`, para a tabela de motivos;
+   - `Revenda | Motorista | Dev (R$)`, para o retorno por motorista.
+   - Os arquivos têm nome aleatório (GUID) e não trazem a data. O mês precisa ser escolhido na importação.
+   - Os motivos vêm em "Title Case" e cortados em 30 caracteres, como antes. O Hub compara em maiúsculas.
+   - Amostra de nov/26 (parcial): Norte 1.655,381 cx em 13 motivos e R$ 55.698,46 em 27 motoristas; Sul 875,432 cx em 12 motivos e R$ 30.094,76 em 22 motoristas.
+   - **Nenhuma das duas traz o volume (Saída)** dos DAs. Em jan/26 ele era a soma da coluna Saída da base do BI.
+7. **Retorno por motorista em R$.** Nos DLs o relatório só tem o valor da nota inteira (§10.1).
+8. **Meses fechados:** o usuário corrige à mão. A lista célula por célula fica fora do repositório, em `Retorno por motivo\CORRECOES_Retorno_2026.md`.
