@@ -250,3 +250,26 @@ Falta:
 - **Hub ajustado:**
   - A comparação entre os cadastros usa o fator que cada material usa de fato.
   - Produto com Fat.Conv2 0 (GÁS CARBÔNICO, Juazeiro) entra na categoria, sem cx unit.
+
+## 15. Base de referência de produtos (PRODUTOS.xlsx, 24/11)
+- **O que é:**
+  - Cadastro geral da distribuidora: 6.863 produtos, 84 colunas.
+  - O Hub usa Reduzido (D), Descricao (C), Categoria (H, "01-SSD"), Un (L), Qtd/Un (M), Fat.Conv2 (AY) e Ativo (AJ).
+  - Ficam de fora material de expediente, limpeza, manutenção, EPI, óleo, gás de empilhadeira e caminhão (categorias 80–85 e 30). Sobram 6.217 itens.
+  - Fica gravada em `perdas_parametro/referencia` como um campo JSON (cerca de 350 KB).
+- **Chave:** o "Reduzido" da base é o material do SAP (COD SOLAR). Ele casou com 630 dos 646 materiais dos dois cadastros de nov/26. Os fatores batem em 621.
+- **Como entra no Hub:**
+  - **Não entra na conta.** Para cada material sem cadastro, o Hub mostra o produto provável da base como "em observação", na página do DL e em ⚙ Parâmetros.
+  - O admin confere e clica **Confirmar**, que grava no cadastro do DL (material = COD CB). Ou corrige os valores na caixa de produtos, que já vem preenchida com a sugestão.
+  - Sugestão com Fat.Conv2 zerado na base (ex.: LEAO ICE TEA 300ML) não tem botão: cadastre à mão.
+- **Não estão na base:** 1000226 e 1002053 (KAPO PROMOPACK), 1200097 (KAPO OLHO DO PIRATA) e, só em Juazeiro, 1200315, 1209539–1209542 (Kinder Joy, B-Ready) e 1209550–1209551 (Tic Tac).
+- **Cadastro dos DLs × base de referência** (o Hub lista em ⚙ Parâmetros):
+
+| Material | Produto | Cadastro | Base | Leitura |
+|---|---|---|---|---|
+| 1208935 | WHISKY JOHNNIE BLONDE VD 750ML | Qtd/Un 1 · 1,58506 | Qtd/Un 1 · 0,132 | 750 ml ÷ 5,678 L = 0,132: **o cadastro está 12 vezes maior** |
+| 1208910 | VODK SMIRNOFF ICE LT 269ML | Qtd/Un 6 · 0,379 | Qtd/Un 6 · 0,28425 | 6 × 269 ml ÷ 5,678 = 0,284: **cadastro errado** |
+| 1001822 (Barreiras) | CC COLOR LT 350ML PROMOPACK | Qtd/Un 1 · 0,36984 | Qtd/Un 12 · 0,73969 | por UN: 0,370 no cadastro (um pack de 6) × 0,062 na base (uma lata) |
+| 1000363 | KUAT LT 350ML PROMOPACK | Qtd/Un 6 · 0,369849 | Qtd/Un 1 · 0,3698 | o contrário do anterior: por UN, 0,062 no cadastro × 0,370 na base |
+| 1010408 / 1010409 | LEAO ICE TEA ZERO PET 250ML | Qtd/Un 6 · 0,26417 | Qtd/Un 12 · 0,52835 | por UN dá igual (0,044); muda só a caixa (6 × 12), que pesa no inventário |
+| 1000236 (Barreiras) | COCA-COLA PET 200ML | Qtd/Un 15 · 0,5284 | Qtd/Un 12 · 0,42268 | por UN dá igual (0,035); muda só a caixa (15 × 12) |

@@ -2,12 +2,13 @@
 //   perdas_dados/{DL}_{mes}         {dl, mes, movimentos:[MB59], inventario:[…], volumePlanilha, atualizado}   (admin)
 //   perdas_parametro/produtos_{DL}  {dl, solar:{COD SOLAR: COD CB}, produtos:{COD CB:{d,c,q,f}}}                 (admin)
 //   perdas_parametro/{DL}_{mes}     {ajustePreco, volume, faturamento, fatTendencia}                           (admin)
+//   perdas_parametro/referencia     {itens (JSON {Reduzido:[descr, categoria, Qtd/Un, Fat.Conv2, Un, ativo]}), arquivo, n}  (admin)
 //   perdas_publicado/{DL}_{mes}     {dl, mes, placar (JSON), publicadoEm, por}                                 (admin e leitores)
 //   meta/publicacoes_perdas         {meses:[...]}
 import { db, auth } from './firebase.js';
 import { doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { calcularPerdas, agregadoPublicadoPerdas, DLS_PERDAS } from './perdas.js?v=20261124-2';
-import { calcularAoVivo } from './dados.js?v=20261124-2';
+import { calcularPerdas, agregadoPublicadoPerdas, DLS_PERDAS } from './perdas.js?v=20261124-3';
+import { calcularAoVivo } from './dados.js?v=20261124-3';
 
 const refDados = (dl, mes) => doc(db, 'perdas_dados', `${dl}_${mes}`);
 const refPar = (id) => doc(db, 'perdas_parametro', id);
@@ -25,6 +26,16 @@ export async function gravarBaseProdutosPerdas(dl, base) {
   const novo = { solar: { ...(atual.solar || {}), ...(base.solar || {}) }, produtos: { ...(atual.produtos || {}), ...(base.produtos || {}) } };
   await setDoc(refPar(`produtos_${dl}`), { dl, ...novo, atualizado: serverTimestamp() });
   return Object.keys(novo.produtos).length;
+}
+
+// Base de referência (PRODUTOS.xlsx): um campo JSON só (são milhares de produtos; como mapa, cada um viraria um campo).
+export async function lerReferenciaProdutosPerdas() {
+  const d = (await getDoc(refPar('referencia'))).data();
+  return d?.itens ? { itens: JSON.parse(d.itens), arquivo: d.arquivo || '', atualizado: d.atualizado?.toDate?.() || null } : { itens: null };
+}
+export async function gravarReferenciaProdutosPerdas(itens, arquivo) {
+  await setDoc(refPar('referencia'), { itens: JSON.stringify(itens), arquivo, n: Object.keys(itens).length, atualizado: serverTimestamp() });
+  return Object.keys(itens).length;
 }
 
 // MB59: substitui do primeiro ao último dia que o arquivo cobre (por DL e mês). Inventário: substitui o do mês.
@@ -66,12 +77,12 @@ export async function montagemDoMes(mes) {
 
 export async function lerDadosPerdas(mes) {
   const cs = Object.keys(DLS_PERDAS);
-  const [docs, pars, bases, montagem] = await Promise.all([
-    Promise.all(cs.map((c) => getDoc(refDados(c, mes)))), Promise.all(cs.map((c) => lerParametrosPerdas(c, mes))), lerBasesProdutosPerdas(), montagemDoMes(mes),
+  const [docs, pars, bases, montagem, ref] = await Promise.all([
+    Promise.all(cs.map((c) => getDoc(refDados(c, mes)))), Promise.all(cs.map((c) => lerParametrosPerdas(c, mes))), lerBasesProdutosPerdas(), montagemDoMes(mes), lerReferenciaProdutosPerdas(),
   ]);
   const dados = {}, parametros = {}, atualizados = [];
   cs.forEach((c, i) => { const d = docs[i].data() || {}; dados[c] = d; parametros[c] = pars[i]; if (d.atualizado?.toDate) atualizados.push(d.atualizado.toDate()); });
-  return { mes, dados, parametros, bases, montagem, atualizado: atualizados.sort((a, b) => b - a)[0] || null };
+  return { mes, dados, parametros, bases, referencia: ref.itens, referenciaInfo: { arquivo: ref.arquivo, atualizado: ref.atualizado }, montagem, atualizado: atualizados.sort((a, b) => b - a)[0] || null };
 }
 
 export async function calcularPerdasAoVivo(mes) {

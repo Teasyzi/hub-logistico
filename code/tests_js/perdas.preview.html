@@ -13,10 +13,13 @@ const T = await import('../../docs/js/perdas_telas.js');
 const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'resumo';
 const dados = { CBAR: { movimentos: [], inventario: [] }, CCRT: { movimentos: [], inventario: [] } };
 const bases = {};
+let referencia = null;
+const tirar = (q.get('tirar') || '').split(',').filter(Boolean); // materiais tirados do cadastro, para testar as sugestões
 for (const n of (q.get('arqs') || '').split('|').filter(Boolean)) {
   const wb = XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array' });
   const x = P.lerPlanilhaPerdas(wb, n);
-  if (x.base && x.dl) bases[x.dl] = x.base;
+  if (x.referencia) referencia = x.referencia;
+  if (x.base && x.dl) { for (const m of tirar) { delete x.base.produtos[x.base.solar[m]]; delete x.base.solar[m]; } bases[x.dl] = x.base; }
   // Como no Firestore: o MB59 substitui os dias que cobre; o inventário substitui o do mês.
   for (const c of new Set(x.movimentos.map((m) => m.centro))) {
     const novos = x.movimentos.filter((m) => m.centro === c), ds = novos.map((m) => m.data).sort();
@@ -26,7 +29,8 @@ for (const n of (q.get('arqs') || '').split('|').filter(Boolean)) {
   for (const c of new Set(x.movimentos.map((m) => m.centro))) if (x.volume) dados[c].volumePlanilha = x.volume;
 }
 const montagem = Object.fromEntries(['CBAR', 'CCRT'].map((c) => [c, { fat_acm: Number(q.get('fat_' + c)) || null, fat_tendencia: Number(q.get('tend_' + c)) || null }]));
-const res = P.calcularPerdas({ mes, dados, bases, montagem });
+const res = P.calcularPerdas({ mes, dados, bases, referencia, montagem });
+window.referencia = referencia;
 window.divergencias = P.divergenciasProdutos(bases);
 const topo = (aba, t) => `<h1>Perdas de estoque DLs — ${t} (prévia)</h1>${T.abasPerdas(aba, mes, true)}`;
 document.getElementById('app').innerHTML = pagina === 'resumo' ? T.paginaResumoPerdas(res, { mes, admin: true, topo: topo('resumo', 'Resumo') })

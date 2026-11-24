@@ -1,9 +1,9 @@
 // Telas do acompanhamento Perdas de estoque (DLs). As funções pagina* são puras (dados → HTML) e servem à prévia
 // local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261124-2';
-import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos } from './perdas.js?v=20261124-2';
-import * as P from './dados_perdas.js?v=20261124-2';
-import * as D from './dados.js?v=20261124-2';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261124-3';
+import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261124-3';
+import * as P from './dados_perdas.js?v=20261124-3';
+import * as D from './dados.js?v=20261124-3';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const frc = (x) => (x == null ? '–' : `R$ ${nf(2).format(x)}`);
@@ -21,7 +21,8 @@ export function abasPerdas(ativa, mes, admin) {
 function avisosPerdas(c, d, mes) {
   const t = d.totais, itens = [];
   const nSem = Array.isArray(d.semCadastro) ? d.semCadastro.length : d.semCadastro || 0;
-  if (nSem) itens.push(`<b>${fi(nSem)} material(is) sem cadastro de produto</b>: entram no R$, mas não na cx unit nem na categoria. <a href="#/perdas/parametros/${mes}">Cadastrar em ⚙ Parâmetros →</a>`);
+  const nSug = Array.isArray(d.semCadastro) ? d.semCadastro.filter((s) => s.sugestao).length : 0;
+  if (nSem) itens.push(`<b>${fi(nSem)} material(is) sem cadastro de produto</b>: entram no R$, mas não na cx unit nem na categoria.${nSug ? ` ${fi(nSug)} tem produto provável na base de referência, em observação até você confirmar.` : ''} <a href="#/perdas/${c}/${mes}">Ver na página do DL →</a>`);
   const v = d.motivos.VERIFICAR;
   if (v.linhas) itens.push(`${fi(v.linhas)} movimento(s) de outro tipo (ex.: 951 trocas comerciais), ${frc(v.rs)}, ficam fora dos totais.`);
   if (!t.volume) itens.push('Sem o volume do DL no mês: o % sobre o volume não é calculado. Importe a Montagem ou informe em ⚙ Parâmetros.');
@@ -62,6 +63,35 @@ export function paginaResumoPerdas(resultado, { mes, admin, topo }) {
   return `${topo}<div class="g2 km-cards">${Object.keys(DLS_PERDAS).map((c) => cardDL(c, dls[c], { mes, admin })).join('')}</div>${tabelaMotivosComparada(dls)}`;
 }
 
+// Materiais sem cadastro, com o produto provável da base de referência (PRODUTOS.xlsx) em observação: ele não entra
+// na conta até o admin confirmar (o botão grava no cadastro do DL).
+export function tabelaSemCadastro(lista, mes) {
+  const sug = (x) => {
+    const s = x.sugestao;
+    if (!s) return '<span class="small">não está na base de referência: cadastre à mão em ⚙ Parâmetros</span>';
+    const txt = `${E(s.d)} · ${E(s.c)} · Qtd/Un ${fd(s.q, 0)} · Fat.Conv2 ${String(s.f).replace('.', ',')}${s.ativo ? '' : ' · inativo na base'}`;
+    const ok = s.f > 0;
+    return `<span class="tag" title="Sugestão da base de referência. Não entra na conta até ser confirmada.">em observação</span> ${txt}${ok ? '' : ' <span class="st no">Fat.Conv2 zerado na base: cadastre à mão</span>'}`;
+  };
+  const botao = (x) => x.sugestao && x.sugestao.f > 0
+    ? `<button type="button" class="btn sec conf-prod" data-dl="${x.c}" data-mat="${E(x.mat)}" data-d="${E(x.sugestao.d)}" data-c="${E(x.sugestao.c)}" data-q="${x.sugestao.q}" data-f="${x.sugestao.f}">Confirmar</button>` : '';
+  return `<div class="tw scroll"><table><thead><tr><th class="t">DL</th><th class="t">Material</th><th class="t">Descrição no SAP</th><th>R$</th><th>Linhas</th><th class="t">Produto provável (base de referência)</th><th></th></tr></thead><tbody>
+${lista.map((x) => `<tr><td class="t">${E(DLS_PERDAS[x.c] || '')}</td><td class="t">${E(x.mat)}</td><td class="t">${E(x.texto)}</td><td>${frc(x.rs)}</td><td>${fi(x.linhas)}</td><td class="t">${sug(x)}</td><td>${botao(x)}</td></tr>`).join('')}</tbody></table></div>
+<p class="small">Sem cadastro, o material entra no R$, mas não na cx unit nem na categoria. A sugestão vem da base de referência de produtos e fica <b>em observação</b>: confira se é mesmo o mesmo produto e clique em <b>Confirmar</b> para gravar no cadastro do DL. Para corrigir os valores antes, use a caixa de produtos em <a href="#/perdas/parametros/${mes}">⚙ Parâmetros</a>.</p>`;
+}
+
+// Liga os botões "Confirmar" das sugestões: grava o produto no cadastro do DL (material = COD CB) e recarrega.
+function ligarConfirmacoes(ctx, recarregar) {
+  for (const b of document.querySelectorAll('button.conf-prod')) b.onclick = async () => {
+    b.disabled = true;
+    const { dl, mat, d, c, q, f } = b.dataset;
+    try {
+      await P.gravarBaseProdutosPerdas(dl, { solar: { [mat]: mat }, produtos: { [mat]: { d, c, q: Number(q), f: Number(f) } } });
+      await recarregar();
+    } catch (err) { b.insertAdjacentHTML('afterend', ctx.erro(err)); b.disabled = false; }
+  };
+}
+
 export function paginaDLPerdas(c, d, { mes, admin, topo }) {
   if (!d || !d.temDados) return `${topo}<div class="aviso">Sem dados de perdas de ${E(DLS_PERDAS[c])} em ${nomeMes(mes)}.</div>`;
   const t = d.totais, m = d.motivos;
@@ -94,8 +124,7 @@ ${d.porDia.map((x) => `<tr><td class="t">${fdata(x.data)}</td><td>${frc(x.ROTA)}
   const prods = `<section class="bloco"><div class="faixa">Por produto</div><div class="corpo"><div class="tw scroll"><table>${cabProd}<tbody>${d.produtos.slice(0, 30).map(linProd).join('')}</tbody></table></div>
 ${d.produtos.length > 30 ? `<details><summary class="small">Ver todos os ${fi(d.produtos.length)} produtos</summary><div class="tw scroll"><table>${cabProd}<tbody>${d.produtos.slice(30).map(linProd).join('')}</tbody></table></div></details>` : ''}
 <p class="small">Ordenado pelo total. Negativo = sobra no inventário maior que a perda.</p></div></section>`;
-  const semCad = admin && Array.isArray(d.semCadastro) && d.semCadastro.length ? `<section class="bloco"><div class="faixa">Materiais sem cadastro de produto</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Material</th><th class="t">Descrição</th><th>R$</th><th>Linhas</th></tr></thead><tbody>
-${d.semCadastro.map((x) => `<tr><td class="t">${E(x.mat)}</td><td class="t">${E(x.texto)}</td><td>${frc(x.rs)}</td><td>${fi(x.linhas)}</td></tr>`).join('')}</tbody></table></div><p class="small">Inclua em <a href="#/perdas/parametros/${mes}">⚙ Parâmetros</a> (cadastro de produtos) para entrarem na cx unit e na categoria.</p></div></section>` : '';
+  const semCad = admin && Array.isArray(d.semCadastro) && d.semCadastro.length ? `<section class="bloco"><div class="faixa">Materiais sem cadastro de produto</div><div class="corpo">${tabelaSemCadastro(d.semCadastro.map((s) => ({ ...s, c })), mes)}</div></section>` : '';
   return `${topo}${tiles}${admin ? avisosPerdas(c, d, mes) : ''}${motivos}${semCad}${cats}${dias}${prods}`;
 }
 
@@ -133,6 +162,7 @@ async function telaDL(ctx, c, mes) {
   const topo = await topoPerdas(ctx, c, mes, `${DLS_PERDAS[c]} · ${nomeMes(mes)}`), r = await resultadoPerdas(ctx, mes);
   ctx.html(paginaDLPerdas(c, r.dls?.[c], { mes, admin: rascunho(ctx), topo }));
   status(r.atualizado); ctx.ligarTopo((m) => `#/perdas/${c}/${m}`);
+  ligarConfirmacoes(ctx, () => telaDL(ctx, c, mes));
 }
 
 function historico(imps) {
@@ -144,7 +174,7 @@ function historico(imps) {
 
 async function telaImportar(ctx, mes) {
   const topo = await topoPerdas(ctx, 'importar', mes, 'Importar arquivos', false);
-  ctx.html(`${topo}<p class="sub">MB59 de Barreiras (.XLSX) e de Juazeiro (.xls), diferenças de inventário do SAP e a planilha "Perdas de Estoque - &lt;DL&gt;.xlsx" (traz MB59, inventário, cadastro de produtos e volume). Os arquivos são lidos neste navegador.</p>
+  ctx.html(`${topo}<p class="sub">MB59 de Barreiras (.XLSX) e de Juazeiro (.xls), diferenças de inventário do SAP, a planilha "Perdas de Estoque - &lt;DL&gt;.xlsx" (traz MB59, inventário, cadastro de produtos e volume) e a base de referência PRODUTOS.xlsx (só sugere o produto provável de material sem cadastro). Os arquivos são lidos neste navegador.</p>
 <label>Mês do inventário <input id="mesInv" type="month" value="${mes}"></label> <span class="small">usado quando o arquivo não diz o mês (o MB59 usa a data de lançamento de cada linha)</span>
 <div class="drop" id="drop"><p>Arraste os arquivos de perdas aqui ou selecione</p><input type="file" id="arqs" multiple accept=".xls,.xlsx,.xlsm"></div><div id="res"></div>
 <p class="small">Reimportar o MB59 substitui os dias que ele cobre. Reimportar o inventário substitui o inventário do mês. O cadastro de produtos novo completa o que já existe.</p>
@@ -155,10 +185,11 @@ async function telaImportar(ctx, mes) {
       try {
         const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: false });
         const x = lerPlanilhaPerdas(wb, f.name);
-        if (!x.tipo) throw new Error('Não reconheci o arquivo: esperava MB59 (Tipo de movimento, Montante em MI), inventário (Qtd.diferença) ou a aba "base" de produtos.');
+        if (!x.tipo) throw new Error('Não reconheci o arquivo: esperava MB59 (Tipo de movimento, Montante em MI), inventário (Qtd.diferença), a aba "base" de produtos ou a base de referência PRODUTOS (Reduzido, Qtd/Un, Fat.Conv2).');
         const mesInv = x.mes || document.getElementById('mesInv').value;
         let n = 0, extra = '';
         if (x.base) extra = ` · cadastro de ${DLS_PERDAS[x.dl] || '?'} com ${fi(await P.gravarBaseProdutosPerdas(x.dl, x.base))} produtos`;
+        if (x.referencia) extra += ` · ${fi(await P.gravarReferenciaProdutosPerdas(x.referencia, f.name))} produtos (só para sugerir produto de material sem cadastro; não entra na conta)`;
         if (x.foraDoMes) extra += ` · ${fi(x.foraDoMes)} linha(s) do MB59 lançadas fora de ${nomeMes(x.mes)} ignoradas (entram no mês delas)`;
         if (x.movimentos.length || x.inventario.length) n = await P.gravarPerdas({ ...x, mesInventario: mesInv });
         const meses = [...new Set([...x.movimentos.map((m) => m.data.slice(0, 7)), ...(x.inventario.length ? [mesInv] : [])])].sort().join(', ');
@@ -201,15 +232,21 @@ ${campo(c, 'volume', 'Volume cx unit (vazio = Montagem)', mo.acm ?? x.dados[c]?.
 ${campo(c, 'faturamento', 'Faturamento acumulado R$ (vazio = Montagem)', mo.fat_acm, 'ACM do mês na Montagem de Cargas')}
 ${campo(c, 'fatTendencia', 'Faturamento tendência R$ (vazio = Montagem)', mo.fat_tendencia, 'Só para comparar com o % antigo')}</div></div></section>`; }).join('');
   const sem = Object.keys(DLS_PERDAS).flatMap((c) => (r.dls[c].semCadastro || []).map((s) => ({ ...s, c })));
+  const refDiv = x.referencia ? Object.keys(DLS_PERDAS).flatMap((c) => comparaReferencia(x.bases[c], x.referencia).map((d) => ({ ...d, c }))) : [];
+  // Caixa de produtos já preenchida com a sugestão (o admin confere e corrige antes de salvar).
+  const linhaSem = (s) => s.sugestao && s.sugestao.f > 0 ? `${s.mat};${s.mat};${s.sugestao.d};${s.sugestao.c};${s.sugestao.q};${String(s.sugestao.f).replace('.', ',')}` : `${s.mat};;${s.texto};;;`;
   ctx.html(`${topo}<p class="sub">Valores do mês por DL. Deixe vazio para usar o que vem da Montagem de Cargas (o número em cinza).</p>
 <div class="g2">${blocos}</div><p><button class="btn" id="salvarPar">Salvar parâmetros</button> <span id="msgPar"></span></p>
 <h2>Cadastro de produtos</h2><p class="sub">Produtos cadastrados · ${nProd}. Cada DL tem o seu cadastro, que vem da aba "base" da planilha de Perdas daquele DL (importe em ⚙ Importar) e vale para todos os meses. Se faltar um produto no cadastro do DL, o Hub usa o do outro DL.</p>
-${sem.length ? `<div class="aviso"><b>${fi(sem.length)} material(is) sem cadastro em ${nomeMes(mes)}:</b> ${sem.map((s) => `${E(s.mat)} ${E(s.texto)} (${E(DLS_PERDAS[s.c])}, ${frc(s.rs)})`).join(' · ')}</div>` : '<p class="small">Todos os materiais do mês têm cadastro.</p>'}
+${sem.length ? `<div class="aviso"><b>${fi(sem.length)} material(is) sem cadastro em ${nomeMes(mes)}</b></div>${tabelaSemCadastro(sem, mes)}` : '<p class="small">Todos os materiais do mês têm cadastro.</p>'}
+<p class="small">Base de referência de produtos: ${x.referencia ? `${fi(Object.keys(x.referencia).length)} produtos · ${E(x.referenciaInfo?.arquivo || '')}${x.referenciaInfo?.atualizado ? ` · ${x.referenciaInfo.atualizado.toLocaleString('pt-BR')}` : ''}. Não entra na conta: só sugere o produto provável de material sem cadastro.` : 'ainda não importada (PRODUTOS.xlsx em ⚙ Importar).'}</p>
+${refDiv.length ? `<details><summary><b>${fi(refDiv.length)} produto(s) do cadastro com Qtd/Un ou Fat.Conv2 diferente da base de referência</b> <span class="small">(a conta usa o cadastro; confira qual está certo)</span></summary><div class="tw scroll"><table><thead><tr><th class="t">DL</th><th class="t">Material</th><th class="t">Produto</th><th class="t">Cadastro do DL</th><th class="t">Base de referência</th></tr></thead><tbody>
+${refDiv.map((d) => `<tr><td class="t">${E(DLS_PERDAS[d.c])}</td><td class="t">${E(d.mat)}</td><td class="t">${E(d.descricao)}</td><td class="t">${E(d.cadastro)}</td><td class="t">${E(d.referencia)}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
 ${div.length ? `<details><summary><b>${fi(div.length)} divergência(s) entre o cadastro de Barreiras e o de Juazeiro</b> <span class="small">(cada DL usa o seu; confira qual está certo)</span></summary><div class="tw scroll"><table><thead><tr><th class="t">Tipo</th><th class="t">Código</th><th class="t">Descrição</th><th class="t">Barreiras</th><th class="t">Juazeiro</th></tr></thead><tbody>
 ${div.map((d) => `<tr><td class="t">${E(d.tipo)}</td><td class="t">${E(d.codigo)}</td><td class="t">${E(d.descricao)}</td><td class="t">${E(d.CBAR)}</td><td class="t">${E(d.CCRT)}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
 <label>Cadastro de <select id="dlProd">${Object.entries(DLS_PERDAS).map(([c, n]) => `<option value="${c}">${E(n)}</option>`).join('')}<option value="ambos">Os dois DLs</option></select></label>
 <label>Incluir ou corrigir produtos, um por linha: <code>COD SOLAR;COD CB;descrição;categoria;Qtd/Un;Fat.Conv2</code><br>
-<textarea id="prods" rows="6" style="width:100%;max-width:820px;font:inherit" placeholder="1000003;3;COCA-COLA KS C24;SSD;24;1,23">${sem.map((s) => `${s.mat};;${s.texto};;;`).join('\n')}</textarea></label>
+<textarea id="prods" rows="6" style="width:100%;max-width:820px;font:inherit" placeholder="1000003;3;COCA-COLA KS C24;SSD;24;1,23">${sem.map(linhaSem).join('\n')}</textarea></label>
 <p><button class="btn sec" id="salvarProd">Salvar produtos</button> <span id="msgProd"></span></p>`);
   document.getElementById('salvarPar').onclick = async (e) => {
     e.target.disabled = true;
@@ -231,6 +268,7 @@ ${div.map((d) => `<tr><td class="t">${E(d.tipo)}</td><td class="t">${E(d.codigo)
     catch (err) { document.getElementById('msgProd').innerHTML = ctx.erro(err); }
   };
   ctx.ligarTopo((m) => `#/perdas/parametros/${m}`);
+  ligarConfirmacoes(ctx, () => telaParametros(ctx, mes));
 }
 
 async function telaPublicar(ctx, mes) {

@@ -4,11 +4,11 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261124-2';
-import { lerArquivo, num } from './importar.js?v=20261124-2';
-import * as V from './views.js?v=20261124-2';
-import { hojeKM } from './km.js?v=20261124-2';
-import { rotearPerdas } from './perdas_telas.js?v=20261124-2';
+import * as D from './dados.js?v=20261124-3';
+import { lerArquivo, num } from './importar.js?v=20261124-3';
+import * as V from './views.js?v=20261124-3';
+import { hojeKM } from './km.js?v=20261124-3';
+import { rotearPerdas } from './perdas_telas.js?v=20261124-3';
 import { diasDoMes } from './calc.js?v=20261117-5';
 import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';

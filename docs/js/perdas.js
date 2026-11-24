@@ -97,12 +97,46 @@ export function lerBaseProdutos(rows) {
   return { solar, produtos };
 }
 
+// Base de referência de produtos (PRODUTOS.xlsx, cadastro geral da distribuidora): Reduzido, Descricao, Categoria
+// ("01-SSD"), Un, Qtd/Un, Fat.Conv2. Não tem todos os produtos e não entra na conta: serve só para sugerir o produto
+// provável de um material sem cadastro, que fica em observação até o admin confirmar.
+const CATEGORIAS_FORA_REFERENCIA = /^(80|81|82|83|84|85|30)-/; // material de expediente, limpeza, manutenção, EPI, óleo, gás de empilhadeira, caminhão
+export function lerReferenciaProdutos(rows) {
+  const h = cabecalho(rows, [/^reduzido$/, /^descricao$/, /^qtd un$/, /^fat conv2$/]);
+  if (!h || h.col(/^cod solar$/) >= 0) return null;
+  // O "Reduzido" da base é o material do SAP (casou com 630 de 646 materiais dos cadastros de nov/26).
+  const c = { red: h.col(/^reduzido$/), desc: h.col(/^descricao$/), cat: h.col(/^categoria$/), un: h.col(/^un$/), qtd: h.col(/^qtd un$/), fc: h.col(/^fat conv2$/), ativo: h.col(/^ativo$/) };
+  const itens = {};
+  for (const r of rows.slice(h.i + 1)) {
+    const k = txt(r?.[c.red]), cat = txt(r?.[c.cat]);
+    if (!k || CATEGORIAS_FORA_REFERENCIA.test(cat) || k in itens) continue;
+    itens[k] = [txt(r[c.desc]), cat.replace(/^\d+\s*-\s*/, '').toUpperCase(), numSAP(r[c.qtd]) || 1, numSAP(r[c.fc]), txt(r[c.un]).toUpperCase(), c.ativo >= 0 ? (numSAP(r[c.ativo]) ? 1 : 0) : 1];
+  }
+  return itens;
+}
+// Produto provável na base de referência: pelo material do SAP e, se não achar, pelo COD CB.
+export function sugestaoProduto(referencia, mat, cb = null) {
+  const x = referencia?.[txt(mat)] || (cb != null ? referencia?.[txt(cb)] : null);
+  return x ? { d: x[0], c: x[1], q: x[2], f: x[3], un: x[4], ativo: x[5] } : null;
+}
+// Materiais do cadastro do DL cujo Qtd/Un ou Fat.Conv2 não bate com a base de referência (para conferir).
+export function comparaReferencia(base = {}, referencia = {}) {
+  const out = [];
+  for (const [mat, cb] of Object.entries(base.solar || {})) {
+    const p = base.produtos?.[cb], r = sugestaoProduto(referencia, mat, cb);
+    if (p && r && r.f > 0 && (Math.abs(p.f - r.f) > 0.0005 || p.q !== r.q)) out.push({ mat, descricao: p.d, cadastro: `Qtd/Un ${p.q} · Fat.Conv2 ${p.f}`, referencia: `Qtd/Un ${r.q} · Fat.Conv2 ${r.f} (${r.d})` });
+  }
+  return out;
+}
+
 // Lê um arquivo de Perdas: MB59, inventário, ou a planilha antiga "Perdas de Estoque - <DL>.xlsx" (que traz os três
 // e o volume do DL digitado na aba Relatório). Devolve {tipo, movimentos, inventario, base, volume, mes}.
 export function lerPlanilhaPerdas(wb, nomeArquivo = '') {
   const res = { movimentos: [], inventario: [], base: null, volume: null, mes: null };
   for (const nome of wb.SheetNames) {
     const rows = linhas(wb.Sheets[nome]);
+    const ref = lerReferenciaProdutos(rows);
+    if (ref) { res.referencia = ref; continue; }
     const b = lerBaseProdutos(rows);
     if (b) { res.base = b; continue; }
     const mv = lerMB59(rows);
@@ -128,7 +162,7 @@ export function lerPlanilhaPerdas(wb, nomeArquivo = '') {
   // DL do arquivo: pelo centro das linhas ou pelo nome (o cadastro de produtos é guardado por DL).
   const centros = new Set([...res.movimentos, ...res.inventario].map((x) => x.centro));
   res.dl = centros.size === 1 ? [...centros][0] : /barreiras|cbar/.test(norm(nomeArquivo)) ? 'CBAR' : /juazeiro|ccrt/.test(norm(nomeArquivo)) ? 'CCRT' : null;
-  const partes = [res.movimentos.length && 'MB59', res.inventario.length && 'inventário', res.base && 'cadastro de produtos'].filter(Boolean);
+  const partes = [res.movimentos.length && 'MB59', res.inventario.length && 'inventário', res.base && 'cadastro de produtos', res.referencia && 'base de referência de produtos'].filter(Boolean);
   res.tipo = partes.length ? partes.join(' + ') : null;
   return res;
 }
@@ -170,7 +204,7 @@ export function buscaProdutos(base = {}) {
 // Cx unit de uma linha: em UN divide pelo Qtd/Un; em CX (caixa física) é direto × Fat.Conv2.
 export const cxUnit = (qtd, um, p) => !p ? 0 : String(um).toUpperCase() === 'CX' ? qtd * p.f : qtd * p.f / (p.q || 1);
 
-export function calcularPerdasDL({ movimentos = [], inventario = [], base = {}, volume = null, faturamento = null, fatTendencia = null, ajustePreco = 0 }) {
+export function calcularPerdasDL({ movimentos = [], inventario = [], base = {}, referencia = null, volume = null, faturamento = null, fatTendencia = null, ajustePreco = 0 }) {
   const prod = buscaProdutos(base);
   const motivos = Object.fromEntries([...MOTIVOS_PERDAS, 'VERIFICAR'].map((k) => [k, { rs: 0, cx: 0, linhas: 0 }]));
   const cats = new Map(), produtos = new Map(), semCad = new Map(), porDia = new Map();
@@ -202,7 +236,8 @@ export function calcularPerdasDL({ movimentos = [], inventario = [], base = {}, 
   return {
     temDados: movimentos.length > 0 || inventario.length > 0,
     motivos, categorias, produtos: listaProdutos, porDia: [...porDia.values()].sort((a, b) => a.data.localeCompare(b.data)),
-    semCadastro: [...semCad.values()].sort((a, b) => b.rs - a.rs),
+    // Material sem cadastro: o produto provável da base de referência vai junto, em observação (não entra na conta).
+    semCadastro: [...semCad.values()].map((s) => ({ ...s, sugestao: sugestaoProduto(referencia, s.mat) })).sort((a, b) => b.rs - a.rs),
     ultimoDia: movimentos.map((m) => m.data).sort().at(-1) || null,
     totais: {
       rotaEstoque, total, totalCx, volume: vol, faturamento: fat, fatTendencia: fatT, ajustePreco: ajuste, fechamentoOp: total + ajuste,
@@ -214,14 +249,14 @@ export function calcularPerdasDL({ movimentos = [], inventario = [], base = {}, 
 
 // dados = {CBAR: {movimentos, inventario, volumePlanilha}}, bases = {CBAR: {solar, produtos}, CCRT: …},
 // parametros = {CBAR: {volume, faturamento, fatTendencia, ajustePreco}}, montagem = {CBAR: {acm, fat_acm, fat_tendencia}}.
-export function calcularPerdas({ mes, dados = {}, bases = {}, parametros = {}, montagem = {} }) {
+export function calcularPerdas({ mes, dados = {}, bases = {}, referencia = null, parametros = {}, montagem = {} }) {
   const dls = {};
   for (const [c, nome] of Object.entries(DLS_PERDAS)) {
     const d = dados[c] || {}, p = parametros[c] || {}, mo = montagem[c] || {};
     const escolhe = (manual, ...auto) => { const v = [manual, ...auto].find((x) => x != null && x !== '' && Number(x)); return v == null ? null : Number(v); };
     const fonte = (manual, auto) => manual != null && manual !== '' && Number(manual) ? 'manual' : auto ? 'Montagem' : null;
     const volume = escolhe(p.volume, mo.acm, d.volumePlanilha), faturamento = escolhe(p.faturamento, mo.fat_acm), fatTendencia = escolhe(p.fatTendencia, mo.fat_tendencia);
-    const r = calcularPerdasDL({ movimentos: (d.movimentos || []).filter((m) => m.data?.startsWith(mes)), inventario: d.inventario || [], base: baseDoDL(bases, c), volume, faturamento, fatTendencia, ajustePreco: p.ajustePreco });
+    const r = calcularPerdasDL({ movimentos: (d.movimentos || []).filter((m) => m.data?.startsWith(mes)), inventario: d.inventario || [], base: baseDoDL(bases, c), referencia, volume, faturamento, fatTendencia, ajustePreco: p.ajustePreco });
     r.fontes = { volume: fonte(p.volume, mo.acm) || (d.volumePlanilha ? 'planilha' : null), faturamento: fonte(p.faturamento, mo.fat_acm), fatTendencia: fonte(p.fatTendencia, mo.fat_tendencia) };
     dls[c] = { dl: c, nome, ...r };
   }
