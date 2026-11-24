@@ -19,7 +19,7 @@ Explicar o retorno do mês: quanto voltou, por qual motivo e com qual motorista,
 |---|---|---|
 | `CB NORTE`, `CB SUL` | visível | volume cx unit do mês; motivo × retorno × %; retorno por motorista em R$. **Valores colados, sem base oculta em out/26** |
 | `DLS` | visível | Barreiras e Juazeiro: motivo × retorno × % (`SOMASE` em `cbar`/`ccrt`) |
-| `cbar`, `ccrt` | oculta | colagem do VOLUMES DE RETORNOS / ZSD0090 do mês (+ coluna AP/AQ com o motivo normalizado) |
+| `cbar`, `ccrt` | oculta | colagem do VOLUMES DE RETORNOS / ZSD0090 do mês, só Externo (+ AP/AQ com a lista de motivos distintos, ver §10.1) |
 
 ## 3. Relatórios-fonte
 | # | Relatório | Sistema | Filtros e período | Frequência | Aba | Amostra |
@@ -32,7 +32,8 @@ Explicar o retorno do mês: quanto voltou, por qual motivo e com qual motorista,
 ## 4. Entradas manuais
 - Tabelas dos DAs coladas como valor.
 - Volume dos DAs.
-- Motivo normalizado nos DLs (coluna AP digitada/ajustada).
+- Lista de motivos distintos nos DLs (coluna AP) e, na maioria dos meses, a tabela da aba `DLS` colada como valor.
+- Volume dos DLs digitado em `DLS!E5`/`S5` (deveria vir da aba `Venda` da Montagem).
 
 ## 5. Regras de cálculo
 - % retorno = retorno do motivo ÷ volume do mês.
@@ -52,3 +53,73 @@ Pareto de motivos e retorno por motorista → reunião mensal. O índice de reto
 
 ## 9. Situação no Hub
 **Não implementado** (fase 7). Os DLs podem reaproveitar a tabela `retorno` da Montagem, porque o layout já está confirmado. Os DAs dependem da amostra 3.
+
+## 10. Leitura completa de jan–out/2026 (24/11/2026)
+Lidas todas as células e fórmulas dos 10 arquivos de 2026 (sem os "(ANTIGO)") e conferidas contra as abas ocultas e contra a Montagem de Cargas do mesmo mês.
+
+### 10.1 Como a planilha funciona de fato
+- **DLs (aba `DLS`):** a tabela motivo × retorno é a soma de `cbar`/`ccrt!AJ` (cx unit) por `AH` (motivo do SAP). Só em jan (Juazeiro) e mar (os dois) as linhas têm `SUMIF`; nos outros meses os valores estão **colados**. A linha 6 tem um `SUMIF` modelo com o motivo vazio.
+- As colunas `AP`/`AQ` das ocultas **não** são o motivo normalizado por linha: são só a lista de motivos distintos (`AQ = UPPER(AP)`) usada para montar a tabela. A ficha anterior estava errada nesse ponto.
+- As ocultas têm só as linhas **Externo** (`AO`). O relatório-fonte traz Externo e Interno (Interno = cancelamento de notas, não autorizada SEFAZ, trocas, erro no pedido). Exceção: **maio**, que entrou com Interno.
+- O mês é o da **Dt Remessa** (todas as linhas de cada oculta estão no mês).
+- **Volume dos DLs** (`E5`/`S5`) = soma de `Cxs Unitaria` da aba oculta `Venda <DL>` da Montagem (venda bruta). O "ACM MÊS" da Montagem é a venda líquida (venda − todo o retorno), por isso não bate com este volume.
+- **DAs (`CB NORTE`/`CB SUL`, ou `DAS` em jan–fev):** valores colados. Só jan/26 ainda guarda a base do BI (`norte`/`sul`: Revenda, CodCli, Razão Social, Motorista, Dev Motivo, Dia_Acerto, Dia Semana, Saída cx unit, Dev cx unit). Em jan a tabela bate exatamente com essa base, e o volume é `SUM(norte!H:H)` (saída). Linhas de "CANCELAMENTO DE NF" têm saída = devolução (a nota inteira volta).
+- O "retorno por motorista" dos DAs está em **R$** e a tabela de motivos em **cx unit**: as duas não se reconciliam. A lista de motoristas tem linhas que não são pessoas ("CARGA EXTRA", "PEDIDO FUNCIONARIO").
+- `Valor total incl.imp.` (`AK`) do VOLUMES DE RETORNOS é o **valor da nota inteira**, repetido em cada linha da nota (186 de 186 notas com várias linhas em out/BA). Somar `AK` por linha dá R$ 18,3 mi em out/BA: não serve para valor do retorno.
+
+### 10.2 Erros encontrados nos DLs
+| Mês | DL | Onde | O que houve | % na planilha | % correto |
+|---|---|---|---|---|---|
+| fev | BA | `DLS!E5` | volume 310.531,693 ≠ venda cx unit da Montagem 319.564,534 (nem cx física, 316.308,422) | 1,029% | 1,000% |
+| mar | JN | `DLS!S5` | 284.877,875 digitado; Montagem 284.886,875 (9 cx) | 1,411% | 1,411% |
+| abr | BA e JN | `DLS!E5`, `S5` | volume = **caixas físicas** (331.490,904 / 291.875,558) em vez de unitárias (355.274,080 / 303.811,799) | 0,656% / 1,315% | 0,612% / 1,264% |
+| mai | BA e JN | `cbar`, `ccrt` | colagem com **Interno** (BA 431 linhas, 1.452,778 cx; JN 803 linhas, 4.896,583 cx) | 0,903% / 2,856% | 0,518% / 1,366% |
+| ago | JN | `DLS!R8:R21` | valores colados não batem com `ccrt` em nenhuma linha; total 935,767 × 2.548,570 da oculta | 0,275% | 0,749% |
+| out | JN | `DLS!Q8:R24` | falta o motivo "CLIENTE C/VASILHAMES INCOMP" (59,28 cx); a linha "FALTA DE TROCA / BONIFICAÇÃO" = 0 está no lugar | — | — |
+| out | JN | `DLS!S5` | volume = **caixas físicas** 427.169,311 (unitárias: 451.169,118) | 0,979% | 0,940% |
+| out | JN | `ccrt` | extração cedo: 6 linhas de remessa 30/10 processadas em 07–14/11 (588,588 cx, quase tudo "Produto com data crítica", EDI) estão na Montagem e não no Retorno | — | 1,071% com elas |
+
+### 10.3 Erros e inconsistências nos DAs
+- **Regra do "s/ cancelamento" mudou no meio do ano e difere entre Norte e Sul:**
+  - jan–mai, os dois: tira só "CANCELAMENTO DE NF" do retorno e do volume.
+  - Norte, jun–out: tira também "RETORNO DE CONSIGNAÇÃO" e ainda **−328** fixo do volume. Em jun a consignação foi 328,1 cx: o −328 é essa consignação digitada à mão, que ficou na fórmula e passou a ser descontada em todo mês (e em jun foi descontada duas vezes). "ERRO NA EMISSAO DA NOTA FISCAL" nunca sai no Norte (apareceu em abr, jun, jul, ago, set).
+  - Sul, jun–out: tira "ERRO NA EMISSAO DA NOTA FISCAL" do retorno, mas **não** do volume (jun: 2.504,9 cx).
+- **mar, `CB NORTE!E28`:** o `SUMIF` do volume vai até `C21`, mas "CANCELAMENTO DE NF" está em `C23` (518,9 cx não saem do volume).
+- **ago, `CB NORTE!C8`:** o texto veio "RETORNO DE CONSIGNA€ÇO" (codificação quebrada), então o `SUMIF` não acha e os 4,2 cx não saem.
+- **mai, `CB SUL!E5`:** volume 408.832,47 é o mesmo de abril (copiado). O % de maio do Sul não é confiável.
+- O peso do cancelamento muda tudo no Norte: out = 1,741% com cancelamento e 0,667% sem; mai = 1,226% e 0,474%.
+
+| Mês | Unidade | Volume | Retorno cx | % total | Cancel. NF | Consig. | Erro emissão | % s/ canc. planilha | % regra única* |
+|---|---|---|---|---|---|---|---|---|---|
+| jan | Norte | 560.898 | 4.904,7 | 0,874 | 1.213,3 | 0 | 0 | 0,660 | 0,660 |
+| jan | Sul | 472.399 | 2.711,6 | 0,574 | 0 | 0 | 0 | 0,574 | 0,574 |
+| fev | Norte | 538.214 | 3.815,1 | 0,709 | 271,1 | 0 | 0 | 0,659 | 0,659 |
+| fev | Sul | 433.555 | 1.764,5 | 0,407 | 0 | 0 | 0 | 0,407 | 0,407 |
+| mar | Norte | 429.598 | 3.040,2 | 0,708 | 518,9 | 0 | 0 | 0,587 | 0,588 |
+| mar | Sul | 350.253 | 2.157,0 | 0,616 | 0 | 0 | 84,1 | 0,616 | 0,592 |
+| abr | Norte | 524.944 | 4.025,5 | 0,767 | 305,8 | 0 | 3,7 | 0,709 | 0,708 |
+| abr | Sul | 408.832 | 1.759,4 | 0,430 | 0 | 0 | 4,3 | 0,430 | 0,429 |
+| mai | Norte | 534.271 | 6.549,9 | 1,226 | 4.035,4 | 0 | 0 | 0,474 | 0,474 |
+| mai | Sul | 408.832 (=abr) | 1.750,3 | 0,428 | 0 | 0 | 0 | 0,428 | 0,428 |
+| jun | Norte | 573.140 | 8.579,7 | 1,497 | 4.052,2 | 328,1 | 34,6 | 0,739 | 0,732 |
+| jun | Sul | 488.417 | 4.453,1 | 0,912 | 141,8 | 0 | 2.504,9 | 0,370 | 0,372 |
+| jul | Norte | 629.330 | 5.474,7 | 0,870 | 1.820,5 | 0 | 49,3 | 0,583 | 0,575 |
+| jul | Sul | 514.446 | 1.858,5 | 0,361 | 368,8 | 0 | 0 | 0,290 | 0,290 |
+| ago | Norte | 577.836 | 6.639,2 | 1,149 | 2.363,2 | 4,2 | 21,1 | 0,743 | 0,739 |
+| ago | Sul | 462.768 | 2.163,5 | 0,468 | 108,8 | 0 | 8,9 | 0,442 | 0,442 |
+| set | Norte | 651.653 | 5.270,3 | 0,809 | 1.369,0 | 0 | 22,4 | 0,600 | 0,596 |
+| set | Sul | 546.480 | 5.550,7 | 1,016 | 3.474,6 | 0 | 23,6 | 0,378 | 0,378 |
+| out | Norte | 699.590 | 12.178,6 | 1,741 | 7.563,6 | 0 | 0 | 0,667 | 0,667 |
+| out | Sul | 594.726 | 4.603,8 | 0,774 | 38,1 | 0 | 0 | 0,768 | 0,768 |
+
+\* Regra única de teste: tira cancelamento de NF, consignação e erro na emissão do retorno **e** do volume, sem o −328. Ainda não decidida.
+
+### 10.4 Decisões pendentes (usuário)
+1. Volume dos DLs: confirmar venda bruta em **cx unit** (aba `Venda` da Montagem) como denominador.
+2. DLs: só **Externo**? (o Interno é cancelamento, SEFAZ e trocas).
+3. DLs: qual data define o mês (Dt Remessa, como hoje) e quando extrair (as 6 linhas de 30/10 só entraram em 07–14/11).
+4. DAs: regra única do "s/ cancelamento" (quais motivos saem, do retorno e do volume) e o fim do −328.
+5. Qual % vai para o KPI e o PES: o total ou o "s/ cancelamento"?
+6. DAs: a consulta do BI no layout de jan/26 (base `norte`/`sul`) ainda existe? Com ela o Hub calcula motivo, motorista e volume; sem ela só dá para digitar.
+7. Retorno por motorista dos DAs: em R$ ou em cx unit? Nos DLs só existe valor por nota, não por linha.
+8. Corrigir os meses fechados (abr, mai, ago, out dos DLs; mai do Sul) ou só seguir daqui para frente?
