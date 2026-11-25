@@ -1,10 +1,10 @@
 // Telas do Transportes 1x1: RESUMO (como a aba da planilha) e uma aba por unidade (indicador, por dia, por motorista e
 // a lista de cargas, que o leitor vê só para consulta e o admin confere e edita). ⚙ Particularidades: lista para os
 // supervisores, com o possível editável. As funções pagina* são puras (dados → HTML) e servem à prévia local.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-4';
-import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261125-4';
-import * as T from './dados_transportes.js?v=20261125-4';
-import * as D from './dados.js?v=20261125-4';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-5';
+import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261125-5';
+import * as T from './dados_transportes.js?v=20261125-5';
+import * as D from './dados.js?v=20261125-5';
 
 const ABA_PADRAO = 'resumo';
 const f2 = (x) => fd(x, 2);
@@ -59,7 +59,7 @@ ${d.dias.map(lin).join('')}<tr class="tot"><td class="t">Mês</td><td>${fi(t.car
 }
 
 function quadroMotoristas(d) {
-  return `<section class="bloco"><div class="faixa">Por motorista</div><div class="corpo">${d.motoristas.length ? `<div class="tw scroll"><table><thead><tr><th class="t">Motorista</th><th>Cargas</th><th>Possíveis +5%</th><th>Ajudantes</th><th>Dif.</th></tr></thead><tbody>
+  return `<section class="bloco tx-mot"><div class="faixa">Por motorista <span class="badge">${fi(d.motoristas.length)}</span></div><div class="corpo">${d.motoristas.length ? `<div class="tw scroll"><table><thead><tr><th class="t">Motorista</th><th>Cargas</th><th>Possíveis +5%</th><th>Ajudantes</th><th>Dif.</th></tr></thead><tbody>
 ${d.motoristas.map((m) => `<tr><td class="t">${E(m.nome)}</td><td>${fi(m.cargas)}</td><td>${f2(m.meta)}</td><td>${f2(m.realizado)}</td><td class="${farol(m.dif)}">${fp(m.dif, 1)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="small">Sem cargas.</p>'}</div></section>`;
 }
 
@@ -139,7 +139,7 @@ function avisos(u, d, mes) {
 export function paginaUnidadeTX(u, d, { mes, admin, topo }) {
   if (!d || (!d.temDados && !admin)) return `${topo}<div class="aviso">Sem cargas de ${E(UNIDADES_TX[u])} em ${nomeMes(mes)}.</div>`;
   if (!d.temDados) return `${topo}${avisos(u, d, mes)}`;
-  return `${topo}${tiles(d)}${admin ? avisos(u, d, mes) : ''}<div class="g2">${quadroDias(d)}${quadroMotoristas(d)}</div>${quadroCargas(u, d, admin)}`;
+  return `${topo}${tiles(d)}${admin ? avisos(u, d, mes) : ''}<div class="g2 tx-lado">${quadroDias(d)}${quadroMotoristas(d)}</div>${quadroCargas(u, d, admin)}`;
 }
 
 // ---------------------------------------------------------------- particularidades

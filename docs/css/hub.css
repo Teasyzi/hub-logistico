@@ -165,4 +165,8 @@ svg .ret-barra{fill:var(--s1)}svg .ret-barra.canc{fill:var(--axis)}.ret-grafico{
 .tx-cargas td input.alt{border:2px solid var(--brand);font-weight:700}.tx-cargas td .orig{display:block;font-size:10.5px;color:var(--ink2);text-align:right;white-space:nowrap}
 .filtros-tx{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:4px 0 10px}.filtros-tx label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.2px;color:var(--ink2)}
 .filtros-tx select,.filtros-tx input{margin-left:4px;text-transform:none;font-weight:400}.filtros-tx input[type=text]{min-width:180px}
-.tx-resumo{max-width:1100px}.tx-resumo td,.tx-resumo th{padding:9px 12px}.tx-cad input[type=text]{min-width:320px;text-align:left}
+.tx-resumo{max-width:1100px}.tx-resumo td,.tx-resumo th{padding:9px 12px}.tx-cad input[type=text]{min-width:320px;text-align:left}/* 1x1: "Por motorista" com a mesma altura do "Por dia" ao lado e barra de rolagem para os demais motoristas */
+.tx-lado{align-items:stretch}.tx-lado .tx-mot{display:flex;flex-direction:column;min-width:0}
+.tx-mot .corpo{flex:1;position:relative;min-height:320px}
+.tx-mot .corpo .tw{position:absolute;inset:10px 12px;overflow-y:auto}
+.tx-mot thead th{position:sticky;top:0;z-index:1}

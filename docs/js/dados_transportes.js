@@ -6,9 +6,9 @@
 //   meta/publicacoes_transp           {meses:[...]}
 import { db, auth } from './firebase.js';
 import { collection, doc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteField, FieldPath, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { UNIDADES_TX, calcularTX, agregadoPublicadoTX } from './transportes.js?v=20261125-4';
-import { buscaIdaVoltaKM } from './km.js?v=20261125-4';
-import { lerParametrosKM } from './dados.js?v=20261125-4';
+import { UNIDADES_TX, calcularTX, agregadoPublicadoTX } from './transportes.js?v=20261125-5';
+import { buscaIdaVoltaKM } from './km.js?v=20261125-5';
+import { lerParametrosKM } from './dados.js?v=20261125-5';
 
 const refAjuste = (u, mes) => doc(db, 'transp_ajuste', `${u}_${mes}`);
 
