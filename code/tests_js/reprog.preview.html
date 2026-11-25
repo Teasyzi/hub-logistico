@@ -1,0 +1,75 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Prévia REPROG</title>
+<!-- Prévia local das telas do REPROG, sem Firebase. Os arquivos vêm de /amostras/ (como o ⚙ Importar, base primeiro):
+     ?arquivos=<arq1>|<arq2>|…&pagina=NORTE|SUL|importar[&dia=AAAA-MM-DD][&admin=0][&editar=1][&diaResumo=AAAA-MM-DD]
+     Aceita o TXT VDPDR007, a BASE ATUALIZADA, a planilha antiga do Resumo (dia = diaResumo) e a "dia a dia".
+     window.exportarTeste(u) gera a planilha e devolve a aba Resumo relida (algumas células). -->
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261125-21">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<main id="app"><p>carregando…</p></main>
+<script type="module">
+const R = await import('../../docs/js/reprog.js?v=20261125-21');
+const T = await import('../../docs/js/reprog_telas.js?v=20261125-21');
+const X = await import('../../docs/js/exportar_reprog.js?v=20261125-21');
+const q = new URLSearchParams(location.search), pagina = q.get('pagina') || 'NORTE', admin = q.get('admin') !== '0';
+let editar = q.get('editar') === '1';
+// "Firestore" em memória: dias[u][dia] = {clientes, pedidos, prod, dias}; bases[u].
+const dias = { NORTE: {}, SUL: {} }, bases = {}, lidos = [];
+const guardar = (u, dia, pedidos, extra = {}) => {
+  const atual = dias[u][dia];
+  if (!pedidos && atual?.pedidos?.length) { atual.dias = { ...atual.dias, ...(extra.dias || {}) }; return; }
+  const c = pedidos ? R.compactarDiaRP(pedidos) : { clientes: extra.clientes.map((cli) => [cli, '', null, null, null]), pedidos: [], prod: {} };
+  dias[u][dia] = { clientes: R.expandirClientesRP(c.clientes), pedidos: c.pedidos, prod: c.prod, dias: { ...(atual?.dias || {}), ...(extra.dias || {}) } };
+};
+const arquivos = (q.get('arquivos') || '').split('|').filter(Boolean), objs = [];
+for (const n of arquivos) {
+  const buf = await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer();
+  objs.push({ n, x: /\.txt$/i.test(n) ? R.lerTxtRP(new TextDecoder('windows-1252').decode(buf), n) : R.lerPlanilhaRP(XLSX.read(buf, { type: 'array' }), n) });
+}
+const ordem = (x) => (x.tipo === 'base' ? 0 : x.tipo === 'resumo' ? 1 : 2);
+objs.sort((a, b) => ordem(a.x) - ordem(b.x));
+for (const { n, x } of objs) {
+  if (x.bases) Object.assign(bases, x.bases);
+  if (x.tipo === 'resumo') { const dia = q.get('diaResumo') || '2026-11-23'; guardar(x.revenda, dia, null, { dias: x.dias, clientes: x.ordem }); lidos.push({ n, tipo: x.tipo, u: x.revenda, dia, clientes: x.ordem.length }); }
+  if (x.tipo === 'TXT VDPDR007') { const u = R.revendaPeloCadastroRP([...new Set(x.pedidos.map((p) => p.cli))], bases) || x.revendaArq; guardar(u, x.dia, x.pedidos); lidos.push({ n, tipo: x.tipo, u, dia: x.dia, avisos: x.avisos }); }
+  if (x.tipo === 'diaadia') { const u = R.revendaPeloCadastroRP([...new Set(x.dias.flatMap((d) => d.pedidos.map((p) => p.cli)))], bases); for (const d of x.dias) guardar(u, d.dia, d.pedidos); lidos.push({ n, tipo: x.tipo, u, dias: x.dias.length }); }
+  if (x.tipo === 'base') lidos.push({ n, tipo: x.tipo, revendas: Object.keys(x.bases) });
+}
+const listaDias = (u) => Object.keys(dias[u]).sort().reverse();
+const anteriorDe = (u, dia) => { for (const d of listaDias(u)) if (d < dia && Object.keys(dias[u][d].dias).length) return { dia: d, dias: dias[u][d].dias }; return null; };
+const resumoDe = (u, dia) => R.resumoRP(dias[u][dia], bases[u], anteriorDe(u, dia));
+const render = () => {
+  const u = pagina, dia = q.get('dia') || listaDias(u)[0];
+  const topo = `<h1>REPROG — ${R.REVENDAS_RP[u] || 'Importar'}${dia ? ' · ' + R.fdataRP(dia) : ''} (prévia)</h1><p class="sub">Dias: ${listaDias(u).slice(0, 6).map(R.fdataRP).join(', ')}…</p>${T.abasRP(u, dia, admin)}`;
+  if (pagina === 'importar') { document.getElementById('app').innerHTML = `${topo}${T.explicaImportarRP}<pre class="small">${JSON.stringify(lidos, null, 1)}</pre>`; return; }
+  const x = dias[u][dia];
+  let h;
+  if (!admin) {
+    const r = resumoDe(u, dia);
+    const pub = { linhas: r.linhas.map((l) => ({ cli: l.cli, cidade: l.cidade, vend: l.vend, sup: l.sup, pasta: l.pasta, dias: l.dias })), quadro: r.quadro.map((s) => ({ sup: s.sup, n: s.n })) };
+    h = T.paginaRevendaRP(u, pub, { dia, admin: false, topo, publicado: true });
+    document.getElementById('app').innerHTML = h; T.ligarPaginaRP(document, pub, {}); return;
+  }
+  h = T.paginaRevendaRP(u, x, { dia, base: bases[u], anterior: anteriorDe(u, dia), admin: true, editar, topo });
+  document.getElementById('app').innerHTML = h;
+  T.ligarPaginaRP(document, x, { editar, salvar: async (ed) => { for (const [c, n] of Object.entries(ed)) { if (n == null) delete x.dias[c]; else x.dias[c] = n; } }, depois: (e) => { editar = e; render(); } });
+  document.getElementById('exportarRP')?.addEventListener('click', () => X.baixarReprogRP(u, dia, resumoDe(u, dia)));
+};
+render();
+window.exportarTeste = async (u = pagina, dia = q.get('dia') || listaDias(u)[0]) => {
+  const bytes = await X.gerarReprogRP(u, dia, resumoDe(u, dia));
+  const lido = XLSX.read(bytes, { type: 'array', cellFormula: true }), ws = lido.Sheets.Resumo;
+  const pega = (a) => ({ v: ws[a]?.v, f: ws[a]?.f });
+  return { bytes: bytes.length, abas: lido.SheetNames, ref: ws['!ref'], celulas: Object.fromEntries(['A1', 'E2', 'E3', 'F3', 'G3', 'E8', 'F9', 'G9', 'B11', 'J11', 'B12', 'C12', 'E12', 'G12', 'I12', 'J12'].map((a) => [a, pega(a)])) };
+};
+window.gerarBytes = async (u = pagina, dia = q.get('dia') || listaDias(u)[0]) => Array.from(await X.gerarReprogRP(u, dia, resumoDe(u, dia)));
+window.dias = dias; window.bases = bases; window.lidos = lidos; window.pronto = true;
+// ?dump=1: troca a página pelo .xlsx em base64 (para o Edge sem janela gravar o arquivo e conferir no Excel).
+if (q.get('dump')) {
+  const b = await X.gerarReprogRP(pagina, q.get('dia') || listaDias(pagina)[0], resumoDe(pagina, q.get('dia') || listaDias(pagina)[0]));
+  let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+  document.body.innerHTML = `<pre id="b64">${btoa(s)}</pre>`;
+}
+</script>

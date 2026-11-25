@@ -56,7 +56,7 @@ Lista de clientes reprogramados e ranking por supervisor/vendedor, enviados à g
 4. O cadastro de clientes vem do BI ou do ERP?
 
 ## 9. Situação no Hub
-**Não documentado e não implementado.** Proposta: importar o TXT bruto (como o Kardex) numa tabela `reprog_da(dia, revenda, cliente, produto, quant, valor)` + cadastro de clientes, e mostrar contagem por cliente/supervisor e % de clientes reprogramados. Isso elimina os arquivos de 37 MB.
+**Construído em 25/11/2026: módulo `#/reprog` (ver §11).** Proposta original: importar o TXT bruto (como o Kardex) numa tabela `reprog_da(dia, revenda, cliente, produto, quant, valor)` + cadastro de clientes, e mostrar contagem por cliente/supervisor e % de clientes reprogramados. Isso elimina os arquivos de 37 MB.
 
 ## 10. Leitura completa (25/11/2026)
 Arquivos lidos célula a célula (cópias de 23/11: Resumo do Norte agora com 4,8 MB e `A1:J611`, ou seja, o intervalo inchado já foi limpo; o do Sul tem 3 MB e `A1:J641`).
@@ -105,3 +105,47 @@ Hipóteses testadas contra os 600 e os 631 clientes:
 ### 10.4 O que falta para automatizar
 - Amostra do **TXT bruto** do ERP (um dia do Norte e um do Sul) e o nome/código do relatório.
 - O cadastro de clientes (aba `base`): de onde vem e com que frequência é atualizado. Ele tem nomes e telefones, então fica só no Firestore.
+
+## 11. Decisões do usuário e módulo no Hub (25/11/2026)
+### 11.1 Decisões
+- **Fonte:** relatório do ERP **VDPDR007** "MOVIMENTO POR CLIENTE NO PERIODO", em TXT, um por revenda e por dia (amostras "REPROG N.TXT" e "REPROG S.TXT" de 25/11).
+- **Cadastro:** a "BASE ATUALIZADA.xlsx" (abas NORTE e SUL, cabeçalho na linha 6, "ATUALIZADO EM" na linha 3). Ela é atualizada quase todo dia.
+- **DIAS REPROGRAMADOS:** continuam **digitados** pelo usuário todo dia. No modo de edição, o Hub mostra ao lado de cada cliente o número do **dia anterior que foi feito** (o último dia gravado com dias digitados), para conferir.
+- **Valores:** a planilha enviada só precisa dos dias. No dia a dia, o usuário quer ver pedidos, itens, valor e produtos.
+- **Layout:** seguir a planilha (aba Resumo por revenda).
+- **Exportação:** igual à planilha oficial.
+
+### 11.2 Leitura do TXT (conferida com as amostras de 25/11)
+- Linha de pedido: `PED ROM DT.EMI DT.FATURM CLIENTE NOME(20) … QUANT/UN OC 001-REDUZ-DESCRIÇÃO UNITÁRIO VLR TOTAL`. Os itens seguintes trazem só a parte do produto. O pedido fecha em `TOTAL PED./CLI.`, e o cabeçalho se repete a cada página.
+- Norte: 1.085 pedidos, 10.651 itens, 866 clientes, R$ 3.904.230,50. Sul: 802 pedidos, 7.060 itens, 743 clientes, R$ 1.813.151,83.
+- Em **todos** os pedidos, a soma dos itens é igual ao `TOTAL PED./CLI.`.
+- O CNPJ/CPF da segunda linha do pedido não é gravado.
+- **Revenda:** pelo cadastro. Os códigos se repetem entre as revendas (6.791 códigos estão nas duas bases), então o Hub exige ≥ 90% dos clientes num cadastro e 1,3× o outro. Sem essa folga, vale o nome do arquivo (N/S).
+
+### 11.3 Módulo `#/reprog`
+- Arquivos:
+  - `docs/js/reprog.js` (leitura e Resumo);
+  - `dados_reprog.js` (Firestore);
+  - `reprog_telas.js` (telas);
+  - `exportar_reprog.js` (planilha).
+- Modelos: `docs/modelos/reprog_{NORTE,SUL}.xlsx`, gerados por `code/tools/modelo_reprog.ps1`. Cada um é só a aba Resumo da planilha oficial, sem clientes e sem nomes.
+- Coleções:
+  - `rp_dia/{u}_{dia}` (clientes, pedidos compactos, produtos, dias digitados);
+  - `rp_base/{u}_meta` + `rp_base/{u}_{k}` (cadastro em partes de 7.000 clientes, porque o Norte tem 24 mil clientes e 1,8 MB, acima do limite de 1 MB por documento);
+  - `rp_parametro/indice` (dias gravados);
+  - `rp_publicado/{u}_{dia}`;
+  - `meta/publicacoes_rp`.
+  - Regras novas no `firestore.rules`.
+- **Telas:** abas CB NORTE e CB SUL, mais ⚙ Importar e ⚙ Publicar, com seletor de dia.
+  - Quadro SUP · SUPERVISOR · CLI REPRO, com o total.
+  - Números do dia: clientes, pedidos, itens, valor, dias digitados, dia anterior e clientes sem cadastro.
+  - Lista na ordem dos DIAS REPROGRAMADOS (sem dias digitados, pelo número do dia anterior), com o farol da planilha: 1 amarelo, 2 ou mais vermelho.
+  - Busca, filtro por supervisor e clique no código para ver os pedidos e os produtos.
+  - Em ✎ Editar dias, as colunas DIAS e DIA ANTERIOR vêm logo depois do código, e o Enter vai para o próximo cliente.
+- **Importar:** TXT, BASE ATUALIZADA, planilha antiga do Resumo (semeia os dias do último dia; o dia é a data do arquivo ou a data escolhida) e planilha "dia a dia" (histórico de 09/07 a 23/11; o dia vem da DT.EMI).
+- **Exportação:** igual à aba Resumo.
+  - Quadro com `CONT.SE` e `SOMA`, e lista com os valores do cadastro (a planilha usava PROCV na aba base, que não vai junto).
+  - Conferida no Excel com 23/11: Norte 6.110/6.110 e Sul 6.410/6.410 células iguais à planilha oficial, e os estilos iguais em 460/460 células conferidas.
+  - **Diferença:** quando há clientes sem cadastro ou com SUP 0, o quadro ganha linhas e a lista desce. Em 25/11, no Norte, ela começa na linha 14, e não na 12.
+- **Leitores:** veem códigos, cidade, VEND, SUP, dia de rota e dias, **sem nomes** (regra do projeto). A exportação fica só com o admin. **A confirmar com o usuário.**
+- Prévia: `code/tests_js/reprog.preview.html?arquivos=…&pagina=NORTE|SUL|importar[&dia=][&admin=0][&editar=1][&dump=1]`, configuração "hub-reprog" (porta 8771).

@@ -189,3 +189,10 @@ svg text.fr-pct{font-size:10px;font-weight:700}svg text.fr-pct.ok{fill:var(--goo
 .gv-dados td input{width:86px;text-align:right}.gv-botoes{margin:6px 0 10px}.gv-botoes [hidden]{display:none}
 .gv-aba{margin-top:14px}.gv-graf{min-width:0}.gv-tit{font-weight:750;font-size:12.5px;margin:2px 0 4px;color:var(--ink)}
 .grafico-legenda i.gv-leg0{background:var(--s1)}.grafico-legenda i.gv-leg1{background:var(--s2)}
+/* REPROG (DAs): quadro por supervisor ao lado dos números do dia; lista com cabeçalho fixo e rolagem; edição dos dias */
+.rp-lado{align-items:start}.rp-sup{max-width:640px}.rp-sup td,.rp-sup th{padding:6px 10px}.rp-sup tfoot td{border-top:2px solid var(--border)}
+.rp-lista{max-height:680px;overflow-y:auto;margin-top:6px}.rp-lista thead th{position:sticky;top:0;z-index:1}.rp-lista td{white-space:nowrap}
+.rp-cli{border:0;background:none;color:var(--brand);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
+.rp-cli:hover,.rp-cli:focus-visible{color:var(--brand-strong)}
+.rp-lista td.rp-ant{color:var(--ink2)}.rp-lista td.rp-ed input{width:64px;text-align:right}.rp-lista td.rp-ed input.alt{border:2px solid var(--brand);font-weight:700}
+.rp-lista tr.rp-det>td{background:var(--row);white-space:normal;padding:8px 12px}.rp-itens{max-width:820px}.rp-itens td,.rp-itens th{padding:3px 8px;font-size:12px}

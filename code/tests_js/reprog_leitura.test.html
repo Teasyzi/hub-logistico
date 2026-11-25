@@ -1,0 +1,31 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Teste leitura REPROG</title>
+<!-- Lê os arquivos de /amostras/ com reprog.js e mostra um resumo (contagens, somas, avisos). ?arquivos=a|b|c -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<pre id="out">lendo…</pre>
+<script type="module">
+const R = await import('../../docs/js/reprog.js?v=20261125-21');
+const q = new URLSearchParams(location.search), out = {};
+for (const n of (q.get('arquivos') || 'REPROG N.TXT|REPROG S.TXT').split('|')) {
+  const buf = await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer();
+  const t0 = performance.now();
+  if (/\.txt$/i.test(n)) {
+    const texto = new TextDecoder('windows-1252').decode(buf), x = R.lerTxtRP(texto, n), cl = R.clientesDoDiaRP(x.pedidos);
+    const c = R.compactarDiaRP(x.pedidos);
+    out[n] = { ehTxt: R.ehTxtRP(texto), dia: x.dia, revendaArq: x.revendaArq, pedidos: x.pedidos.length, itens: x.pedidos.reduce((a, p) => a + p.itens.length, 0),
+      clientes: cl.length, valor: Math.round(cl.reduce((a, c) => a + c.valor, 0) * 100) / 100, avisos: x.avisos, prim: cl.slice(0, 3).map((c) => [c.cli, c.valor, c.ped, c.itens]),
+      bytesJSON: JSON.stringify(c).length, ms: Math.round(performance.now() - t0) };
+  } else {
+    const x = R.lerPlanilhaRP(XLSX.read(buf, { type: 'array' }), n);
+    const r = { tipo: x.tipo, ms: Math.round(performance.now() - t0) };
+    if (x.bases) r.bases = Object.fromEntries(Object.entries(x.bases).map(([u, b]) => [u, { n: b.n, vends: Object.keys(b.vends).length, sups: b.sups, bytes: JSON.stringify(b.clientes).length }]));
+    if (x.tipo === 'base') r.dataBase = x.dataBase;
+    if (x.tipo === 'resumo') Object.assign(r, { revenda: x.revenda, n: x.ordem.length, comDias: Object.keys(x.dias).length, prim: x.ordem.slice(0, 3).map((c) => [c, x.dias[c]]) });
+    if (x.tipo === 'diaadia') r.dias = x.dias.map((d) => `${d.dia}(${d.aba}${d.outra ? '+' + d.outra : ''}):${d.pedidos.length}p/${new Set(d.pedidos.map((p) => p.cli)).size}c`);
+    out[n] = r;
+  }
+}
+document.getElementById('out').textContent = JSON.stringify(out, null, 1);
+window.pronto = true;
+</script>
