@@ -132,8 +132,9 @@ export function descompactar({ produtos = [], linhas: ls = [] }, mes) {
 const insuf = (ent, falta) => (ent + falta > 0 ? falta / (ent + falta) : null);
 
 // Uma unidade no mês: linhas [{cat,prod,data,ent,falta}] → totais, por dia, por produto e detalhe.
-export function calcularUnidadeFR(bruta = [], { meta = META_FR, codigos = null } = {}) {
-  const lista = codigos ? bruta.map((x) => ({ ...x, cod: codigos[chaveProduto(x.prod)] ?? x.cod ?? null })) : bruta;
+// codigos: {DESCRIÇÃO: código} (cadastro + editados à mão); manuais: Set das descrições com código editado à mão.
+export function calcularUnidadeFR(bruta = [], { meta = META_FR, codigos = null, manuais = null } = {}) {
+  const lista = codigos ? bruta.map((x) => { const k = chaveProduto(x.prod); return { ...x, cod: codigos[k] ?? x.cod ?? null, codManual: !!manuais?.has(k) }; }) : bruta;
   const entregue = lista.reduce((s, x) => s + x.ent, 0), falta = lista.reduce((s, x) => s + x.falta, 0), pedido = entregue + falta;
   const pct = insuf(entregue, falta), metaCx = meta * pedido;
   const porDia = new Map(), porProd = new Map(), repetidas = new Map();
@@ -161,18 +162,46 @@ export function calcularUnidadeFR(bruta = [], { meta = META_FR, codigos = null }
   };
 }
 
+// Soma de unidades (linha GERAL): refaz o % a partir de entregue e falta.
+export function somarTotais(lista, meta = META_FR) {
+  const entregue = lista.reduce((s, t) => s + t.entregue, 0), falta = lista.reduce((s, t) => s + t.falta, 0), pct = insuf(entregue, falta);
+  return { entregue, falta, pedido: entregue + falta, insuf: pct, fillRate: pct == null ? null : 1 - pct, meta,
+    metaCx: meta * (entregue + falta), acimaMeta: falta - meta * (entregue + falta), dentroMeta: pct == null ? null : pct <= meta };
+}
+
 // dados: {NORTE|SUL: {linhas:[...], arquivo}}; codigos: {DESCRICAO: código} do cadastro → {mes, unidades, geral}
-export function calcularFR({ mes, dados = {}, meta = META_FR, codigos = null }) {
+export function calcularFR({ mes, dados = {}, meta = META_FR, codigos = null, manuais = null }) {
   const unidades = {};
   for (const [u, nome] of Object.entries(UNIDADES_FR)) {
     const d = dados[u] || {};
-    unidades[u] = { unidade: u, nome, mes, arquivo: d.arquivo || null, ...calcularUnidadeFR(d.linhas || [], { meta, codigos }) };
+    unidades[u] = { unidade: u, nome, mes, arquivo: d.arquivo || null, ...calcularUnidadeFR(d.linhas || [], { meta, codigos, manuais }) };
   }
-  const us = Object.values(unidades).filter((d) => d.temDados);
-  const entregue = us.reduce((s, d) => s + d.totais.entregue, 0), falta = us.reduce((s, d) => s + d.totais.falta, 0), pct = insuf(entregue, falta);
-  const geral = { entregue, falta, pedido: entregue + falta, insuf: pct, fillRate: pct == null ? null : 1 - pct, meta,
-    metaCx: meta * (entregue + falta), acimaMeta: falta - meta * (entregue + falta), dentroMeta: pct == null ? null : pct <= meta };
+  const geral = somarTotais(Object.values(unidades).filter((d) => d.temDados).map((d) => d.totais), meta);
   return { mes, unidades, geral };
+}
+
+// Resumo de um mês (o que o comparativo mês a mês usa): só os totais e o último dia de cada revenda.
+export const resumoMesFR = (r) => Object.fromEntries(Object.entries(r.unidades).filter(([, d]) => d.temDados).map(([u, d]) => [u, { totais: d.totais, ultimoDia: d.ultimoDia }]));
+
+// Comparativo mês a mês de um ano. resumos: {AAAA-MM: {NORTE|SUL: {totais, ultimoDia}}}.
+// Devolve, por revenda e GERAL, uma linha por mês com dados (com a variação da insuficiência sobre o mês anterior
+// com dados) e o acumulado do ano (falta ÷ pedido somados, não a média dos %).
+export function comparativoFR(resumos, ano, meta = META_FR) {
+  const meses = Object.keys(resumos).filter((m) => m.startsWith(`${ano}-`)).sort();
+  const serie = (pega) => {
+    const linhas = [];
+    for (const mes of meses) { const t = pega(resumos[mes]); if (t) linhas.push({ mes, totais: t.totais, ultimoDia: t.ultimoDia || null }); }
+    linhas.forEach((l, i) => { const ant = linhas[i - 1]; l.varInsuf = ant && l.totais.insuf != null && ant.totais.insuf != null ? l.totais.insuf - ant.totais.insuf : null; });
+    return { linhas, acumulado: linhas.length ? somarTotais(linhas.map((l) => l.totais), meta) : null };
+  };
+  const unidades = Object.fromEntries(Object.keys(UNIDADES_FR).map((u) => [u, serie((r) => r[u])]));
+  const geral = serie((r) => {
+    const ts = Object.keys(UNIDADES_FR).map((u) => r[u]?.totais).filter(Boolean);
+    if (!ts.length) return null;
+    const ud = Object.keys(UNIDADES_FR).map((u) => r[u]?.ultimoDia?.data).filter(Boolean).sort().at(-1);
+    return { totais: somarTotais(ts, meta), ultimoDia: ud ? { data: ud } : null };
+  });
+  return { ano, meses, unidades, geral };
 }
 
 // O que os leitores veem: tudo (não há nomes de pessoas), mas com o detalhe compactado para caber no documento.

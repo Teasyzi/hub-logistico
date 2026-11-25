@@ -1,10 +1,10 @@
 // Telas do Transportes 1x1: RESUMO (como a aba da planilha) e uma aba por unidade (indicador, por dia, por motorista e
 // a lista de cargas, que o leitor vê só para consulta e o admin confere e edita). ⚙ Particularidades: lista para os
 // supervisores, com o possível editável. As funções pagina* são puras (dados → HTML) e servem à prévia local.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-8';
-import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261125-8';
-import * as T from './dados_transportes.js?v=20261125-8';
-import * as D from './dados.js?v=20261125-8';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-10';
+import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261125-10';
+import * as T from './dados_transportes.js?v=20261125-10';
+import * as D from './dados.js?v=20261125-10';
 
 const ABA_PADRAO = 'resumo';
 const f2 = (x) => fd(x, 2);

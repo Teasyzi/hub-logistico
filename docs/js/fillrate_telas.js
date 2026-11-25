@@ -1,10 +1,11 @@
 // Telas do Fill rate / Insuficiência de estoque, como a planilha: aba RESUMO (o quadro da aba Resumo) e uma aba
 // por revenda (CB NORTE, CB SUL) com o cabeçalho, "por dia", "por produto" e "por data e produto". Sem gráfico.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-8';
-import { UNIDADES_FR, META_FR, lerArquivoFR } from './fillrate.js?v=20261125-8';
-import * as F from './dados_fillrate.js?v=20261125-8';
-import * as D from './dados.js?v=20261125-8';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-10';
+import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261125-10';
+import { planilhaComparativoFR } from './exportar_fillrate.js?v=20261125-10';
+import * as F from './dados_fillrate.js?v=20261125-10';
+import * as D from './dados.js?v=20261125-10';
 
 const fcx = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (pct, meta) => (pct == null ? '' : pct <= meta ? 'c-ok' : 'c-no');
@@ -13,7 +14,7 @@ const nomeAba = (u) => UNIDADES_FR[u].toUpperCase();
 const seta = (t) => (t.insuf == null ? '' : t.dentroMeta ? '<span class="t-up">▼</span>' : '<span class="t-down">▲</span>');
 
 export function abasFR(ativa, mes, admin) {
-  const a = [['resumo', 'RESUMO', `#/fillrate/resumo/${mes}`], ...Object.keys(UNIDADES_FR).map((u) => [u, nomeAba(u), `#/fillrate/${u}/${mes}`])];
+  const a = [['resumo', 'RESUMO', `#/fillrate/resumo/${mes}`], ['comparativo', 'MÊS A MÊS', `#/fillrate/comparativo/${mes}`], ...Object.keys(UNIDADES_FR).map((u) => [u, nomeAba(u), `#/fillrate/${u}/${mes}`])];
   const adm = admin ? [['importar', 'Importar', `#/fillrate/importar/${mes}`], ['publicar', 'Publicar', `#/fillrate/publicar/${mes}`]] : [];
   return `<nav class="abas">${a.map(([k, t, h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
     + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
@@ -65,9 +66,12 @@ function quadroProdutos(d) {
 ${d.produtos.map(lin).join('')}</tbody></table></div></div></section>`;
 }
 
-function quadroDetalhe(d) {
+// Célula do código: no rascunho do admin tem o lápis para editar à mão (vale para todas as linhas do produto).
+const celCodigo = (cod, manual, admin) => `<td class="t fr-cod${manual ? ' manual' : ''}"${manual ? ' title="Código editado à mão"' : ''}><span class="v">${cod == null ? '–' : E(cod)}</span>${admin ? '<button type="button" class="fr-lapis" title="Editar o código" aria-label="Editar o código">✎</button>' : ''}</td>`;
+
+function quadroDetalhe(d, admin) {
   const t = d.totais, cats = [...new Set(d.detalhe.map((x) => x.cat).filter(Boolean))].sort(), dias = d.dias.map((x) => x.data);
-  const lin = (x) => `<tr data-dia="${x.data}" data-cat="${E(x.cat)}" data-falta="${x.falta > 0 ? 1 : 0}" data-txt="${E(`${x.cod ?? ''} ${x.prod}`.toLowerCase())}"><td class="t">${fdata(x.data)}</td><td class="t">${E(x.cat)}</td><td class="t">${x.cod == null ? '–' : E(x.cod)}</td><td class="t">${E(x.prod)}</td><td>${fcx(x.ent)}</td><td>${fcx(x.falta)}</td><td class="${farol(x.pct, t.meta)}">${fp(x.pct)}</td></tr>`;
+  const lin = (x) => `<tr data-dia="${x.data}" data-cat="${E(x.cat)}" data-falta="${x.falta > 0 ? 1 : 0}" data-prodk="${E(chaveProduto(x.prod))}" data-prod="${E(x.prod)}" data-txt="${E(`${x.cod ?? ''} ${x.prod}`.toLowerCase())}"><td class="t">${fdata(x.data)}</td><td class="t">${E(x.cat)}</td>${celCodigo(x.cod, x.codManual, admin)}<td class="t">${E(x.prod)}</td><td>${fcx(x.ent)}</td><td>${fcx(x.falta)}</td><td class="${farol(x.pct, t.meta)}">${fp(x.pct)}</td></tr>`;
   return `<section class="bloco"><div class="faixa">Informação por data e produto</div><div class="corpo">
 <div class="filtros-tx fr-filtros">
 <label>Dia <select data-f="dia"><option value="">Todos</option>${dias.map((x) => `<option value="${x}">${fdata(x)}</option>`).join('')}</select></label>
@@ -77,7 +81,37 @@ function quadroDetalhe(d) {
 <span class="small" data-f="n">${fi(d.detalhe.length)} linhas</span></div>
 <div class="tw scroll fr-alta"><table class="fr-detalhe"><thead><tr><th class="t">Data</th><th class="t">Categoria</th><th class="t">Cód.</th><th class="t">Prod descr</th><th>Pedido entregue</th><th>Falta de estoque</th><th>Insuf. %</th></tr></thead><tbody>
 ${d.detalhe.map(lin).join('')}</tbody></table></div>
-<p class="small">Uma linha por produto e dia, como no relatório, da maior falta para a menor. Insuf. % = falta ÷ (entregue + falta) da linha.</p></div></section>`;
+<p class="small">Uma linha por produto e dia, como no relatório, da maior falta para a menor. Insuf. % = falta ÷ (entregue + falta) da linha.${admin ? ' O código vem do cadastro de produtos; o ✎ edita à mão (em vermelho), para todas as linhas do produto, e vale também nos outros meses. Deixar vazio volta ao código do cadastro. Publique de novo para os leitores verem.' : ''}</p></div></section>`;
+}
+
+// Lápis do código: troca a célula por um campo; Enter ou ✓ grava, Esc ou ✕ cancela.
+// salvar(prod, cod) → {cod, manual}: grava e devolve o código que passa a valer.
+export function ligarCodigosFR(raiz = document, salvar) {
+  const corpo = raiz.querySelector('.fr-detalhe tbody');
+  if (!corpo || !salvar) return;
+  const aplicar = (tr0, r) => {
+    for (const tr of corpo.querySelectorAll(`tr[data-prodk="${CSS.escape(tr0.dataset.prodk)}"]`)) {
+      const td = tr.querySelector('.fr-cod');
+      td.outerHTML = celCodigo(r.cod, r.manual, true);
+      tr.dataset.txt = `${r.cod ?? ''} ${tr.dataset.prod}`.toLowerCase();
+    }
+  };
+  corpo.addEventListener('click', (e) => {
+    const b = e.target.closest('.fr-lapis');
+    if (!b || b.dataset.ok || b.dataset.nao) return;   // ✓ e ✕ têm o próprio onclick
+    const td = b.closest('td'), tr = td.closest('tr'), atual = td.querySelector('.v').textContent.replace('–', '');
+    td.innerHTML = `<input type="text" class="fr-cod-ed" value="${E(atual)}" aria-label="Código do produto"><button type="button" class="fr-lapis" data-ok="1" title="Gravar">✓</button><button type="button" class="fr-lapis" data-nao="1" title="Cancelar">✕</button>`;
+    const inp = td.querySelector('input');
+    inp.focus(); inp.select();
+    const cancelar = () => { td.outerHTML = celCodigo(atual || null, td.classList.contains('manual'), true); };
+    const gravar = async () => {
+      inp.disabled = true;
+      try { aplicar(tr, await salvar(tr.dataset.prod, inp.value.trim())); } catch (err) { inp.disabled = false; inp.title = err.message; inp.classList.add('erro-campo'); }
+    };
+    td.querySelector('[data-ok]').onclick = gravar;
+    td.querySelector('[data-nao]').onclick = cancelar;
+    inp.onkeydown = (ev) => { if (ev.key === 'Enter') gravar(); else if (ev.key === 'Escape') cancelar(); };
+  });
 }
 
 // Filtros do detalhe (dia, categoria, só com falta, busca). Chamar depois de pôr o HTML na página.
@@ -102,7 +136,39 @@ export function paginaUnidadeFR(u, d, { mes, admin, topo }) {
   const t = d.totais;
   const info = admin ? `<p class="small">Fonte: ${E(d.arquivo || 'arquivo importado')} · ${fi(t.linhas)} linhas, ${fi(t.dias)} dias${d.ultimoDia ? ` (até ${fdata(d.ultimoDia.data)})` : ''}, ${fi(t.produtos)} produtos.${t.diasSemFalta ? ` ${fi(t.diasSemFalta)} dia(s) com falta zero (havia estoque para todo o pedido).` : ''}${d.repetidas ? ` ${fi(d.repetidas)} produto(s) aparecem duas vezes no mesmo dia: as linhas são somadas.` : ''}</p>` : '';
   const semCod = admin && d.semCodigo?.length ? `<div class="aviso">${fi(d.semCodigo.length)} produto(s) sem código no cadastro: ${E(d.semCodigo.slice(0, 8).join('; '))}${d.semCodigo.length > 8 ? '…' : ''}. Importe o cadastro de produtos (ou a planilha de Insuficiência com a aba PRODUTOS) em <a href="#/fillrate/importar/${mes}">⚙ Importar</a>.</div>` : '';
-  return `${topo}${tiles(d)}${semCod}${explica(t.meta)}<div class="fr-lado">${quadroDias(d)}${quadroProdutos(d)}</div>${quadroDetalhe(d)}${info}`;
+  return `${topo}${tiles(d)}${semCod}${explica(t.meta)}<div class="fr-lado">${quadroDias(d)}${quadroProdutos(d)}</div>${quadroDetalhe(d, admin)}${info}`;
+}
+
+// ---------------------------------------------------------------- MÊS A MÊS: o quadro do RESUMO de cada mês, com Detalhes
+const NOMES_MES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+export const nomeMesLongo = (mes) => `${NOMES_MES[+mes.slice(5, 7) - 1]}/${mes.slice(0, 4)}`;
+
+export function paginaComparativoFR(resumos, { ano, admin, topo, mesAtual = null }) {
+  const c = comparativoFR(resumos, ano);
+  const exportar = `<p><button class="btn" id="exportarFR" ${c.meses.length ? '' : 'disabled'}>⬇ Exportar planilha (.xlsx)</button> <span id="msgExp" class="small"></span></p>`;
+  if (!c.meses.length) return `${topo}<div class="aviso">Sem dados de insuficiência em ${ano}.${admin ? ` <a href="#/fillrate/importar/${ano}-01">Importar</a> o relatório ou as planilhas antigas de cada mês.` : ''}</div>`;
+  const cab = '<tr><th class="t">Revenda</th><th>Meta %</th><th>Meta (CX UNIT)</th><th>Pedido entregue (CX UNIT)</th><th>Falta de estoque (CX UNIT)</th><th>Insuficiência %</th><th>Fill rate %</th><th>Acima da meta (CX UNIT)</th><th>Até</th><th class="t"></th></tr>';
+  const lin = (rot, x, link, cls = '') => (x ? `<tr class="${cls}"><td class="t">${rot}</td><td>${fp(x.totais.meta, 0)}</td><td>${fcx(x.totais.metaCx)}</td><td>${fcx(x.totais.entregue)}</td><td>${fcx(x.totais.falta)}</td>
+<td class="${farol(x.totais.insuf, x.totais.meta)}">${fp(x.totais.insuf)}</td><td>${fp(x.totais.fillRate)}</td><td>${fcx(x.totais.acimaMeta)}</td><td>${x.ultimoDia ? fdata(x.ultimoDia.data) : ''}</td>
+<td class="t">${link ? `<a class="btn sec fr-det" href="${link}">Detalhes</a>` : ''}</td></tr>` : `<tr><td class="t">${rot}</td><td colspan="9" class="t small">sem dados no mês</td></tr>`);
+  const doMes = (l) => l.mes;
+  const blocos = c.meses.map((mes) => {
+    const pega = (s) => s.linhas.find((l) => doMes(l) === mes);
+    const us = Object.keys(UNIDADES_FR).map((u) => lin(nomeAba(u), pega(c.unidades[u]), pega(c.unidades[u]) ? `#/fillrate/${u}/${mes}` : null)).join('');
+    return `<section class="bloco fr-mes"><div class="faixa"><span>${nomeMesLongo(mes)}${mes === mesAtual ? ' <span class="small">(parcial)</span>' : ''}</span></div><div class="corpo"><div class="tw scroll fr-resumo"><table><thead>${cab}</thead><tbody>
+${us}${lin('GERAL', pega(c.geral), `#/fillrate/resumo/${mes}`, 'tot')}</tbody></table></div></div></section>`;
+  }).join('');
+  const acm = (s) => (s.acumulado ? { totais: s.acumulado, ultimoDia: s.linhas.at(-1)?.ultimoDia } : null);
+  const acumulado = `<section class="bloco fr-mes"><div class="faixa"><span>ACUMULADO ${ano}</span></div><div class="corpo"><div class="tw scroll fr-resumo"><table><thead>${cab}</thead><tbody>
+${Object.keys(UNIDADES_FR).map((u) => lin(nomeAba(u), acm(c.unidades[u]), null)).join('')}${lin('GERAL', acm(c.geral), null, 'tot')}</tbody></table></div>
+<p class="small">Acumulado = falta ÷ pedido somados de ${fi(c.meses.length)} mês(es) (não é a média dos %).</p></div></section>`;
+  const faltam = admin ? (() => {
+    const fim = mesAtual && mesAtual.startsWith(`${ano}-`) ? +mesAtual.slice(5, 7) : 12;
+    const sem = [];
+    for (let m = 1; m <= fim; m++) { const k = `${ano}-${String(m).padStart(2, '0')}`; for (const u of Object.keys(UNIDADES_FR)) if (!resumos[k]?.[u]) sem.push(`${NOMES_MES[m - 1].slice(0, 3).toLowerCase()} ${UNIDADES_FR[u]}`); }
+    return sem.length ? `<div class="aviso">Sem dados: ${E(sem.join(', '))}. <a href="#/fillrate/importar/${ano}-01">Importar</a> o relatório ou a planilha antiga do mês.</div>` : '';
+  })() : '';
+  return `${topo}${faltam}${exportar}${blocos}${acumulado}${explica(META_FR)}<p class="small">Detalhes abre a aba da revenda naquele mês (por dia, por produto e por data e produto). Na planilha exportada, o mesmo quadro fica na aba COMPARATIVO, com um link para a aba de detalhe de cada revenda e mês.</p>`;
 }
 
 // ---------------------------------------------------------------- telas (Firestore)
@@ -134,12 +200,38 @@ async function telaResumo(ctx, mes) {
   status(r.atualizado); ctx.ligarTopo((m) => `#/fillrate/resumo/${m}`);
 }
 
+async function telaComparativo(ctx, mes) {
+  ctx.html('<p class="small">Montando o comparativo…</p>');
+  const ano = mes.slice(0, 4), adm = rascunho(ctx);
+  const [resumos, pub] = await Promise.all([adm ? F.lerResumosFR(ano) : F.lerResumosPublicadosFR(), F.mesesFRPublicados()]);
+  const anos = [...new Set([ctx.mesAtual().slice(0, 4), ano, ...pub.map((m) => m.slice(0, 4))])].sort().reverse();
+  let sel = `Ano: <select id="selMes">${anos.map((a) => `<option value="${a}-01" ${a === ano ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
+  if (ctx.adminNaTela()) sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
+  const topo = `<h1>Fill rate · Insuficiência de estoque — Mês a mês ${E(ano)}</h1><p class="sub">${sel}</p>${abasFR('comparativo', mes, ctx.adminNaTela())}`;
+  ctx.html(paginaComparativoFR(resumos, { ano, admin: adm, topo, mesAtual: ctx.mesAtual() }));
+  ctx.ligarTopo((m) => `#/fillrate/comparativo/${m}`);
+  const b = document.getElementById('exportarFR');
+  if (b) b.onclick = async () => {
+    const msg = document.getElementById('msgExp');
+    b.disabled = true; msg.textContent = 'Lendo os meses…';
+    try {
+      const meses = Object.keys(resumos).filter((m) => m.startsWith(`${ano}-`)).sort();
+      const porMes = adm ? await F.calcularFRMeses(meses) : Object.fromEntries(await Promise.all(meses.map(async (m) => [m, await F.lerFRPublicado(m)])));
+      msg.textContent = 'Montando a planilha…';
+      XLSX.writeFile(planilhaComparativoFR(ano, porMes, { mesAtual: ctx.mesAtual() }), `Fill rate - Insuficiencia - comparativo ${ano}.xlsx`);
+      msg.textContent = '✓ planilha gerada';
+    } catch (err) { msg.innerHTML = ctx.erro(err); }
+    b.disabled = false;
+  };
+}
+
 async function telaUnidade(ctx, u, mes) {
   ctx.html('<p class="small">Calculando o fill rate…</p>');
   const topo = await topoFR(ctx, u, mes, `${UNIDADES_FR[u]} · ${nomeMes(mes)}`), r = await resultado(ctx, mes);
   const vazio = !r.unidades?.[u]?.temDados && !rascunho(ctx);
   ctx.html(vazio ? `${topo}<div class="aviso">O fill rate de ${E(UNIDADES_FR[u])} em ${nomeMes(mes)} ainda não foi publicado.</div>` : paginaUnidadeFR(u, r.unidades?.[u], { mes, admin: rascunho(ctx), topo }));
-  ligarFiltrosFR(); status(r.atualizado); ctx.ligarTopo((m) => `#/fillrate/${u}/${m}`);
+  ligarFiltrosFR(); if (rascunho(ctx)) ligarCodigosFR(document, F.gravarCodigoManualFR);
+  status(r.atualizado); ctx.ligarTopo((m) => `#/fillrate/${u}/${m}`);
 }
 
 function historico(imps) {
@@ -194,6 +286,7 @@ export async function rotearFR(p, ctx) {
   const sub = p[1], mes = ctx.mesP(p[2]) || (ctx.adminNaTela() ? ctx.mesAtual() : (await F.mesesFRPublicados())[0] || ctx.mesAtual());
   if (UNIDADES_FR[sub]) return telaUnidade(ctx, sub, mes);
   if (!sub || sub === 'resumo') return telaResumo(ctx, mes);
+  if (sub === 'comparativo') return telaComparativo(ctx, mes);
   if (!ctx.adminNaTela()) { location.replace(`#/fillrate/resumo/${mes}`); return; }
   if (sub === 'importar') return telaImportar(ctx, mes);
   if (sub === 'publicar') return telaPublicar(ctx, mes);

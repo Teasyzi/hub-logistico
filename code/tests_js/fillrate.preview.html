@@ -2,38 +2,46 @@
 <meta charset="utf-8">
 <title>Prévia Fill rate</title>
 <!-- Prévia local das telas do Fill rate / Insuficiência, sem Firebase. Os arquivos vêm de /amostras/:
-     ?mes=AAAA-MM&arquivos=<arquivo1>|<arquivo2>&pagina=resumo|NORTE|SUL[&admin=0][&cadastro=<arquivo com o cadastro de produtos>]
+     ?mes=AAAA-MM&arquivos=<arquivo1>|<arquivo2>&pagina=resumo|comparativo|NORTE|SUL[&admin=0][&cadastro=<arquivo com o cadastro de produtos>]
+     Os arquivos podem ser de meses diferentes (o comparativo usa todos os meses do ano de ?mes).
      Com ?conferir=<AAAA-MM> compara entregue e falta com as somas das linhas da planilha oficial
-     (AUDITORIA/Fill_Rate_Insuficiencia.md §10). -->
-<link rel="stylesheet" href="../../docs/css/hub.css?v=20261125-8">
+     (AUDITORIA/Fill_Rate_Insuficiencia.md §10). No comparativo, o botão exporta a planilha de verdade;
+     window.exportarTeste() devolve a planilha relida (abas, links e alguns valores) para conferência. -->
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261125-10">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <main id="app"><p>carregando…</p></main>
 <script type="module">
-const R = await import('../../docs/js/fillrate.js?v=20261125-8');
-const T = await import('../../docs/js/fillrate_telas.js?v=20261125-8');
+const R = await import('../../docs/js/fillrate.js?v=20261125-10');
+const T = await import('../../docs/js/fillrate_telas.js?v=20261125-10');
+const X = await import('../../docs/js/exportar_fillrate.js?v=20261125-10');
 const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'resumo', admin = q.get('admin') !== '0';
 const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array', cellDates: false });
-const dados = {}, lidos = [];
+const porMesDados = {}, lidos = [];
 for (const n of (q.get('arquivos') || '').split('|').filter(Boolean)) {
   const x = R.lerArquivoFR(await ler(n));
   lidos.push({ arquivo: n, tipo: x.tipo, linhas: x.linhas, meses: Object.keys(x.meses), ignoradas: x.ignoradas });
   // Como no Firestore: o arquivo substitui o mês inteiro de cada revenda que ele traz (e passa pelo formato compacto).
-  for (const [u, d] of Object.entries(x.meses[mes] || {})) {
-    const c = R.compactar(d.linhas);
-    dados[u] = { arquivo: n, linhas: R.descompactar(JSON.parse(JSON.stringify(c)), mes) };
+  for (const [m, us] of Object.entries(x.meses)) for (const [u, d] of Object.entries(us)) {
+    (porMesDados[m] ??= {})[u] = { arquivo: n, linhas: R.descompactar(JSON.parse(JSON.stringify(R.compactar(d.linhas))), m) };
   }
 }
 // Cadastro de produtos (códigos): só o mapa do arquivo indicado, sem os dados de insuficiência dele.
 const codigos = q.get('cadastro') ? R.lerArquivoFR(await ler(q.get('cadastro'))).cadastro || {} : null;
-let res = R.calcularFR({ mes, dados, codigos });
+const manual = {}, manuais = new Set();
+const calcular = (m) => R.calcularFR({ mes: m, dados: porMesDados[m] || {}, codigos: codigos && { ...codigos, ...manual }, manuais });
+let res = calcular(mes);
 // Leitor: passa pelo agregado publicado (o mesmo JSON que vai para fr_publicado).
-if (!admin) {
-  const ag = JSON.parse(JSON.stringify(R.agregadoPublicadoFR(res)));
-  res = { ...res, unidades: Object.fromEntries(Object.entries(ag).map(([u, p]) => [u, R.lerAgregadoFR(u, p)])) };
-}
+const comoLeitor = (r) => { const ag = JSON.parse(JSON.stringify(R.agregadoPublicadoFR(r))); return { ...r, unidades: Object.fromEntries(Object.entries(ag).map(([u, p]) => [u, R.lerAgregadoFR(u, p)])) }; };
+if (!admin) res = comoLeitor(res);
 const topo = (aba, t) => `<h1>Fill rate · Insuficiência de estoque — ${t} (prévia)</h1>${T.abasFR(aba, mes, admin)}`;
-let h = pagina === 'resumo' ? T.paginaResumoFR(res, { mes, admin, topo: topo('resumo', mes) })
-  : T.paginaUnidadeFR(pagina, res.unidades[pagina], { mes, admin, topo: topo(pagina, R.UNIDADES_FR[pagina]) });
+const ano = mes.slice(0, 4), mesesAno = Object.keys(porMesDados).filter((m) => m.startsWith(`${ano}-`)).sort();
+const porMes = () => Object.fromEntries(mesesAno.map((m) => [m, admin ? calcular(m) : comoLeitor(calcular(m))]));
+let h;
+if (pagina === 'resumo') h = T.paginaResumoFR(res, { mes, admin, topo: topo('resumo', mes) });
+else if (pagina === 'comparativo') {
+  const resumos = Object.fromEntries(Object.entries(porMes()).map(([m, r]) => [m, R.resumoMesFR(r)]));
+  h = T.paginaComparativoFR(resumos, { ano, admin, topo: topo('comparativo', `Mês a mês ${ano}`), mesAtual: '2026-11' });
+} else h = T.paginaUnidadeFR(pagina, res.unidades[pagina], { mes, admin, topo: topo(pagina, R.UNIDADES_FR[pagina]) });
 // Somas das linhas das planilhas oficiais (entregue, falta), lidas célula a célula na auditoria.
 const ESPERADO = {
   '2026-04': { NORTE: [520919.1152, 14297.3666], SUL: [407041.4771, 12127.4835] },
@@ -42,9 +50,9 @@ const ESPERADO = {
   '2026-11': { NORTE: [708098.9964, 19602.2797], SUL: [579268.9772, 49936.1524] },
 };
 if (q.get('conferir') && ESPERADO[q.get('conferir')]) {
-  const linhas = [];
+  const linhas = [], r = calcular(q.get('conferir'));
   for (const [u, [ent, falta]] of Object.entries(ESPERADO[q.get('conferir')])) {
-    const t = res.unidades[u].totais;
+    const t = r.unidades[u].totais;
     linhas.push({ u, k: 'entregue', esperado: ent, calculado: t.entregue, ok: Math.abs(t.entregue - ent) < 0.01 });
     linhas.push({ u, k: 'falta', esperado: falta, calculado: t.falta, ok: Math.abs(t.falta - falta) < 0.01 });
   }
@@ -53,5 +61,18 @@ if (q.get('conferir') && ESPERADO[q.get('conferir')]) {
 }
 document.getElementById('app').innerHTML = h;
 T.ligarFiltrosFR();
+// Lápis do código: grava só na memória da prévia.
+if (admin) T.ligarCodigosFR(document, async (prod, cod) => {
+  const k = R.chaveProduto(prod);
+  if (cod) { manual[k] = cod; manuais.add(k); } else { delete manual[k]; manuais.delete(k); }
+  return { cod: cod || codigos?.[k] || null, manual: !!cod };
+});
+const wb = () => X.planilhaComparativoFR(ano, porMes(), { mesAtual: '2026-11' });
+document.getElementById('exportarFR')?.addEventListener('click', () => XLSX.writeFile(wb(), `Fill rate - Insuficiencia - comparativo ${ano}.xlsx`));
+window.exportarTeste = (aba = 'COMPARATIVO', n = 12) => {
+  const lido = XLSX.read(XLSX.write(wb(), { type: 'array', bookType: 'xlsx' }), { type: 'array' });
+  const ws = lido.Sheets[aba], links = Object.entries(ws).filter(([k, c]) => k[0] !== '!' && c.l).map(([k, c]) => `${k}→${c.l.Target}`);
+  return { abas: lido.SheetNames, links, linhas: XLSX.utils.sheet_to_csv(ws).split('\n').slice(0, n) };
+};
 window.resultado = res; window.lidos = lidos; window.pronto = true;
 </script>

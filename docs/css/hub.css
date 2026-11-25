@@ -177,3 +177,7 @@ svg .ret-barra{fill:var(--s1)}svg .ret-barra.canc{fill:var(--axis)}.ret-grafico{
 @media(max-width:1100px){.fr-lado{grid-template-columns:minmax(0,1fr)}}
 .fr-alta{max-height:560px;overflow-y:auto}.fr-alta thead th{position:sticky;top:0;z-index:1}
 .fr-resumo{max-width:1200px}.fr-resumo td,.fr-resumo th{padding:9px 12px}
+.fr-cod{white-space:nowrap}.fr-cod.manual .v{color:var(--brand);font-weight:700}
+.fr-lapis{border:0;background:none;color:var(--ink2);cursor:pointer;padding:0 4px;font-size:13px;line-height:1}.fr-lapis:hover,.fr-lapis:focus-visible{color:var(--brand)}
+.fr-cod input.fr-cod-ed{width:92px;text-align:left}.fr-cod input.erro-campo{border:2px solid var(--bad)}
+.fr-mes{margin-bottom:12px}.fr-det{padding:3px 10px;font-size:12px}
