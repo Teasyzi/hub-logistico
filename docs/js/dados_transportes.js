@@ -1,11 +1,14 @@
 // Transportes 1x1 no Firestore.
 //   transp_dados/{unidade}_{data}     {unidade, data, mes, cargas:[...], arquivo, atualizado}   (admin; tem nomes de motoristas)
 //   transp_ajuste/{unidade}_{mes}     {unidade, mes, itens: {chave: {aj, cub, poss, obs, excluir, incluir}}}   (admin)
-//   transp_publicado/{unidade}_{mes}  {unidade, mes, placar (JSON, sem nomes/placas/cargas), publicadoEm, por}   (admin e leitores)
+//   transp_publicado/{unidade}_{mes}  {unidade, mes, placar (JSON: totais, por dia, por motorista e cargas que contam; sem marcas e observações do admin), publicadoEm, por}   (admin e leitores)
+//   transp_parametro/cadastro          {apelidos: {U: {NOME NO ARQUIVO: NOME COMPLETO}}}   (admin; Planilha1 do 1x1 + digitados)
 //   meta/publicacoes_transp           {meses:[...]}
 import { db, auth } from './firebase.js';
 import { collection, doc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteField, FieldPath, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { UNIDADES_TX, calcularTX, agregadoPublicadoTX } from './transportes.js?v=20261125-3';
+import { UNIDADES_TX, calcularTX, agregadoPublicadoTX } from './transportes.js?v=20261125-4';
+import { buscaIdaVoltaKM } from './km.js?v=20261125-4';
+import { lerParametrosKM } from './dados.js?v=20261125-4';
 
 const refAjuste = (u, mes) => doc(db, 'transp_ajuste', `${u}_${mes}`);
 
@@ -37,9 +40,25 @@ export async function lerDadosTX(mes) {
   return { mes, cargas, ajustes, atualizado, arquivos: Object.fromEntries(Object.entries(arquivos).map(([u, a]) => [u, [...a]])) };
 }
 
+// Nomes completos: o cadastro do 1x1 (Planilha1 importada e nomes digitados) e o cadastro de motoristas do KM.
+const refCadastro = () => doc(db, 'transp_parametro', 'cadastro');
+export async function lerCadastroTX() { return (await getDoc(refCadastro())).data()?.apelidos || {}; }
+export async function gravarCadastroTX(novos) {
+  const atual = await lerCadastroTX(), apelidos = { ...atual };
+  for (const [u, m] of Object.entries(novos)) apelidos[u] = { ...(atual[u] || {}), ...m };
+  await setDoc(refCadastro(), { apelidos, atualizado: serverTimestamp() });
+  return Object.values(novos).reduce((a, m) => a + Object.keys(m).length, 0);
+}
+export const buscaNomesTX = (kmPar, apelidos) => buscaIdaVoltaKM({ ...kmPar, apelidos: { ...(kmPar?.apelidos || {}), ...(apelidos || {}) },
+  cadastro: [...(kmPar?.cadastro || []), ...Object.values(apelidos || {})] }).resolver;
+export async function lerNomesTX(mes) {
+  const [cad, km] = await Promise.all([lerCadastroTX(), Promise.all(Object.keys(UNIDADES_TX).map((u) => lerParametrosKM(u, mes).catch(() => ({}))))]);
+  return Object.fromEntries(Object.keys(UNIDADES_TX).map((u, i) => [u, buscaNomesTX(km[i], cad[u])]));
+}
+
 export async function calcularTXAoVivo(mes) {
-  const x = await lerDadosTX(mes);
-  return { ...calcularTX(x), ajustes: x.ajustes, atualizado: x.atualizado, arquivos: x.arquivos };
+  const [x, nomes] = await Promise.all([lerDadosTX(mes), lerNomesTX(mes)]);
+  return { ...calcularTX({ ...x, nomes }), ajustes: x.ajustes, atualizado: x.atualizado, arquivos: x.arquivos };
 }
 
 // Ajuste de uma carga. Campo vazio (null) apaga o ajuste daquele campo.

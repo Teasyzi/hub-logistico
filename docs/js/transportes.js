@@ -134,8 +134,28 @@ function lerEscalaJuazeiro(wb, mesRef) {
   return cargas.length ? { tipo: 'escala DL Juazeiro', unidade: 'CCRT', cargas } : null;
 }
 
-// Devolve {tipo, unidade, cargas (já organizadas), dias} ou {tipo:null}.
+// Planilha antiga do 1x1: a aba Planilha1 (oculta) é o de-para MOTORISTA → NOME COMPLETO das 4 unidades,
+// em blocos de duas colunas com o nome da unidade na linha 1 (BARREIRAS, NORTE, SUL, CCRT).
+const UNIDADE_ROTULO = { barreiras: 'CBAR', norte: 'NORTE', sul: 'SUL', ccrt: 'CCRT', juazeiro: 'CCRT' };
+function lerCadastro1x1(wb) {
+  const ws = wb.Sheets.Planilha1;
+  if (!ws) return null;
+  const ls = linhas(ws), cad = {};
+  (ls[0] || []).forEach((v, i) => {
+    const u = UNIDADE_ROTULO[chave(v)];
+    if (!u || chave(ls[1]?.[i + 1]) !== 'nome completo') return;
+    for (const l of ls.slice(2)) {
+      const ap = texto(l?.[i]).toUpperCase(), nome = texto(l?.[i + 1]).toUpperCase();
+      if (ap && nome) (cad[u] ??= {})[ap] = nome;
+    }
+  });
+  return Object.keys(cad).length ? cad : null;
+}
+
+// Devolve {tipo, unidade, cargas (já organizadas), dias}, {tipo, cadastro} (Planilha1 do 1x1) ou {tipo:null}.
 export function lerArquivoTX(wb, mesRef, nomeArquivo = '') {
+  const cadastro = lerCadastro1x1(wb);
+  if (cadastro) return { tipo: 'cadastro de motoristas (Planilha1 do 1x1)', cadastro, unidade: null, cargas: [], dias: [] };
   const x = lerEscalaBarreiras(wb, mesRef) || lerEscalaJuazeiro(wb, mesRef) || lerMontagemDA(wb, mesRef, nomeArquivo);
   if (!x) return { tipo: null, unidade: null, cargas: [], dias: [] };
   const cargas = organizarCargasTX(x.cargas);
@@ -230,14 +250,27 @@ function agregar(lista) {
   return { cargas: n, meta, realizado, dif: realizado / meta - 1, metaRegra, difRegra: realizado / metaRegra - 1, ajudantes: s((c) => c.aj) };
 }
 
-// cargas: [{…, unidade}] (todas as do mês); ajustes: {U: {chave: {...}}}
-export function calcularTX({ mes, cargas = [], ajustes = {} }) {
+// Linhas sem motorista da casa: não precisam de cadastro.
+export const semCadastroNecessarioTX = (nome) => /^(frete|freteiro|generico|motorista generico|extra|diarista)\b/.test(chave(nome));
+
+// cargas: [{…, unidade}] (todas as do mês); ajustes: {U: {chave: {...}}};
+// nomes: {U: (nome do arquivo) → {nome: nome completo, cadastrado}} (cadastro do 1x1 + do KM). Sem ele, fica o nome do arquivo.
+export function calcularTX({ mes, cargas = [], ajustes = {}, nomes = {} }) {
   const unidades = {};
   for (const u of Object.keys(UNIDADES_TX)) {
-    const meta = META_CUB_TX[u], aj = ajustes[u] || {};
+    const meta = META_CUB_TX[u], aj = ajustes[u] || {}, resolver = nomes[u];
+    const semCad = new Map();
     const lista = cargas.filter((c) => c.unidade === u && String(c.data).startsWith(mes))
       .sort((a, b) => a.data.localeCompare(b.data) || (a.bloco || '').localeCompare(b.bloco || '') || a.linha - b.linha)
-      .map((c) => calcularCargaTX(c, aj[c.chave], meta));
+      .map((c) => {
+        const x = calcularCargaTX(c, aj[c.chave], meta);
+        const r = c.motorista && resolver && !semCadastroNecessarioTX(c.motorista) ? resolver(c.motorista) : null;
+        x.motoristaArquivo = c.motorista || '';
+        x.motorista = r?.cadastrado ? r.nome : texto(c.motorista).toUpperCase();
+        x.semCadastro = !!(resolver && c.motorista && !semCadastroNecessarioTX(c.motorista) && !r?.cadastrado);
+        if (x.semCadastro) { const k = texto(c.motorista).toUpperCase(); semCad.set(k, (semCad.get(k) || 0) + 1); }
+        return x;
+      });
     const validas = lista.filter((c) => c.conta);
     const dias = [...new Set(lista.map((c) => c.data))].sort().map((data) => ({ data, ...agregar(validas.filter((c) => c.data === data)) }));
     const porMot = new Map();
@@ -249,19 +282,35 @@ export function calcularTX({ mes, cargas = [], ajustes = {} }) {
       totais: { ...agregar(validas), ultimoDia: comDado.at(-1) || null,
         automatico: validas.filter((c) => c.abono === 'automatico').length, particularidade: validas.filter((c) => c.abono === 'particularidade').length,
         excesso: lista.filter((c) => c.excesso).length, pendentes: lista.filter((c) => c.pendente).length, fora: lista.filter((c) => c.fora).length },
+      semCadastro: [...semCad].map(([nome, n]) => ({ nome, cargas: n })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
       dias, motoristas, cargas: lista,
     };
   }
-  const todas = Object.values(unidades).flatMap((d) => d.cargas.filter((c) => c.conta));
-  return { mes, unidades, geral: agregar(todas) };
+  return { mes, unidades, ...resumoTX(unidades) };
 }
 
-// O que os leitores veem: totais e o quadro por dia. Sem nomes, placas ou cargas.
+// Aba RESUMO, como a da planilha: por unidade meta, dia anterior, realizado e dif.; GERAL = média de todas as
+// cargas das 4 unidades (C12/E12 da planilha) e média dos dias anteriores (D12).
+export function resumoTX(unidades) {
+  const todas = Object.values(unidades).flatMap((d) => (d.cargas ? d.cargas.filter((c) => c.conta) : []));
+  const us = Object.values(unidades).filter((d) => d.totais?.cargas);
+  const geral = todas.length ? agregar(todas)
+    : us.length ? (() => { const n = us.reduce((a, d) => a + d.totais.cargas, 0), m = us.reduce((a, d) => a + d.totais.meta * d.totais.cargas, 0) / n, r = us.reduce((a, d) => a + d.totais.realizado * d.totais.cargas, 0) / n; return { cargas: n, meta: m, realizado: r, dif: r / m - 1 }; })()
+      : agregar([]);
+  const ant = us.map((d) => d.totais.ultimoDia?.realizado).filter((x) => x != null);
+  return { geral: { ...geral, diaAnterior: ant.length ? ant.reduce((a, b) => a + b, 0) / ant.length : null, metaCub: Object.values(META_CUB_TX).reduce((a, b) => a + b, 0) / 4 } };
+}
+
+// O que os leitores veem: totais, por dia, por motorista (nome completo) e as cargas que contam, sem as marcas e
+// observações do admin. Ficam fora: cargas riscadas (repetida, juntada, carreta, equipamento, excluída) e pendentes.
 export function agregadoPublicadoTX(r) {
   const tira = (t) => ({ cargas: t.cargas, meta: t.meta, realizado: t.realizado, dif: t.dif });
   return Object.fromEntries(Object.entries(r.unidades).map(([u, d]) => [u, {
     unidade: u, nome: d.nome, metaCub: d.metaCub, temDados: d.temDados,
     totais: { ...tira(d.totais), ultimoDia: d.totais.ultimoDia ? { data: d.totais.ultimoDia.data, ...tira(d.totais.ultimoDia) } : null },
     dias: d.dias.map((x) => ({ data: x.data, ...tira(x) })),
+    motoristas: d.motoristas.map((m) => ({ nome: m.nome, ...tira(m) })),
+    cargas: d.cargas.filter((c) => c.conta).map((c) => ({ chave: c.chave, data: c.data, unidade: u, rota: c.rota || '', transporte: c.transporte || '', bloco: c.bloco || '',
+      placa: c.placa || '', motorista: c.motorista, cub: c.cub, aj: c.aj, poss: c.poss, dif: c.dif, conta: true })),
   }]));
 }

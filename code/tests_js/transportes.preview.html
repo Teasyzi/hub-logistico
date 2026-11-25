@@ -2,43 +2,50 @@
 <meta charset="utf-8">
 <title>Prévia Transportes 1x1</title>
 <!-- Prévia local das telas do Transportes 1x1, sem Firebase. Os arquivos vêm de /amostras/:
-     ?mes=AAAA-MM&arquivos=<montagem Norte>|<montagem Sul>|<1x1 e 1x2 Barreiras>|<escala Juazeiro>&pagina=NORTE|SUL|CBAR|CCRT|particularidades
+     ?mes=AAAA-MM&arquivos=<montagem Norte>|<montagem Sul>|<1x1 e 1x2 Barreiras>|<escala Juazeiro>|<planilha antiga do 1x1 (nomes)>
+     &pagina=resumo|NORTE|SUL|CBAR|CCRT|particularidades[&admin=0 para ver como leitor, com o que vai para a publicação]
      Os ajustes (ajudantes, possível, observação) ficam só na memória da página. -->
 <link rel="stylesheet" href="../../docs/css/hub.css">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <main id="app"><p>carregando…</p></main>
 <script type="module">
-const X = await import('../../docs/js/transportes.js?v=20261125-3');
-const T = await import('../../docs/js/transportes_telas.js?v=20261125-3');
-const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11';
+const X = await import('../../docs/js/transportes.js?v=20261125-4');
+const T = await import('../../docs/js/transportes_telas.js?v=20261125-4');
+const { buscaNomesTX } = await import('../../docs/js/dados_transportes.js?v=20261125-4');
+const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', admin = q.get('admin') !== '0';
 const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array' });
-const cargas = [], lidos = [];
+const cargas = [], lidos = [], cadastro = {};
 for (const n of (q.get('arquivos') || '').split('|').filter(Boolean)) {
   const x = X.lerArquivoTX(await ler(n), mes, n);
   lidos.push({ arquivo: n, tipo: x.tipo, unidade: x.unidade, cargas: x.cargas.length, dias: x.dias.length });
+  if (x.cadastro) { for (const [u, m] of Object.entries(x.cadastro)) cadastro[u] = { ...(cadastro[u] || {}), ...m }; continue; }
   // Como no Firestore: cada dia do arquivo substitui o dia da unidade.
   for (let i = cargas.length - 1; i >= 0; i--) if (cargas[i].unidade === x.unidade && x.dias.includes(cargas[i].data)) cargas.splice(i, 1);
   cargas.push(...x.cargas);
 }
+const nomes = Object.fromEntries(Object.keys(X.UNIDADES_TX).map((u) => [u, buscaNomesTX({}, cadastro[u] || {})]));
 const ajustes = { NORTE: {}, SUL: {}, CBAR: {}, CCRT: {} };
 const salvar = async (u, m, k, v) => {
   const a = (ajustes[u][k] ??= {});
   for (const [c, val] of Object.entries(v)) { if (val == null || val === '' || val === false) delete a[c]; else a[c] = val; }
 };
 const desenhar = async () => {
-  const pagina = q.get('pagina') || 'NORTE', y = window.scrollY;
-  const res = X.calcularTX({ mes, cargas, ajustes });
-  const topo = (aba, t) => `<h1>Transportes 1x1 — ${t} (prévia)</h1>${T.abasTX(aba, mes, true)}`;
-  document.getElementById('app').innerHTML = pagina === 'particularidades'
-    ? T.paginaParticularidadesTX(res, { mes, topo: topo('particularidades', 'Particularidades') })
-    : T.paginaUnidadeTX(pagina, res.unidades[pagina], { mes, admin: q.get('admin') !== '0', topo: topo(pagina, X.UNIDADES_TX[pagina]) });
+  const pagina = q.get('pagina') || 'resumo', y = window.scrollY;
+  const res = X.calcularTX({ mes, cargas, ajustes, nomes });
+  // Leitor: o mesmo JSON que vai para a publicação.
+  const pub = admin ? res : JSON.parse(JSON.stringify({ unidades: X.agregadoPublicadoTX(res) }));
+  const topo = (aba, t) => `<h1>Transportes 1x1 — ${t} (prévia${admin ? '' : ' · leitor'})</h1>${T.abasTX(aba, mes, admin)}`;
+  document.getElementById('app').innerHTML = pagina === 'particularidades' ? T.paginaParticularidadesTX(res, { mes, topo: topo('particularidades', 'Particularidades') })
+    : pagina === 'resumo' ? T.paginaResumoTX(pub, { mes, admin, topo: topo('resumo', 'Resumo') })
+    : T.paginaUnidadeTX(pagina, pub.unidades[pagina], { mes, admin, topo: topo(pagina, X.UNIDADES_TX[pagina]) });
   // Abas da prévia: troca a página mantendo os arquivos.
   document.querySelectorAll('.abas a').forEach((a) => { const k = a.getAttribute('href').split('/')[2]; a.href = `?${new URLSearchParams({ ...Object.fromEntries(q), pagina: k })}`; });
   document.getElementById('baixarPart')?.addEventListener('click', () => T.exportarParticularidadesTX(res, mes));
+  T.ligarFiltrosTX(document);
   T.ligarEdicaoTX(document, { mes, salvar, depois: desenhar, erro: (e) => `<span class="st no">${e.message}</span>` });
   window.scrollTo(0, y);
-  window.resultado = res;
+  window.resultado = res; window.publicado = pub;
 };
 await desenhar();
-window.lidos = lidos; window.cargas = cargas; window.ajustes = ajustes; window.pronto = true;
+window.lidos = lidos; window.cargas = cargas; window.ajustes = ajustes; window.cadastro = cadastro; window.pronto = true;
 </script>

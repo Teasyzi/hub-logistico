@@ -162,3 +162,17 @@ Lidos célula por célula (fórmulas e valores, inclusive a `Planilha1` oculta) 
      - Norte só difere pelas recargas e cargas cross, que agora ficam de fora.
      - Sul difere pelas cargas sem ajudantes ou sem cubagem, que ficam pendentes (o dia 16/11 inteiro), e por 2 junções a mais (07/11 e 10/11) para o admin conferir.
    - **Equipamentos:** as rotas com EQUIPAMENTO na descrição ficam fora, como no KM.
+
+## 13. Ajustes pedidos pelo usuário (25/11/2026, depois da 1ª versão)
+1. **Aba RESUMO**, como a da planilha, e padrão do link `#/transportes`.
+   - Por unidade: META + 5%, DIA ANTERIOR, REALIZADO, DIF., META CUBAGEM e CARGAS.
+   - GERAL = média de todas as cargas das 4 unidades. O dia anterior do GERAL é a média dos dias anteriores das unidades.
+2. **Sem gráfico** na aba da unidade. Os quadros "Por dia" e "Por motorista" ficam lado a lado.
+3. **Nome completo do motorista** em todas as telas. O Hub usa o de-para da `Planilha1` do 1x1 (importada em ⚙ Importar) e o cadastro de motoristas do KM, e casa nomes cortados pelo começo (montagem Sul).
+   - Os nomes que não casam aparecem em ⚙ Importar para o admin completar (`transp_parametro/cadastro`).
+   - Em novembro sobraram 6: erros de digitação da escala e primeiros nomes repetidos.
+4. **Leitores veem também** o quadro por motorista e a lista de cargas do mês, a pedido do usuário. Isso vale com nome completo e só para leitura.
+   - Na lista do leitor ficam só as cargas que contam: sem as riscadas e as pendentes, e sem as marcas de abono e observações do admin.
+5. **Lista de cargas:**
+   - **Filtros:** dia, motorista e busca por rota ou placa. O admin também filtra por situação: contam, acima do possível, abono automático, particularidade, falta lançar, fora da conta, editadas e sem nome completo.
+   - **Edição:** cubagem, ajudantes e possível mostram o valor que vale. Ao digitar por cima, a célula fica destacada e mostra o valor original embaixo. Apagar ou voltar ao original desfaz.
