@@ -7,13 +7,14 @@
      Com ?conferir=<AAAA-MM> compara entregue e falta com as somas das linhas da planilha oficial
      (AUDITORIA/Fill_Rate_Insuficiencia.md §10). No comparativo, o botão exporta a planilha de verdade;
      window.exportarTeste() devolve a planilha relida (abas, links e alguns valores) para conferência. -->
-<link rel="stylesheet" href="../../docs/css/hub.css?v=20261125-10">
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261125-11">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <main id="app"><p>carregando…</p></main>
 <script type="module">
-const R = await import('../../docs/js/fillrate.js?v=20261125-10');
-const T = await import('../../docs/js/fillrate_telas.js?v=20261125-10');
-const X = await import('../../docs/js/exportar_fillrate.js?v=20261125-10');
+const R = await import('../../docs/js/fillrate.js?v=20261125-11');
+const T = await import('../../docs/js/fillrate_telas.js?v=20261125-11');
+const X = await import('../../docs/js/exportar_fillrate.js?v=20261125-11');
 const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'resumo', admin = q.get('admin') !== '0';
 const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array', cellDates: false });
 const porMesDados = {}, lidos = [];
@@ -67,12 +68,14 @@ if (admin) T.ligarCodigosFR(document, async (prod, cod) => {
   if (cod) { manual[k] = cod; manuais.add(k); } else { delete manual[k]; manuais.delete(k); }
   return { cod: cod || codigos?.[k] || null, manual: !!cod };
 });
-const wb = () => X.planilhaComparativoFR(ano, porMes(), { mesAtual: '2026-11' });
-document.getElementById('exportarFR')?.addEventListener('click', () => XLSX.writeFile(wb(), `Fill rate - Insuficiencia - comparativo ${ano}.xlsx`));
-window.exportarTeste = (aba = 'COMPARATIVO', n = 12) => {
-  const lido = XLSX.read(XLSX.write(wb(), { type: 'array', bookType: 'xlsx' }), { type: 'array' });
-  const ws = lido.Sheets[aba], links = Object.entries(ws).filter(([k, c]) => k[0] !== '!' && c.l).map(([k, c]) => `${k}→${c.l.Target}`);
-  return { abas: lido.SheetNames, links, linhas: XLSX.utils.sheet_to_csv(ws).split('\n').slice(0, n) };
+document.getElementById('exportarFR')?.addEventListener('click', () => X.baixarComparativoFR(ano, porMes(), { mesAtual: '2026-11' }));
+// Gera a planilha e relê com o SheetJS (com estilos), para conferir abas, links, valores e cores.
+window.exportarTeste = async (aba = 'COMPARATIVO', n = 12) => {
+  const bytes = await X.gerarComparativoFR(ano, porMes(), { mesAtual: '2026-11' });
+  const lido = XLSX.read(bytes, { type: 'array', cellStyles: true });
+  const ws = lido.Sheets[aba], links = Object.entries(ws).filter(([k, c]) => k[0] !== '!' && c.l).map(([k, c]) => `${k}→${c.l.Target || c.l.Rel?.Target || JSON.stringify(c.l)}`);
+  const cor = (k) => ws[k]?.s?.fgColor?.rgb || ws[k]?.s?.patternType || null;
+  return { bytes: bytes.length, abas: lido.SheetNames, links: links.slice(0, 6), linhas: XLSX.utils.sheet_to_csv(ws).split('\n').slice(0, n), cores: Object.fromEntries(['A4', 'A5', 'A8', 'F6', 'F7', 'F8', 'I6'].map((k) => [k, cor(k)])) };
 };
 window.resultado = res; window.lidos = lidos; window.pronto = true;
 </script>

@@ -1,11 +1,11 @@
 // Telas do Fill rate / Insuficiência de estoque, como a planilha: aba RESUMO (o quadro da aba Resumo) e uma aba
 // por revenda (CB NORTE, CB SUL) com o cabeçalho, "por dia", "por produto" e "por data e produto". Sem gráfico.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-10';
-import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261125-10';
-import { planilhaComparativoFR } from './exportar_fillrate.js?v=20261125-10';
-import * as F from './dados_fillrate.js?v=20261125-10';
-import * as D from './dados.js?v=20261125-10';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-11';
+import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261125-11';
+import { baixarComparativoFR } from './exportar_fillrate.js?v=20261125-11';
+import * as F from './dados_fillrate.js?v=20261125-11';
+import * as D from './dados.js?v=20261125-11';
 
 const fcx = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (pct, meta) => (pct == null ? '' : pct <= meta ? 'c-ok' : 'c-no');
@@ -14,7 +14,7 @@ const nomeAba = (u) => UNIDADES_FR[u].toUpperCase();
 const seta = (t) => (t.insuf == null ? '' : t.dentroMeta ? '<span class="t-up">▼</span>' : '<span class="t-down">▲</span>');
 
 export function abasFR(ativa, mes, admin) {
-  const a = [['resumo', 'RESUMO', `#/fillrate/resumo/${mes}`], ['comparativo', 'MÊS A MÊS', `#/fillrate/comparativo/${mes}`], ...Object.keys(UNIDADES_FR).map((u) => [u, nomeAba(u), `#/fillrate/${u}/${mes}`])];
+  const a = [['resumo', 'RESUMO', `#/fillrate/resumo/${mes}`], ...Object.keys(UNIDADES_FR).map((u) => [u, nomeAba(u), `#/fillrate/${u}/${mes}`]), ['comparativo', 'MÊS A MÊS', `#/fillrate/comparativo/${mes}`]];
   const adm = admin ? [['importar', 'Importar', `#/fillrate/importar/${mes}`], ['publicar', 'Publicar', `#/fillrate/publicar/${mes}`]] : [];
   return `<nav class="abas">${a.map(([k, t, h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
     + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
@@ -147,16 +147,16 @@ export function paginaComparativoFR(resumos, { ano, admin, topo, mesAtual = null
   const c = comparativoFR(resumos, ano);
   const exportar = `<p><button class="btn" id="exportarFR" ${c.meses.length ? '' : 'disabled'}>⬇ Exportar planilha (.xlsx)</button> <span id="msgExp" class="small"></span></p>`;
   if (!c.meses.length) return `${topo}<div class="aviso">Sem dados de insuficiência em ${ano}.${admin ? ` <a href="#/fillrate/importar/${ano}-01">Importar</a> o relatório ou as planilhas antigas de cada mês.` : ''}</div>`;
-  const cab = '<tr><th class="t">Revenda</th><th>Meta %</th><th>Meta (CX UNIT)</th><th>Pedido entregue (CX UNIT)</th><th>Falta de estoque (CX UNIT)</th><th>Insuficiência %</th><th>Fill rate %</th><th>Acima da meta (CX UNIT)</th><th>Até</th><th class="t"></th></tr>';
+  const cab = '<tr><th class="t">Revenda</th><th>Meta %</th><th>Meta (CX UNIT)</th><th>Pedido entregue (CX UNIT)</th><th>Falta de estoque (CX UNIT)</th><th>Insuficiência %</th><th>Fill rate %</th><th>Acima da meta (CX UNIT)</th><th class="t"></th></tr>';
   const lin = (rot, x, link, cls = '') => (x ? `<tr class="${cls}"><td class="t">${rot}</td><td>${fp(x.totais.meta, 0)}</td><td>${fcx(x.totais.metaCx)}</td><td>${fcx(x.totais.entregue)}</td><td>${fcx(x.totais.falta)}</td>
-<td class="${farol(x.totais.insuf, x.totais.meta)}">${fp(x.totais.insuf)}</td><td>${fp(x.totais.fillRate)}</td><td>${fcx(x.totais.acimaMeta)}</td><td>${x.ultimoDia ? fdata(x.ultimoDia.data) : ''}</td>
-<td class="t">${link ? `<a class="btn sec fr-det" href="${link}">Detalhes</a>` : ''}</td></tr>` : `<tr><td class="t">${rot}</td><td colspan="9" class="t small">sem dados no mês</td></tr>`);
+<td class="${farol(x.totais.insuf, x.totais.meta)}">${fp(x.totais.insuf)}</td><td>${fp(x.totais.fillRate)}</td><td>${fcx(x.totais.acimaMeta)}</td>
+<td class="t">${link ? `<a class="btn sec fr-det" href="${link}">Detalhes</a>` : ''}</td></tr>` : `<tr><td class="t">${rot}</td><td colspan="8" class="t small">sem dados no mês</td></tr>`);
   const doMes = (l) => l.mes;
   const blocos = c.meses.map((mes) => {
     const pega = (s) => s.linhas.find((l) => doMes(l) === mes);
     const us = Object.keys(UNIDADES_FR).map((u) => lin(nomeAba(u), pega(c.unidades[u]), pega(c.unidades[u]) ? `#/fillrate/${u}/${mes}` : null)).join('');
     return `<section class="bloco fr-mes"><div class="faixa"><span>${nomeMesLongo(mes)}${mes === mesAtual ? ' <span class="small">(parcial)</span>' : ''}</span></div><div class="corpo"><div class="tw scroll fr-resumo"><table><thead>${cab}</thead><tbody>
-${us}${lin('GERAL', pega(c.geral), `#/fillrate/resumo/${mes}`, 'tot')}</tbody></table></div></div></section>`;
+${us}${lin('GERAL', pega(c.geral), null, 'tot')}</tbody></table></div></div></section>`;
   }).join('');
   const acm = (s) => (s.acumulado ? { totais: s.acumulado, ultimoDia: s.linhas.at(-1)?.ultimoDia } : null);
   const acumulado = `<section class="bloco fr-mes"><div class="faixa"><span>ACUMULADO ${ano}</span></div><div class="corpo"><div class="tw scroll fr-resumo"><table><thead>${cab}</thead><tbody>
@@ -168,7 +168,7 @@ ${Object.keys(UNIDADES_FR).map((u) => lin(nomeAba(u), acm(c.unidades[u]), null))
     for (let m = 1; m <= fim; m++) { const k = `${ano}-${String(m).padStart(2, '0')}`; for (const u of Object.keys(UNIDADES_FR)) if (!resumos[k]?.[u]) sem.push(`${NOMES_MES[m - 1].slice(0, 3).toLowerCase()} ${UNIDADES_FR[u]}`); }
     return sem.length ? `<div class="aviso">Sem dados: ${E(sem.join(', '))}. <a href="#/fillrate/importar/${ano}-01">Importar</a> o relatório ou a planilha antiga do mês.</div>` : '';
   })() : '';
-  return `${topo}${faltam}${exportar}${blocos}${acumulado}${explica(META_FR)}<p class="small">Detalhes abre a aba da revenda naquele mês (por dia, por produto e por data e produto). Na planilha exportada, o mesmo quadro fica na aba COMPARATIVO, com um link para a aba de detalhe de cada revenda e mês.</p>`;
+  return `${topo}${faltam}${exportar}${blocos}${acumulado}${explica(META_FR)}<p class="small">Detalhes abre a aba da revenda naquele mês (por dia, por produto e por data e produto). Na planilha exportada, o mesmo quadro fica na aba COMPARATIVO, com as cores do site e um link para a aba de detalhe de cada revenda e mês.</p>`;
 }
 
 // ---------------------------------------------------------------- telas (Firestore)
@@ -218,7 +218,7 @@ async function telaComparativo(ctx, mes) {
       const meses = Object.keys(resumos).filter((m) => m.startsWith(`${ano}-`)).sort();
       const porMes = adm ? await F.calcularFRMeses(meses) : Object.fromEntries(await Promise.all(meses.map(async (m) => [m, await F.lerFRPublicado(m)])));
       msg.textContent = 'Montando a planilha…';
-      XLSX.writeFile(planilhaComparativoFR(ano, porMes, { mesAtual: ctx.mesAtual() }), `Fill rate - Insuficiencia - comparativo ${ano}.xlsx`);
+      await baixarComparativoFR(ano, porMes, { mesAtual: ctx.mesAtual() });
       msg.textContent = '✓ planilha gerada';
     } catch (err) { msg.innerHTML = ctx.erro(err); }
     b.disabled = false;
