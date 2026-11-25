@@ -1,10 +1,10 @@
 // Telas do acompanhamento Retorno por motivo (CB Norte, CB Sul, DL Barreiras, DL Juazeiro): uma aba por unidade,
 // como na planilha (tabela de valores com o gráfico de barras ao lado). As funções pagina* são puras (dados → HTML)
 // e servem à prévia local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-1';
-import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261125-1';
-import * as R from './dados_retorno.js?v=20261125-1';
-import * as D from './dados.js?v=20261125-1';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-2';
+import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261125-2';
+import * as R from './dados_retorno.js?v=20261125-2';
+import * as D from './dados.js?v=20261125-2';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const fcx = (x) => (x == null ? '–' : nf(1).format(x));
@@ -54,9 +54,8 @@ export function paginaUnidadeRetorno(u, d, { mes, admin, topo }) {
   if (!d || !d.temDados) return `${topo}${admin && d ? avisos(u, d, mes) : `<div class="aviso">Sem retorno de ${E(UNIDADES_RET[u])} em ${nomeMes(mes)}.</div>`}`;
   const t = d.totais;
   const tiles = `<div class="tiles">
-<div class="tile"><div class="l">% retorno sem cancelamento de NF</div><div class="v">${fp2(t.pctSemCanc)}</div><div class="d">${fcx(t.semCanc)} CX UNIT · % oficial</div></div>
 <div class="tile"><div class="l">% retorno total</div><div class="v">${fp2(t.pctTotal)}</div><div class="d">${fcx(t.retorno)} CX UNIT</div></div>
-<div class="tile"><div class="l">% cancelamento de NF</div><div class="v">${fp2(t.pctCancelamento)}</div><div class="d">fora do % oficial</div></div>
+<div class="tile"><div class="l">% retorno sem cancelamento de NF</div><div class="v">${fp2(t.pctSemCanc)}</div><div class="d">${fcx(t.semCanc)} CX UNIT · % oficial</div></div>
 <div class="tile"><div class="l">Volume do mês</div><div class="v">${fcx(t.volume)}</div><div class="d">CX UNIT · ${E(d.origemVolume || 'sem volume')}</div></div>
 ${t.totalRS != null ? `<div class="tile"><div class="l">Retorno por motorista</div><div class="v">${frs(t.totalRS)}</div><div class="d">${fi(t.motoristas)} motoristas</div></div>` : ''}</div>`;
   const lin = (m) => `<tr${m.cancelamento ? ' class="pv"' : ''}><td class="t">${E(m.motivo)} ${m.cancelamento ? tagCanc : ''}${m.observacao ? tagObs : ''}</td><td>${fcx(m.cx)}</td><td>${fp(m.pctVolume, 3)}</td></tr>`;
