@@ -10,8 +10,8 @@
 // Valores, não fórmulas: os números são os do Hub (regras da ficha §11, p. ex. meta = 2% do pedido).
 // Os rótulos são os da planilha ("% FILL RATE" no quadro é a insuficiência, como lá; o fill rate fica no N3).
 // porMes: {AAAA-MM: {unidades: {NORTE|SUL: unidade calculada (totais, dias, produtos, detalhe)}, geral}}
-import { UNIDADES_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261125-16';
-import { STYLES_XML, THEME_XML } from './modelo_fillrate.js?v=20261125-16';
+import { UNIDADES_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261125-17';
+import { STYLES_XML, THEME_XML } from './modelo_fillrate.js?v=20261125-17';
 
 const NOMES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 const nomeMes = (mes) => `${NOMES[+mes.slice(5, 7) - 1]}/${mes.slice(0, 4)}`;
@@ -80,7 +80,7 @@ ${merges.length ? `<mergeCells count="${merges.length}">${merges.map((m) => `<me
 
 // Larguras da planilha (CB NORTE e Resumo), em unidades do Excel.
 const COLS_UNIDADE = '<col min="1" max="1" width="0.33203125" customWidth="1"/><col min="2" max="4" width="15.6640625" customWidth="1"/><col min="5" max="5" width="40" customWidth="1"/><col min="6" max="6" width="21.33203125" style="1" customWidth="1"/><col min="7" max="7" width="17.88671875" style="2" customWidth="1"/><col min="8" max="8" width="18.44140625" style="2" customWidth="1"/><col min="9" max="9" width="11.33203125" style="2" customWidth="1"/><col min="10" max="10" width="0.5546875" customWidth="1"/><col min="11" max="11" width="23.6640625" style="1" customWidth="1"/><col min="12" max="12" width="19.5546875" style="3" customWidth="1"/><col min="13" max="13" width="0.5546875" customWidth="1"/><col min="14" max="14" width="30.5546875" style="3" customWidth="1"/><col min="15" max="15" width="19.5546875" style="3" customWidth="1"/>';
-const COLS_RESUMO = '<col min="2" max="2" width="16.33203125" style="1" customWidth="1"/><col min="3" max="4" width="18.44140625" customWidth="1"/><col min="5" max="5" width="0.5546875" customWidth="1"/><col min="6" max="6" width="23.6640625" hidden="1" customWidth="1"/><col min="7" max="7" width="19.5546875" customWidth="1"/><col min="8" max="8" width="0.5546875" customWidth="1"/><col min="9" max="9" width="29.109375" customWidth="1"/><col min="10" max="10" width="17.5546875" customWidth="1"/><col min="11" max="11" width="14.6640625" customWidth="1"/><col min="12" max="12" width="3.6640625" customWidth="1"/><col min="13" max="13" width="14.6640625" customWidth="1"/><col min="14" max="15" width="16.6640625" customWidth="1"/>';
+const COLS_RESUMO = '<col min="2" max="2" width="16.33203125" style="1" customWidth="1"/><col min="3" max="4" width="18.44140625" customWidth="1"/><col min="5" max="5" width="0.5546875" customWidth="1"/><col min="6" max="6" width="23.6640625" hidden="1" customWidth="1"/><col min="7" max="7" width="19.5546875" customWidth="1"/><col min="8" max="8" width="0.5546875" customWidth="1"/><col min="9" max="9" width="29.109375" customWidth="1"/><col min="10" max="10" width="17.5546875" customWidth="1"/><col min="11" max="11" width="14.6640625" customWidth="1"/><col min="12" max="12" width="3.6640625" customWidth="1"/><col min="13" max="13" width="14.6640625" customWidth="1"/><col min="14" max="15" width="16.6640625" customWidth="1"/><col min="16" max="17" width="14.6640625" customWidth="1"/>';
 
 // ---------------------------------------------------------------- COMPARATIVO (o quadro da aba Resumo, mês a mês)
 function abaComparativo(S, ano, porMes, mesAtual) {
@@ -120,21 +120,25 @@ function abaComparativo(S, ano, porMes, mesAtual) {
   for (const u of Object.keys(UNIDADES_FR)) linha(UNIDADES_FR[u].toUpperCase(), acm(c.unidades[u]), null);
   // Dados dos gráficos (M:O) e os dois gráficos embaixo: falta de estoque (CX UNIT) mês a mês de cada revenda.
   const M = C('M'), us = Object.keys(UNIDADES_FR), r0 = 3;
-  f.mescla(r0, M, C('O'), 'FALTA DE ESTOQUE (CX UNIT) - MÊS A MÊS', 43, 44, 45);
-  [['M', 'MÊS', 5], ['N', 'CB NORTE', 5], ['O', 'CB SUL', 5]].forEach(([l, x, s]) => f.set(r0 + 1, C(l), x, s));
+  f.mescla(r0, M, C('Q'), 'FALTA DE ESTOQUE (CX UNIT) E INSUFICIÊNCIA % - MÊS A MÊS', 43, 44, 45);
+  [['M', 'MÊS', 5], ['N', 'CB NORTE', 5], ['O', 'CB SUL', 5], ['P', '% CB NORTE', 5], ['Q', '% CB SUL', 5]].forEach(([l, x, s]) => f.set(r0 + 1, C(l), x, s));
   const rotulos = c.meses.map((m) => `${NOMES[+m.slice(5, 7) - 1].slice(0, 3)}/${m.slice(2, 4)}${m === mesAtual ? '*' : ''}`);
   const valores = Object.fromEntries(us.map((u) => [u, c.meses.map((m) => c.unidades[u].linhas.find((l) => l.mes === m)?.totais.falta ?? null)]));
+  const pcts = Object.fromEntries(us.map((u) => [u, c.meses.map((m) => c.unidades[u].linhas.find((l) => l.mes === m)?.totais.insuf ?? null)]));
   c.meses.forEach((m, i) => {
     const r = r0 + 2 + i;
     f.set(r, M, rotulos[i], 6);
-    us.forEach((u, k) => f.set(r, M + 1 + k, valores[u][i], 7));
+    us.forEach((u, k) => { f.set(r, M + 1 + k, valores[u][i], 7); f.set(r, M + 3 + k, pcts[u][i], 6); });
   });
+  // Texto do % como o Excel mostra (formato 0,0% da planilha), para o cache do rótulo.
+  const pctTxt = (v) => (v == null ? '' : `${(v * 100).toFixed(1).replace('.', ',')}%`);
   const ini = r0 + 3, fim = r0 + 2 + c.meses.length, abaixo = fim + 2, alto = 17;
   if (c.meses.includes(mesAtual)) f.set(fim + 1, M, '* mês em andamento (parcial)', 0);
   const graficos = us.map((u, k) => ({
     titulo: `${UNIDADES_FR[u].toUpperCase()} - FALTA DE ESTOQUE (CX UNIT) MÊS A MÊS`, cor: u === 'SUL' ? '1F4E79' : 'C00000',
     nomeRef: `COMPARATIVO!$${col(M + 1 + k)}$${r0 + 2}`, nome: UNIDADES_FR[u].toUpperCase(),
     catRef: `COMPARATIVO!$M$${ini}:$M$${fim}`, valRef: `COMPARATIVO!$${col(M + 1 + k)}$${ini}:$${col(M + 1 + k)}$${fim}`,
+    pctRef: `COMPARATIVO!$${col(M + 3 + k)}$${ini}:$${col(M + 3 + k)}$${fim}`, pcts: pcts[u].map(pctTxt),
     cats: rotulos, vals: valores[u], de: { c: M, r: abaixo + k * (alto + 1) }, ate: { c: M + 9, r: abaixo + k * (alto + 1) + alto },
   }));
   return { f, meses: c.meses, graficos };
@@ -151,9 +155,10 @@ function xmlGrafico(g) {
 <c:plotArea><c:layout/><c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>
 <c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:strRef><c:f>${g.nomeRef}</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>${esc(g.nome)}</c:v></c:pt></c:strCache></c:strRef></c:tx>
 <c:spPr><a:solidFill><a:srgbClr val="${g.cor}"/></a:solidFill></c:spPr><c:invertIfNegative val="0"/>
-<c:dLbls><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>${txt(900, true)}<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>
+<c:dLbls><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>${txt(900, true)}<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/><c:separator>&#10;</c:separator><c:extLst><c:ext uri="{CE6537A1-D6FC-4f65-9D91-7224C49458BB}" xmlns:c15="http://schemas.microsoft.com/office/drawing/2012/chart"><c15:showDataLabelsRange val="1"/><c15:showLeaderLines val="0"/></c:ext></c:extLst></c:dLbls>
 <c:cat><c:strRef><c:f>${g.catRef}</c:f><c:strCache><c:ptCount val="${n}"/>${pts(g.cats, false)}</c:strCache></c:strRef></c:cat>
-<c:val><c:numRef><c:f>${g.valRef}</c:f><c:numCache><c:formatCode>#,##0</c:formatCode><c:ptCount val="${n}"/>${pts(g.vals, true)}</c:numCache></c:numRef></c:val></c:ser>
+<c:val><c:numRef><c:f>${g.valRef}</c:f><c:numCache><c:formatCode>#,##0</c:formatCode><c:ptCount val="${n}"/>${pts(g.vals, true)}</c:numCache></c:numRef></c:val>
+<c:extLst><c:ext uri="{02D57815-91ED-43cb-92C2-25804820EDAC}" xmlns:c15="http://schemas.microsoft.com/office/drawing/2012/chart"><c15:datalabelsRange><c15:f>${g.pctRef}</c15:f><c15:dlblRangeCache><c:ptCount val="${n}"/>${pts(g.pcts, false)}</c15:dlblRangeCache></c15:datalabelsRange></c:ext></c:extLst></c:ser>
 <c:gapWidth val="60"/><c:axId val="5001"/><c:axId val="5002"/></c:barChart>
 <c:catAx><c:axId val="5001"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:spPr><a:ln w="9525"><a:solidFill><a:srgbClr val="BFBFBF"/></a:solidFill></a:ln></c:spPr>${txt(900, false)}<c:crossAx val="5002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>
 <c:valAx><c:axId val="5002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines><c:spPr><a:ln w="6350"><a:solidFill><a:srgbClr val="D9D9D9"/></a:solidFill></a:ln></c:spPr></c:majorGridlines><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:spPr><a:ln><a:noFill/></a:ln></c:spPr>${txt(900, false)}<c:crossAx val="5001"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx>

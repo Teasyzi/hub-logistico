@@ -1,11 +1,11 @@
 // Telas do Fill rate / Insuficiência de estoque, como a planilha: aba RESUMO (o quadro da aba Resumo) e uma aba
 // por revenda (CB NORTE, CB SUL) com o cabeçalho, "por dia", "por produto" e "por data e produto". Sem gráfico.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-16';
-import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261125-16';
-import { baixarComparativoFR } from './exportar_fillrate.js?v=20261125-16';
-import * as F from './dados_fillrate.js?v=20261125-16';
-import * as D from './dados.js?v=20261125-16';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-17';
+import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261125-17';
+import { baixarComparativoFR } from './exportar_fillrate.js?v=20261125-17';
+import * as F from './dados_fillrate.js?v=20261125-17';
+import * as D from './dados.js?v=20261125-17';
 
 const fcx = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (pct, meta) => (pct == null ? '' : pct <= meta ? 'c-ok' : 'c-no');
@@ -143,19 +143,21 @@ export function paginaUnidadeFR(u, d, { mes, admin, topo }) {
 const NOMES_MES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 export const nomeMesLongo = (mes) => `${NOMES_MES[+mes.slice(5, 7) - 1]}/${mes.slice(0, 4)}`;
 
-// Gráfico de barras da falta de estoque (CX UNIT) mês a mês de uma revenda: valor em cima da barra, mês embaixo.
+// Gráfico de barras da falta de estoque (CX UNIT) mês a mês de uma revenda: em cima da barra, a falta em CX UNIT e,
+// logo abaixo, a insuficiência % do mês (falta ÷ pedido); o mês embaixo.
 // linhas: [{mes, totais}] (comparativoFR). cor: token da revenda (--s1 Norte, --s2 Sul).
 const MES3 = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 export function graficoMesesFR(linhas, cor, mesAtual = null) {
   if (!linhas.length) return '<p class="small">Sem meses com dados.</p>';
-  const w = 640, h = 250, pl = 46, pr = 8, pt = 22, pb = 26, max = Math.max(...linhas.map((l) => l.totais.falta), 1) * 1.12;
+  const w = 640, h = 260, pl = 46, pr = 8, pt = 36, pb = 26, max = Math.max(...linhas.map((l) => l.totais.falta), 1) * 1.12;
   const y = (v) => pt + (h - pt - pb) * (1 - v / max), band = (w - pl - pr) / linhas.length, bw = Math.min(46, band * 0.62);
   let s = `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="Falta de estoque em CX UNIT por mês">`;
   for (let k = 0; k <= 4; k++) { const v = (max * k) / 4, yy = y(v).toFixed(1); s += `<line x1="${pl}" x2="${w - pr}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/><text x="${pl - 6}" y="${(+yy + 4).toFixed(1)}" text-anchor="end">${fi(v)}</text>`; }
   linhas.forEach((l, i) => {
     const t = l.totais, cx = pl + band * (i + 0.5), x = cx - bw / 2, rot = `${MES3[+l.mes.slice(5, 7) - 1]}${l.mes === mesAtual ? '*' : ''}`;
     s += `<rect x="${x.toFixed(1)}" y="${y(t.falta).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, y(0) - y(t.falta)).toFixed(1)}" rx="2" fill="${cor}"><title>${nomeMesLongo(l.mes)}: ${fi(t.falta)} CX UNIT de falta · insuficiência ${fp(t.insuf)}</title></rect>`
-      + `<text class="val" x="${cx.toFixed(1)}" y="${(y(t.falta) - 5).toFixed(1)}" text-anchor="middle">${fi(t.falta)}</text>`
+      + `<text class="val" x="${cx.toFixed(1)}" y="${(y(t.falta) - 18).toFixed(1)}" text-anchor="middle">${fi(t.falta)}</text>`
+      + `<text class="fr-pct ${t.dentroMeta ? 'ok' : 'no'}" x="${cx.toFixed(1)}" y="${(y(t.falta) - 5).toFixed(1)}" text-anchor="middle">${fp(t.insuf, 1)}</text>`
       + `<text x="${cx.toFixed(1)}" y="${h - 8}" text-anchor="middle">${rot}</text>`;
   });
   return `${s}<line x1="${pl}" x2="${w - pr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--axis)"/></svg>`;
@@ -187,7 +189,7 @@ ${Object.keys(UNIDADES_FR).map((u) => lin(nomeAba(u), acm(c.unidades[u]), null))
     return sem.length ? `<div class="aviso">Sem dados: ${E(sem.join(', '))}. <a href="#/fillrate/importar/${ano}-01">Importar</a> o relatório ou a planilha antiga do mês.</div>` : '';
   })() : '';
   const COR_U = { NORTE: 'var(--s1)', SUL: 'var(--s2)' };
-  const graficos = `<div class="g2 fr-graficos">${Object.keys(UNIDADES_FR).map((u) => `<section class="bloco"><div class="faixa">${nomeAba(u)} · falta de estoque (CX UNIT) mês a mês</div><div class="corpo">${graficoMesesFR(c.unidades[u].linhas, COR_U[u], mesAtual)}</div></section>`).join('')}</div>${c.meses.includes(mesAtual) ? '<p class="small">* mês em andamento (parcial).</p>' : ''}`;
+  const graficos = `<div class="g2 fr-graficos">${Object.keys(UNIDADES_FR).map((u) => `<section class="bloco"><div class="faixa">${nomeAba(u)} · falta de estoque (CX UNIT) mês a mês</div><div class="corpo">${graficoMesesFR(c.unidades[u].linhas, COR_U[u], mesAtual)}</div></section>`).join('')}</div><p class="small">Em cima de cada barra: a falta de estoque em CX UNIT e, embaixo dela, a insuficiência % do mês (falta ÷ pedido; verde até a meta de 2%).${c.meses.includes(mesAtual) ? ' * mês em andamento (parcial).' : ''}</p>`;
   return `${topo}${faltam}${exportar}${graficos}${blocos}${acumulado}${explica(META_FR)}<p class="small">Detalhes abre a aba da revenda naquele mês (por dia, por produto e por data e produto). Na planilha exportada, o mesmo quadro e os dois gráficos ficam na aba COMPARATIVO, com um link para a aba de detalhe de cada revenda e mês.</p>`;
 }
 
