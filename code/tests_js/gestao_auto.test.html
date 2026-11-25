@@ -1,0 +1,55 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Teste Gestão à vista · automático</title>
+<!-- Testes da regra: digitado à mão > automático do Hub > importado; vazio ou zero volta ao automático;
+     linha calculada editada vale o digitado; autoDoMesGV tira os números certos de cada acompanhamento. -->
+<pre id="r">rodando…</pre>
+<script type="module">
+const v = new URLSearchParams(location.search).get('v') || '';
+const G = await import(`../../docs/js/gestao.js?v=${v}`);
+const out = []; let falhas = 0;
+const ok = (nome, cond, extra = '') => { out.push(`${cond ? 'ok   ' : 'FALHA'} ${nome}${extra ? ' · ' + extra : ''}`); if (!cond) falhas++; };
+
+// 1. autoDoMesGV com resultados no formato de cada acompanhamento
+const montagem = { CBAR: { total: { cx_unit: 1000, cargas: 10, entregas: 200, ret_vol: 0.01, ret_cli: 0.02 }, resumo: { dias_uteis: 21, acm: 1000, fat_acm: 2600 }, media: { ocupacao: 0.63 } }, CCRT: { total: { cx_unit: 0 } } };
+const perdas = { dls: { CBAR: { temDados: true, motivos: { INVENTARIO: { rs: 100 }, ROTA: { rs: 50 }, ESTOQUE: { rs: 25 }, TRANSPORTE: { rs: 999 } }, totais: { ajustePreco: -10 } }, CCRT: { temDados: false } } };
+const km = { unidades: { CBAR: { temDados: true, totais: { realizado: 84586 } }, CCRT: { temDados: true, totais: { realizado: 0 } } } };
+const tx = { unidades: { CBAR: { totais: { cargas: 5, realizado: 1.8 } }, CCRT: { totais: { cargas: 0 } } } };
+const a = G.autoDoMesGV({ montagem, perdas, km, tx });
+ok('Montagem → linhas 4,5,6,12,13,14,21,23', JSON.stringify([4, 5, 6, 12, 13, 14, 21, 23].map((l) => a.valores.CBAR[l])) === JSON.stringify([21, 2600, 1000, 0.63, 0.01, 0.02, 10, 200]));
+ok('Perdas = inventário + rota + estoque + ajuste (sem transporte)', a.valores.CBAR[26] === 165);
+ok('KM realizado', a.valores.CBAR[31] === 84586);
+ok('1x1 ajudantes por carga', a.valores.CBAR[15] === 1.8);
+ok('DL sem dados não preenche nada', Object.keys(a.valores.CCRT).length === 0, JSON.stringify(a.valores.CCRT));
+ok('origem marcada', a.origem.CBAR[26] === 'perdas' && a.origem.CBAR[6] === 'montagem');
+
+// 2. efetivoGV: digitado > automático > importado
+const doc = {
+  valores: { 1: { 6: 900, 28: 700000, 26: 555 } }, origem: { 1: { 6: 'kpi', 28: 'manual', 26: 'manual' } },
+  auto: { 1: { 6: 1000, 26: 165, 31: 84586 } }, autoOrigem: { 1: { 6: 'montagem', 26: 'perdas', 31: 'km' } },
+};
+let e = G.efetivoGV(doc);
+ok('automático vale por cima do KPI', e.valores[1][6] === 1000 && e.origem[1][6] === 'hub:montagem');
+ok('digitado vale por cima do automático', e.valores[1][26] === 555 && e.origem[1][26] === 'manual');
+ok('digitado sem automático fica', e.valores[1][28] === 700000);
+ok('só automático entra', e.valores[1][31] === 84586);
+
+// 3. zerar (ou apagar) o digitado volta ao automático
+const d2 = { ...doc, ...G.editarGV(doc, [{ mes: 1, l: 26, v: 0 }, { mes: 1, l: 28, v: null }]) };
+e = G.efetivoGV(d2);
+ok('zero volta ao automático', e.valores[1][26] === 165 && e.origem[1][26] === 'hub:perdas');
+ok('vazio sem automático fica vazio', e.valores[1][28] === undefined);
+const d3 = { ...d2, ...G.editarGV(d2, [{ mes: 1, l: 26, v: 777 }]) };
+ok('digitar de novo volta a valer o digitado', G.efetivoGV(d3).valores[1][26] === 777);
+
+// 4. linha calculada editada à mão vale o digitado; sem edição, a fórmula
+const base = { 1: { 4: 20, 6: 1000, 21: 10 } };
+ok('fórmula: volume por carga = 6/21', G.calcularAnoGV(base).linhas[8].m[0] === 100);
+const ed = G.editarGV({ valores: base, origem: {} }, [{ mes: 1, l: 8, v: 123 }]);
+ok('calculada digitada vale o digitado', G.calcularAnoGV(ed.valores).linhas[8].m[0] === 123);
+const volta = G.editarGV(ed, [{ mes: 1, l: 8, v: 0 }]);
+ok('zerar a calculada volta à fórmula', G.calcularAnoGV(volta.valores).linhas[8].m[0] === 100);
+
+out.push(falhas ? `${falhas} FALHA(S)` : 'TUDO OK');
+document.getElementById('r').textContent = out.join('\n');
+</script>

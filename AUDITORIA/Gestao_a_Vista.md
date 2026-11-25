@@ -160,3 +160,19 @@ Tudo é digitado. Nenhum número vem de um relatório bruto: os valores são cop
 - **Dados que o usuário precisa corrigir depois de importar** (com ✎):
   - cargas de dez/25 em Barreiras (3.936);
   - perdas de Juazeiro de fev–mar/26 (copiadas de Barreiras; janeiro já é corrigido ao importar a planilha de Perdas de janeiro).
+
+## 12. Preenchimento automático (25/11/2026, pedido do usuário)
+- **Fontes:** a Gestão à vista puxa dos outros acompanhamentos do Hub (`atualizarAutomaticoGV` em `dados_gestao.js` e `autoDoMesGV` em `gestao.js`):
+  - **Montagem:** 4 dias úteis, 5 faturamento ACM, 6 CX UNIT ACM, 12 ocupação média, 13 retorno volume, 14 retorno clientes, 21 cargas e 23 pedidos (entregas).
+  - **Perdas:** 26 = inventário + rota + estoque + ajuste de preço, sem transporte (o PERDAS TOTAL da planilha).
+  - **KM:** 31 = km realizado.
+  - **1x1:** 15 = ajudantes por carga.
+  - **Ficam de fora** (vêm do KPI importado ou digitados): Green Mile, TRIXLOG, km/litro, Easy Pallet, custos e empilhadeiras.
+- **Quando atualiza:**
+  - ao abrir no rascunho, atualiza o mês atual e o anterior;
+  - "↻ Atualizar do Hub" atualiza o ano todo.
+  - O resultado fica gravado em `gav_dados.auto`, que é separado dos importados e dos digitados.
+- **O que vale em cada célula:** o digitado à mão (vermelho), depois o automático (azul), depois o importado.
+  - Apagar o valor ou pôr zero volta ao automático.
+  - Todas as células podem ser editadas, inclusive as calculadas. Uma calculada digitada vale o digitado e, na exportação, vai como valor no lugar da fórmula.
+- **Testes:** `code/tests_js/gestao_auto.test.html` (16 casos). Os testes usam dados montados. O cálculo com os dados reais do Firestore só o usuário testa, com login.

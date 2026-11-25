@@ -106,6 +106,8 @@ export function calcularAnoGV(valores = {}) {
       if (x.traco === 'sempre' || (x.traco === 'mes' && temDados(m))) return '-';
       return null;
     }
+    // Linha calculada com valor digitado à mão: vale o digitado.
+    if (v(x.l, m) != null) return v(x.l, m);
     if (x.tipo === 'cubos') { const n = out[6].m[m - 1]; return ehNum(n) ? n / FATOR_CUBOS : null; }
     // Divisão como IF(num="";"";IFERROR(num/den;"")): sem numerador fica vazio; sem denominador, vazio (ou "-").
     const a = out[x.num].m[m - 1], b = out[x.den].m[m - 1];
@@ -133,6 +135,54 @@ export function calcularAnoGV(valores = {}) {
   return { linhas: out, mesesComDados };
 }
 
+// ---------------------------------------------------------------- automático: os outros acompanhamentos do Hub
+// Do resultado de cada acompanhamento no mês → {CBAR: {linha: v}, CCRT: {...}} e a origem de cada valor.
+//   Montagem (calcular de calc.js): 4 dias úteis, 5 faturamento ACM, 6 CX UNIT ACM, 12 ocupação média,
+//     13 retorno volume, 14 retorno clientes, 21 cargas, 23 pedidos (entregas).
+//   Perdas (calcularPerdas): 26 = PERDAS TOTAL da planilha = inventário + rota + estoque + ajuste de preço (sem transporte).
+//   KM (calcularKM): 31 = km realizado do mês.
+//   1x1 (calcularTX): 15 = ajudantes por carga (realizado).
+export const FONTES_AUTO_GV = { montagem: 'Montagem de Cargas', perdas: 'Perdas de estoque', km: 'KM planejado × realizado', '1x1': 'Transportes 1x1' };
+export function autoDoMesGV({ montagem = {}, perdas = null, km = null, tx = null } = {}) {
+  const out = { CBAR: {}, CCRT: {} }, origem = { CBAR: {}, CCRT: {} };
+  const pon = (u, l, v, f) => { if (ehNum(v)) { out[u][l] = v; origem[u][l] = f; } };
+  for (const u of ['CBAR', 'CCRT']) {
+    const r = montagem[u];
+    if (r?.total?.cx_unit > 0) {
+      pon(u, 4, r.resumo?.dias_uteis, 'montagem'); pon(u, 5, r.resumo?.fat_acm, 'montagem'); pon(u, 6, r.resumo?.acm, 'montagem');
+      pon(u, 12, r.media?.ocupacao, 'montagem'); pon(u, 13, r.total.ret_vol, 'montagem'); pon(u, 14, r.total.ret_cli, 'montagem');
+      if (r.total.cargas > 0) pon(u, 21, r.total.cargas, 'montagem');
+      if (r.total.entregas > 0) pon(u, 23, r.total.entregas, 'montagem');
+    }
+    const p = perdas?.dls?.[u];
+    if (p?.temDados) pon(u, 26, p.motivos.INVENTARIO.rs + p.motivos.ROTA.rs + p.motivos.ESTOQUE.rs + (Number(p.totais?.ajustePreco) || 0), 'perdas');
+    const k = km?.unidades?.[u];
+    if (k?.temDados && k.totais?.realizado > 0) pon(u, 31, k.totais.realizado, 'km');
+    const t = tx?.unidades?.[u];
+    if (t?.totais?.cargas > 0) pon(u, 15, t.totais.realizado, '1x1');
+  }
+  return { valores: out, origem };
+}
+
+// Valor que vale em cada célula: digitado à mão > automático do Hub > importado (KPI, Perdas, planilha antiga).
+// doc: {valores, origem, auto: {mes: {l: v}}, autoOrigem: {mes: {l: fonte}}} → {valores, origem}
+export function efetivoGV(doc) {
+  const valores = {}, origem = {};
+  const meses = new Set([...Object.keys(doc?.valores || {}), ...Object.keys(doc?.auto || {})]);
+  for (const m of meses) {
+    const imp = doc?.valores?.[m] || {}, oi = doc?.origem?.[m] || {}, au = doc?.auto?.[m] || {}, oa = doc?.autoOrigem?.[m] || {};
+    for (const l of new Set([...Object.keys(imp), ...Object.keys(au)])) {
+      let v, o;
+      if (oi[l] === 'manual' && ehNum(imp[l])) { v = imp[l]; o = 'manual'; }
+      else if (ehNum(au[l])) { v = au[l]; o = `hub:${oa[l] || ''}`; }
+      else if (ehNum(imp[l])) { v = imp[l]; o = oi[l]; }
+      else continue;
+      (valores[m] ??= {})[l] = v; (origem[m] ??= {})[l] = o;
+    }
+  }
+  return { valores, origem };
+}
+
 // ---------------------------------------------------------------- juntar importações
 // doc: {valores: {m: {l: v}}, origem: {m: {l: origem}}}. entradas: [{mes, l, v, origem}]. v null apaga (só se puder).
 export function aplicarGV(doc, entradas) {
@@ -153,11 +203,12 @@ export function aplicarGV(doc, entradas) {
   return { valores, origem, n, mantidos };
 }
 
-// Edição à mão: grava por cima (origem manual); vazio apaga o valor e a origem (a próxima importação volta a preencher).
+// Edição à mão: grava por cima (origem manual). Vazio ou zero tira o valor digitado e a célula volta ao automático
+// (o que vier do Hub ou das importações; nas linhas calculadas, volta a fórmula).
 export function editarGV(doc, edicoes) {
   const valores = structuredClone(doc?.valores || {}), origem = structuredClone(doc?.origem || {});
   for (const { mes, l, v } of edicoes) {
-    if (v == null) { if (valores[mes]) delete valores[mes][l]; if (origem[mes]) delete origem[mes][l]; continue; }
+    if (v == null || v === 0) { if (valores[mes]) delete valores[mes][l]; if (origem[mes]) delete origem[mes][l]; continue; }
     (valores[mes] ??= {})[l] = v; (origem[mes] ??= {})[l] = 'manual';
   }
   return { valores, origem };

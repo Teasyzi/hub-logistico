@@ -2,11 +2,11 @@
 // quadro da aba Dados (jan–dez + Acum) e, embaixo, os gráficos de cada aba de gráfico da planilha, na mesma ordem.
 // No rascunho, o admin edita os valores digitados (✎). O botão exporta a planilha igual à oficial (exportar_gestao.js).
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp } from './views.js?v=20261125-19';
-import { UNIDADES_GV, CIDADE_GV, LINHAS_GV, LINHA_GV, GRAFICOS_GV, ORIGENS_GV, rotuloGV, calcularAnoGV, lerArquivoGV } from './gestao.js?v=20261125-19';
-import { baixarGestaoGV } from './exportar_gestao.js?v=20261125-19';
-import * as G from './dados_gestao.js?v=20261125-19';
-import * as D from './dados.js?v=20261125-19';
+import { E, fi, fd, fp } from './views.js?v=20261125-20';
+import { UNIDADES_GV, CIDADE_GV, LINHAS_GV, LINHA_GV, GRAFICOS_GV, ORIGENS_GV, FONTES_AUTO_GV, rotuloGV, calcularAnoGV, lerArquivoGV } from './gestao.js?v=20261125-20';
+import { baixarGestaoGV } from './exportar_gestao.js?v=20261125-20';
+import * as G from './dados_gestao.js?v=20261125-20';
+import * as D from './dados.js?v=20261125-20';
 
 const MES3 = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -41,6 +41,8 @@ export function abasGV(ativa, ano, admin) {
     + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
 }
 
+const textoOrigem = (o) => (o.startsWith('hub:') ? `automático · ${FONTES_AUTO_GV[o.slice(4)] || o.slice(4)}` : ORIGENS_GV[o] || o);
+
 // ---------------------------------------------------------------- quadro (aba Dados, B:O)
 function quadro(u, ano, cc, origem, admin) {
   const a2 = String(ano).slice(2);
@@ -49,8 +51,8 @@ function quadro(u, ano, cc, origem, admin) {
     const ln = cc.linhas[x.l];
     const tds = ln.m.map((v, i) => {
       const o = origem?.[i + 1]?.[x.l];
-      const cls = [x.tipo === 'in' ? 'gv-in' : 'gv-calc', o === 'manual' ? 'manual' : ''].filter(Boolean).join(' ');
-      const tit = admin && o ? ` title="${E(ORIGENS_GV[o] || o)}"` : '';
+      const cls = [x.tipo === 'in' ? 'gv-in' : 'gv-calc', o === 'manual' ? 'manual' : '', o?.startsWith('hub:') ? 'auto' : ''].filter(Boolean).join(' ');
+      const tit = admin && o ? ` title="${E(textoOrigem(o))}"` : '';
       return `<td class="${cls}" data-l="${x.l}" data-m="${i + 1}"${tit}>${E(fmtGV(v, x.fmt))}</td>`;
     }).join('');
     return `<tr><td class="t">${E(rotuloGV(x, u))}</td>${tds}<td class="gv-acum">${E(fmtGV(ln.acum, x.fmt))}</td></tr>`;
@@ -100,9 +102,9 @@ function graficos(cc, u, ano) {
 export function paginaUnidadeGV(u, x, { ano, admin, topo, exportar = true }) {
   const cc = calcularAnoGV(x?.valores || {});
   const vazio = !cc.mesesComDados.length;
-  const botoes = `<p class="gv-botoes">${exportar ? `<button class="btn" id="exportarGV" ${vazio ? 'disabled' : ''}>⬇ Exportar planilha (.xlsx)</button> ` : ''}${admin ? '<button class="btn sec" id="editarGV">✎ Editar valores</button> <button class="btn" id="gravarGV" hidden>Gravar</button> <button class="btn sec" id="cancelarGV" hidden>Cancelar</button> ' : ''}<span id="msgGV" class="small"></span></p>`;
+  const botoes = `<p class="gv-botoes">${exportar ? `<button class="btn" id="exportarGV" ${vazio ? 'disabled' : ''}>⬇ Exportar planilha (.xlsx)</button> ` : ''}${admin ? '<button class="btn sec" id="autoGV">↻ Atualizar do Hub</button> <button class="btn sec" id="editarGV">✎ Editar valores</button> <button class="btn" id="gravarGV" hidden>Gravar</button> <button class="btn sec" id="cancelarGV" hidden>Cancelar</button> ' : ''}<span id="msgGV" class="small"></span></p>`;
   const aviso = vazio ? `<div class="aviso">Sem dados de ${E(nomeAbaGV(u))} em ${ano}.${admin ? ` <a href="#/gestao/importar/${ano}">Importar</a> a planilha da Gestão à vista, o KPI do mês ou a planilha de Perdas, ou use ✎ para digitar.` : ''}</div>` : '';
-  const nota = `<p class="small">Como a aba Dados da planilha. Acum = média dos meses com valor (cubos por dia, cubos por carga e perdas % = razão dos Acum). Cubos = CX UNIT ÷ ${fd(1.68, 2)}. Perdas = PERDAS TOTAL da unidade (com inventário), depois do fechamento.${admin ? ' Em vermelho: valor digitado à mão (vale por cima das importações). Passe o mouse num valor para ver de onde ele veio.' : ''}</p>`;
+  const nota = `<p class="small">Como a aba Dados da planilha. Acum = média dos meses com valor (cubos por dia, cubos por carga e perdas % = razão dos Acum). Cubos = CX UNIT ÷ ${fd(1.68, 2)}. Perdas = PERDAS TOTAL da unidade (com inventário), depois do fechamento.${admin ? ' Em azul: automático, dos outros acompanhamentos do Hub (Montagem, Perdas, KM e 1x1; atualiza sozinho ao abrir, para o mês atual e o anterior, e em ↻ para o ano todo). Em vermelho: digitado à mão (vale por cima de tudo; apagar ou pôr zero volta ao automático). O resto vem das importações (KPI, Perdas, planilha antiga). Passe o mouse num valor para ver de onde ele veio.' : ''}</p>`;
   return `${topo}${botoes}${aviso}${quadro(u, ano, cc, x?.origem, admin)}${nota}${graficos(cc, u, ano)}`;
 }
 
@@ -112,18 +114,18 @@ export function ligarEdicaoGV(raiz, x, salvar, depois) {
   if (!b) return;
   const cc = calcularAnoGV(x?.valores || {});
   b.onclick = () => {
-    for (const td of raiz.querySelectorAll('.gv-dados td.gv-in')) {
+    for (const td of raiz.querySelectorAll('.gv-dados td.gv-in, .gv-dados td.gv-calc')) {
       const l = +td.dataset.l, m = +td.dataset.m, f = LINHA_GV[l].fmt, v = cc.linhas[l].m[m - 1];
       td.innerHTML = `<input type="text" inputmode="decimal" value="${E(paraCampo(v, f))}" data-ini="${E(paraCampo(v, f))}" aria-label="${E(`${rotuloGV(LINHA_GV[l], '')} ${MES3[m - 1]}`)}">`;
     }
     b.hidden = true; ok.hidden = false; nao.hidden = false;
-    msg.textContent = 'Percentuais em pontos (0,45 = 0,45%). Vazio apaga o valor (a próxima importação volta a preencher).';
+    msg.textContent = 'Percentuais em pontos (0,45 = 0,45%). Vazio ou zero = volta ao automático (Hub, importação ou fórmula).';
   };
   nao.onclick = () => depois();
   ok.onclick = async () => {
     const edicoes = [];
     try {
-      for (const inp of raiz.querySelectorAll('.gv-dados td.gv-in input')) {
+      for (const inp of raiz.querySelectorAll('.gv-dados td input')) {
         if (inp.value.trim() === inp.dataset.ini) continue;
         const td = inp.closest('td'), l = +td.dataset.l;
         edicoes.push({ mes: +td.dataset.m, l, v: lerCampoGV(inp.value, LINHA_GV[l].fmt) });
@@ -150,15 +152,35 @@ async function topoGV(ctx, aba, ano, titulo, comAno = true) {
 }
 const status = (data) => { const el = document.getElementById('statusAtualizacao'); if (el) el.textContent = data ? `Última atualização: ${data.toLocaleString('pt-BR')}` : 'Última atualização ainda não registrada'; };
 
+const autoFeito = new Set();
 async function telaUnidade(ctx, u, ano) {
   ctx.html('<p class="small">Lendo a Gestão à vista…</p>');
   const adm = rascunho(ctx), topo = await topoGV(ctx, u, ano, `${nomeAbaGV(u)} · ${ano}`);
-  const x = adm ? await G.lerAnoGV(u, ano) : await G.lerPublicadoGV(u, ano);
+  // Rascunho: o mês atual e o anterior se atualizam sozinhos com os outros acompanhamentos (uma vez por abertura do ano).
+  if (adm && !autoFeito.has(ano)) {
+    autoFeito.add(ano);
+    const hoje = new Date(), mAt = hoje.getFullYear() === ano ? hoje.getMonth() + 1 : null;
+    if (mAt) {
+      ctx.html(`${topo}<p class="small">Atualizando com os outros acompanhamentos do Hub…</p>`);
+      try { await G.atualizarAutomaticoGV(ano, [mAt - 1, mAt].filter((m) => m >= 1)); } catch { /* sem acesso: segue com o que já está gravado */ }
+    }
+  }
+  const x = adm ? await G.lerEfetivoGV(u, ano) : await G.lerPublicadoGV(u, ano);
   if (!x && !adm) { ctx.html(`${topo}<div class="aviso">A Gestão à vista de ${ano} ainda não foi publicada.</div>`); ctx.ligarTopo((a) => `#/gestao/${u}/${a}`); return; }
   ctx.html(paginaUnidadeGV(u, x, { ano, admin: adm, topo }));
   status(x?.atualizado); ctx.ligarTopo((a) => `#/gestao/${u}/${a}`);
   const recarregar = () => telaUnidade(ctx, u, ano);
   if (adm) ligarEdicaoGV(document, x, (ed) => G.gravarEdicoesGV(u, ano, ed), recarregar);
+  const ba = document.getElementById('autoGV');
+  if (ba) ba.onclick = async () => {
+    const msg = document.getElementById('msgGV');
+    ba.disabled = true;
+    try {
+      const r = await G.atualizarAutomaticoGV(ano, null, (t) => { msg.textContent = t; });
+      msg.textContent = `✓ ${r.meses.length} mês(es) atualizados${r.falhas.length ? ` · sem acesso ou com erro: ${r.falhas.join(', ')}` : ''}`;
+      setTimeout(recarregar, 1200);
+    } catch (err) { msg.innerHTML = ctx.erro(err); ba.disabled = false; }
+  };
   const b = document.getElementById('exportarGV');
   if (b) b.onclick = async () => {
     const msg = document.getElementById('msgGV');

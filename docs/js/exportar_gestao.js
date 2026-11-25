@@ -9,7 +9,7 @@
 //   - os blocos de anos anteriores (colunas agrupadas à direita): ano − 1, ano − 2…
 // E regrava o cache dos gráficos (meses e valores), para eles já abrirem certos. O Excel recalcula tudo ao abrir.
 // anos: {AAAA: valores {mes: {linha: v}}} (o ano exportado e os anteriores que houver).
-import { LINHAS_GV, LINHA_GV, UNIDADES_GV, FATOR_CUBOS, calcularAnoGV } from './gestao.js?v=20261125-19';
+import { LINHAS_GV, LINHA_GV, UNIDADES_GV, FATOR_CUBOS, calcularAnoGV } from './gestao.js?v=20261125-20';
 
 const MES3 = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -73,7 +73,7 @@ function celula(ref, s, { v = null, f = null }) {
   return `<c r="${ref}"${st}/>`;
 }
 
-function abaDados(xml, sharedStrings, ano, calc) {
+function abaDados(xml, sharedStrings, ano, calc, valoresDe = () => null) {
   const { linhas, antes, depois } = lerLinhas(xml);
   const porLinha = new Map(linhas.map((x) => [x.r, x]));
   const bs = blocos(porLinha.get(3), sharedStrings);
@@ -90,7 +90,9 @@ function abaDados(xml, sharedStrings, ano, calc) {
       novas.set(`${L}3`, celula(`${L}3`, estilo(`${L}3`), { v: serialMes(a, mes) }));
       for (const x of LINHAS_GV) {
         const ref = `${L}${x.l}`, v = cc ? cc.linhas[x.l].m[mes - 1] : null;
-        novas.set(ref, celula(ref, estilo(ref), x.tipo === 'in' ? { v } : { v, f: formulaMes(x, L) }));
+        // Linha calculada com valor digitado à mão no Hub: vai o valor (sem fórmula), como alguém faria na planilha.
+        const digitado = x.tipo !== 'in' && typeof valoresDe(a)?.[mes]?.[x.l] === 'number';
+        novas.set(ref, celula(ref, estilo(ref), x.tipo === 'in' || digitado ? { v } : { v, f: formulaMes(x, L) }));
       }
     }
     if (b.acum != null) {
@@ -150,7 +152,7 @@ export async function gerarGestaoGV(u, ano, anos, { modelo = null } = {}) {
   const alvo = `xl/${rels.match(new RegExp(`Id="${rid}"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Id="${rid}"`)).slice(1).find(Boolean).replace(/^\/?xl\//, '')}`;
   const ss = [...(await ler('xl/sharedStrings.xml')).matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => m[1].replace(/<[^>]+>/g, ''));
   const memo = new Map(), calc = (a) => { if (!memo.has(a)) memo.set(a, anos[a] ? calcularAnoGV(anos[a]) : null); return memo.get(a); };
-  const d = abaDados(await ler(alvo), ss, +ano, calc);
+  const d = abaDados(await ler(alvo), ss, +ano, calc, (a) => anos[a]);
   zip.file(alvo, d.xml);
   // O Excel recalcula as fórmulas ao abrir (a aba oculta PLAN 2024 e os gráficos leem a Dados).
   zip.file('xl/workbook.xml', wb.replace(/<calcPr([^>]*?)\/>/, (t, a) => `<calcPr${a.replace(/\s*fullCalcOnLoad="[^"]*"/, '')} fullCalcOnLoad="1"/>`));
