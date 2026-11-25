@@ -116,3 +116,13 @@ Tudo é digitado. Nenhum número vem de um relatório bruto: os valores são cop
 - Ainda não automatizado.
 - A maioria dos números já sai de módulos do Hub (Montagem, KM, Perdas, 1x1, Montadores) ou do que hoje é digitado no KPI (Green Mile, TRIXLOG).
 - Só os custos e as empilhadeiras precisam de fonte nova.
+
+## 10. Decisões do usuário (25/11/2026)
+1. **Uso:** a planilha continua em uso. Ela não foi atualizada depois de jun/26. O próprio usuário a preenche, a partir do KPI, da Montagem e das Perdas (PERDAS TOTAL, depois do fechamento), além de outras informações.
+2. **Custos e empilhadeiras:** quem preenche é outra pessoa, e hoje o usuário não tem acesso a esses dados. No Hub, esses números ficam digitáveis pelo admin.
+3. **Perdas:** na Gestão à vista vale a **perda total da unidade** ("PERDAS TOTAL", com inventário), depois do fechamento. O KPI continua com rota + estoque.
+4. **Base do custo de distribuição:** a resposta está em aberto (ver P-GV-4, reformulada).
+5. **Cubos:** fator **1,68**.
+6. **"Acum":** é a média só dos meses com dado. Os meses vazios não entram.
+7. **Linhas do Easy Pallet sempre "-"** (17, 18, 20): continuam, por enquanto.
+8. **TRIXLOG "Acum":** o 99,5 fixo é um erro. O certo é a média do desempenho acumulado até o mês.
