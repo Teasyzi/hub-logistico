@@ -1,10 +1,10 @@
 // Telas do acompanhamento Retorno por motivo (CB Norte, CB Sul, DL Barreiras, DL Juazeiro): uma aba por unidade,
 // como na planilha (tabela de valores com o gráfico de barras ao lado). As funções pagina* são puras (dados → HTML)
 // e servem à prévia local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-13';
-import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261125-13';
-import * as R from './dados_retorno.js?v=20261125-13';
-import * as D from './dados.js?v=20261125-13';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-14';
+import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261125-14';
+import * as R from './dados_retorno.js?v=20261125-14';
+import * as D from './dados.js?v=20261125-14';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const fcx = (x) => (x == null ? '–' : nf(1).format(x));

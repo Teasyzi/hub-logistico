@@ -1,15 +1,15 @@
 // Exportação do Fill rate: planilha .xlsx do comparativo mês a mês, IGUAL à planilha oficial
 // "MM - Insuficiência - <Mês>.xlsx": usa os estilos e o tema da própria planilha (modelo_fillrate.js) e põe cada valor
 // na mesma célula, com o mesmo estilo, larguras, mesclagens e formatação condicional.
-//   COMPARATIVO          o quadro da aba Resumo da planilha (REVENDA · META% · META · PEDIDO ENTREGUE (coluna F oculta,
+//   COMPARATIVO          (só CB NORTE e CB SUL, sem linha GERAL, como o Resumo) o quadro da aba Resumo da planilha (REVENDA · META% · META · PEDIDO ENTREGUE (coluna F oculta,
 //                        como no Resumo) · FALTA DE ESTOQUE · % FILL RATE · INSUFICIÊNCIA) de cada mês, com a faixa
 //                        amarela do mês e o link "Detalhes →" em CB NORTE e CB SUL; no fim, o acumulado do ano.
 //   "JAN NORTE", …       a aba CB NORTE / CB SUL da planilha daquele mês, célula a célula. O K1 volta ao COMPARATIVO.
 // Valores, não fórmulas: os números são os do Hub (regras da ficha §11, p. ex. meta = 2% do pedido).
 // Os rótulos são os da planilha ("% FILL RATE" no quadro é a insuficiência, como lá; o fill rate fica no N3).
 // porMes: {AAAA-MM: {unidades: {NORTE|SUL: unidade calculada (totais, dias, produtos, detalhe)}, geral}}
-import { UNIDADES_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261125-13';
-import { STYLES_XML, THEME_XML } from './modelo_fillrate.js?v=20261125-13';
+import { UNIDADES_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261125-14';
+import { STYLES_XML, THEME_XML } from './modelo_fillrate.js?v=20261125-14';
 
 const NOMES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 const nomeMes = (mes) => `${NOMES[+mes.slice(5, 7) - 1]}/${mes.slice(0, 4)}`;
@@ -110,14 +110,12 @@ function abaComparativo(S, ano, porMes, mesAtual) {
     f.mescla(r++, B, J, `${nomeMes(mes)}${mes === mesAtual ? ' (PARCIAL)' : ''}`, 43, 44, 45);
     cab();
     for (const u of Object.keys(UNIDADES_FR)) { const x = pega(c.unidades[u]); linha(UNIDADES_FR[u].toUpperCase(), x, x ? abaDetalheFR(mes, u) : null); }
-    linha('GERAL', pega(c.geral), null);
     r++;
   }
   f.mescla(r++, B, J, `ACUMULADO ${ano}`, 43, 44, 45);
   cab();
   const acm = (s) => (s.acumulado ? { totais: s.acumulado } : null);
   for (const u of Object.keys(UNIDADES_FR)) linha(UNIDADES_FR[u].toUpperCase(), acm(c.unidades[u]), null);
-  linha('GERAL', acm(c.geral), null);
   return { f, meses: c.meses };
 }
 
