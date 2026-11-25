@@ -6,7 +6,7 @@
 //   fr_parametro/produtos          {mapa (JSON {DESCRIÇÃO: código}), manual (JSON, editados à mão), n, arquivo, atualizado} (admin)
 import { db, auth } from './firebase.js';
 import { collection, doc, getDoc, getDocs, query, where, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { UNIDADES_FR, calcularFR, calcularUnidadeFR, resumoMesFR, compactar, descompactar, agregadoPublicadoFR, lerAgregadoFR, chaveProduto } from './fillrate.js?v=20261125-11';
+import { UNIDADES_FR, calcularFR, calcularUnidadeFR, resumoMesFR, compactar, descompactar, agregadoPublicadoFR, lerAgregadoFR, chaveProduto } from './fillrate.js?v=20261125-13';
 
 const refDados = (u, mes) => doc(db, 'fr_dados', `${u}_${mes}`);
 const refCadastro = () => doc(db, 'fr_parametro', 'produtos');

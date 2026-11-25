@@ -1,90 +1,61 @@
-// Exportação do Fill rate: planilha .xlsx do comparativo mês a mês, com as cores do site (tokens do tema claro
-// do hub.css: cabeçalho --brand, faixa --section com borda --brand, GERAL/Totais --total, farol --good/--bad).
-// O SheetJS gratuito não grava estilos, por isso o pacote é montado aqui com o JSZip (global, já carregado no site).
-//   COMPARATIVO          o quadro do RESUMO de cada mês (CB NORTE, CB SUL, GERAL) com o link "Detalhes →" de cada
-//                        revenda, e o acumulado do ano. É a aba que abre.
-//   "JAN NORTE", …       uma aba por revenda e mês, depois do COMPARATIVO, no layout da planilha de Insuficiência:
-//                        cabeçalho, "por data e produto", "por dia" e "por produto". O A1 volta para o COMPARATIVO.
+// Exportação do Fill rate: planilha .xlsx do comparativo mês a mês, IGUAL à planilha oficial
+// "MM - Insuficiência - <Mês>.xlsx": usa os estilos e o tema da própria planilha (modelo_fillrate.js) e põe cada valor
+// na mesma célula, com o mesmo estilo, larguras, mesclagens e formatação condicional.
+//   COMPARATIVO          o quadro da aba Resumo da planilha (REVENDA · META% · META · PEDIDO ENTREGUE (coluna F oculta,
+//                        como no Resumo) · FALTA DE ESTOQUE · % FILL RATE · INSUFICIÊNCIA) de cada mês, com a faixa
+//                        amarela do mês e o link "Detalhes →" em CB NORTE e CB SUL; no fim, o acumulado do ano.
+//   "JAN NORTE", …       a aba CB NORTE / CB SUL da planilha daquele mês, célula a célula. O K1 volta ao COMPARATIVO.
+// Valores, não fórmulas: os números são os do Hub (regras da ficha §11, p. ex. meta = 2% do pedido).
+// Os rótulos são os da planilha ("% FILL RATE" no quadro é a insuficiência, como lá; o fill rate fica no N3).
 // porMes: {AAAA-MM: {unidades: {NORTE|SUL: unidade calculada (totais, dias, produtos, detalhe)}, geral}}
-import { UNIDADES_FR, META_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261125-11';
+import { UNIDADES_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261125-13';
+import { STYLES_XML, THEME_XML } from './modelo_fillrate.js?v=20261125-13';
 
 const NOMES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 const nomeMes = (mes) => `${NOMES[+mes.slice(5, 7) - 1]}/${mes.slice(0, 4)}`;
 export const abaDetalheFR = (mes, u) => `${NOMES[+mes.slice(5, 7) - 1].slice(0, 3).replace('Ç', 'C')} ${u}`;
 const serial = (iso) => (Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 86400000;
 const codigo = (c) => (c == null ? '' : /^\d+$/.test(String(c)) ? Number(c) : String(c));
-
-// Cores do tema claro do hub.css (ARGB).
-const COR = { brand: 'FFC00000', branco: 'FFFFFFFF', ink: 'FF1A1A1A', ink2: 'FF555555', section: 'FFE7E7E7', total: 'FFFFFF00',
-  good: 'FF006100', goodbg: 'FFC6EFCE', bad: 'FF9C0006', badbg: 'FFFFC7CE', borda: 'FFD0D0D0', norte: 'FFC00000', sul: 'FF1F4E79' };
-const FMT = { cx: '#,##0.00', pct: '0.00%', meta: '0%', data: 'dd/mm/yyyy', cod: '0' };
+const DA = { NORTE: 'CB CE Norte', SUL: 'CB CE Sul' };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
 const col = (c) => { let s = ''; c++; while (c) { const r = (c - 1) % 26; s = String.fromCharCode(65 + r) + s; c = Math.floor((c - 1) / 26); } return s; };
 const ref = (r, c) => `${col(c)}${r + 1}`;
+const C = (letra) => letra.charCodeAt(0) - 65;   // 'B' → 1
 
-// ---------------------------------------------------------------- estilos (styles.xml montado sob demanda)
-function estilos() {
-  const fonts = ['<font><sz val="11"/><name val="Calibri"/><family val="2"/></font>'], fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
-  const borders = ['<border><left/><right/><top/><bottom/><diagonal/></border>'], numFmts = [], xfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
-  const idx = (lista, xml) => { let i = lista.indexOf(xml); if (i < 0) { lista.push(xml); i = lista.length - 1; } return i; };
-  const cache = new Map();
-  const fmtId = (f) => { if (!f) return 0; const i = numFmts.findIndex((x) => x.f === f); if (i >= 0) return numFmts[i].id; const id = 164 + numFmts.length; numFmts.push({ id, f }); return id; };
-  // e: {b, i, u, sz, cor, fundo, borda: 'grade'|'faixa', fmt, h: 'left'|'center'|'right', wrap}
-  const id = (e = {}) => {
-    const k = JSON.stringify(e);
-    if (cache.has(k)) return cache.get(k);
-    const font = idx(fonts, `<font>${e.b ? '<b/>' : ''}${e.i ? '<i/>' : ''}${e.u ? '<u/>' : ''}<sz val="${e.sz || 11}"/><color rgb="${e.cor || COR.ink}"/><name val="Calibri"/><family val="2"/></font>`);
-    const fill = e.fundo ? idx(fills, `<fill><patternFill patternType="solid"><fgColor rgb="${e.fundo}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
-    const lado = (t, c) => `<${t} style="thin"><color rgb="${c}"/></${t}>`;
-    const border = e.borda === 'grade' ? idx(borders, `<border>${lado('left', COR.borda)}${lado('right', COR.borda)}${lado('top', COR.borda)}${lado('bottom', COR.borda)}<diagonal/></border>`)
-      : e.borda === 'faixa' ? idx(borders, `<border><left style="thick"><color rgb="${COR.brand}"/></left><right/><top/><bottom/><diagonal/></border>`) : 0;
-    const nf = fmtId(e.fmt), al = e.h || e.wrap ? `<alignment${e.h ? ` horizontal="${e.h}"` : ''} vertical="center"${e.wrap ? ' wrapText="1"' : ''}/>` : '';
-    xfs.push(`<xf numFmtId="${nf}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0"${nf ? ' applyNumberFormat="1"' : ''}${font ? ' applyFont="1"' : ''}${fill ? ' applyFill="1"' : ''}${border ? ' applyBorder="1"' : ''}${al ? ' applyAlignment="1"' : ''}>${al}</xf>`);
-    cache.set(k, xfs.length - 1);
-    return xfs.length - 1;
-  };
-  const xml = () => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${numFmts.length ? `<numFmts count="${numFmts.length}">${numFmts.map((n) => `<numFmt numFmtId="${n.id}" formatCode="${esc(n.f)}"/>`).join('')}</numFmts>` : ''}
-<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="${borders.length}">${borders.join('')}</borders>
-<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs>
-<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
-  return { id, xml };
+// Estilos da planilha + um só acrescentado: o link (negrito, sublinhado, vermelho do cabeçalho), no fim da lista.
+function estilosPlanilha() {
+  const nFont = +STYLES_XML.match(/<fonts count="(\d+)"/)[1], nXf = +STYLES_XML.match(/<cellXfs count="(\d+)"/)[1];
+  const xml = STYLES_XML
+    .replace(/<fonts count="\d+"/, `<fonts count="${nFont + 1}"`)
+    .replace('</fonts>', '<font><b/><u/><sz val="11"/><color rgb="FFC00000"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font></fonts>')
+    .replace(/<cellXfs count="\d+"/, `<cellXfs count="${nXf + 1}"`)
+    .replace('</cellXfs>', `<xf numFmtId="0" fontId="${nFont}" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs>`);
+  return { xml, link: nXf };
 }
 
-// Estilos usados nas duas abas, como no site.
-function paleta(S) {
-  const g = { borda: 'grade' };
-  const corpo = (fmt, extra = {}) => S.id({ ...g, fmt, h: fmt ? 'right' : 'left', ...extra });
-  const farol = (ok, extra = {}) => S.id({ ...g, fmt: FMT.pct, h: 'right', cor: ok ? COR.good : COR.bad, fundo: ok ? COR.goodbg : COR.badbg, ...extra });
-  const tot = { fundo: COR.total, b: true };
-  return {
-    titulo: S.id({ b: true, sz: 14 }), nota: S.id({ i: true, sz: 9, cor: COR.ink2 }),
-    faixa: S.id({ b: true, fundo: COR.section, borda: 'faixa' }), faixaResto: S.id({ fundo: COR.section }),
-    cab: S.id({ ...g, b: true, cor: COR.branco, fundo: COR.brand, h: 'center', wrap: true }),
-    txt: corpo(null), cx: corpo(FMT.cx), pct: corpo(FMT.pct), meta: corpo(FMT.meta, { h: 'center' }), data: corpo(FMT.data, { h: 'center' }), cod: corpo(FMT.cod, { h: 'left' }),
-    ok: farol(true), no: farol(false),
-    totTxt: corpo(null, tot), totCx: corpo(FMT.cx, tot), totPct: corpo(FMT.pct, tot), totMeta: corpo(FMT.meta, { ...tot, h: 'center' }),
-    totOk: farol(true, { b: true }), totNo: farol(false, { b: true }),
-    link: S.id({ ...g, b: true, u: true, cor: COR.brand, h: 'center' }), voltar: S.id({ b: true, u: true, cor: COR.brand }),
-  };
-}
-
-// ---------------------------------------------------------------- folha
-function folha(nome, { tab = null } = {}) {
-  const cel = new Map(), links = [], altura = new Map();
-  let maxR = 0, maxC = 0, larguras = [], congelar = 0;
+// ---------------------------------------------------------------- folha (células com o índice de estilo da planilha)
+function folha(nome, { cols, zoom = 85 }) {
+  const cel = new Map(), links = [], merges = [], cfs = [];
+  let maxR = 0, maxC = 0;
   const set = (r, c, v, s, alvo) => {
     cel.set(r * 1024 + c, { r, c, v, s });
     if (alvo) links.push({ ref: ref(r, c), alvo, txt: v });
     maxR = Math.max(maxR, r); maxC = Math.max(maxC, c);
   };
+  // Mescla com o estilo de cada célula do trecho (como a planilha guarda): s0 na primeira, sMeio no meio, sFim na última.
+  const mescla = (r, c0, c1, v, s0, sMeio = s0, sFim = sMeio) => {
+    set(r, c0, v, s0);
+    for (let c = c0 + 1; c <= c1; c++) set(r, c, null, c === c1 ? sFim : sMeio);
+    merges.push(`${ref(r, c0)}:${ref(r, c1)}`);
+  };
+  // Formatação condicional da planilha: menor que X → dxfMenor; maior que X → dxfMaior.
+  const cf = (sqref, x, dxfMenor, dxfMaior) => cfs.push({ sqref, x, dxfMenor, dxfMaior });
   const xml = () => {
     const linhas = new Map();
     for (const x of [...cel.values()].sort((a, b) => a.r - b.r || a.c - b.c)) { if (!linhas.has(x.r)) linhas.set(x.r, []); linhas.get(x.r).push(x); }
     const out = [];
     for (const [r, cs] of linhas) {
-      const ht = altura.get(r);
-      out.push(`<row r="${r + 1}"${ht ? ` ht="${ht}" customHeight="1"` : ''}>`);
+      out.push(`<row r="${r + 1}">`);
       for (const { c, v, s } of cs) {
         const a = `r="${ref(r, c)}"${s ? ` s="${s}"` : ''}`;
         if (v == null || v === '') out.push(`<c ${a}/>`);
@@ -93,115 +64,124 @@ function folha(nome, { tab = null } = {}) {
       }
       out.push('</row>');
     }
-    const pane = congelar ? `<pane ySplit="${congelar}" topLeftCell="A${congelar + 1}" activePane="bottomLeft" state="frozen"/>` : '';
+    let prio = 1;
+    const cfXml = cfs.map((x) => `<conditionalFormatting sqref="${x.sqref}"><cfRule type="cellIs" dxfId="${x.dxfMenor}" priority="${prio++}" operator="lessThan"><formula>${x.x}</formula></cfRule><cfRule type="cellIs" dxfId="${x.dxfMaior}" priority="${prio++}" operator="greaterThan"><formula>${x.x}</formula></cfRule></conditionalFormatting>`).join('');
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${tab ? `<sheetPr><tabColor rgb="${tab}"/></sheetPr>` : ''}
-<dimension ref="A1:${ref(maxR, maxC)}"/><sheetViews><sheetView showGridLines="0" workbookViewId="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>
-${larguras.length ? `<cols>${larguras.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : ''}<sheetData>${out.join('')}</sheetData>
-${links.length ? `<hyperlinks>${links.map((l) => `<hyperlink ref="${l.ref}" location="${esc(`'${l.alvo}'!A1`)}" display="${esc(l.txt)}"/>`).join('')}</hyperlinks>` : ''}
-<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/></worksheet>`;
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<dimension ref="A1:${ref(maxR, maxC)}"/><sheetViews><sheetView showGridLines="0" zoomScale="${zoom}" zoomScaleNormal="${zoom}" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="14.4"/>
+<cols>${cols}</cols><sheetData>${out.join('')}</sheetData>
+${merges.length ? `<mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : ''}${cfXml}${links.length ? `<hyperlinks>${links.map((l) => `<hyperlink ref="${l.ref}" location="${esc(`'${l.alvo}'!A1`)}" display="${esc(l.txt)}"/>`).join('')}</hyperlinks>` : ''}
+<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
   };
-  return { nome, set, xml, cols: (w) => { larguras = w; }, alto: (r, h) => altura.set(r, h), congelar: (n) => { congelar = n; } };
+  return { nome, set, mescla, cf, xml };
 }
 
-// ---------------------------------------------------------------- COMPARATIVO (o quadro do RESUMO de cada mês, sem a coluna Até)
-const CAB = ['REVENDA', 'META %', 'META (CX UNIT)', 'PEDIDO ENTREGUE (CX UNIT)', 'FALTA DE ESTOQUE (CX UNIT)', 'INSUFICIÊNCIA %', 'FILL RATE %', 'ACIMA DA META (CX UNIT)', ''];
-function linhaResumo(f, E, r, rot, x, alvo, tot = false) {
-  const n = CAB.length;
-  if (!x) { f.set(r, 0, rot, E.txt); f.set(r, 1, 'sem dados no mês', E.txt); for (let c = 2; c < n; c++) f.set(r, c, '', E.txt); return; }
-  const t = x.totais, ok = t.insuf != null && t.insuf <= t.meta;
-  f.set(r, 0, rot, tot ? E.totTxt : E.txt);
-  f.set(r, 1, t.meta, tot ? E.totMeta : E.meta);
-  f.set(r, 2, t.metaCx, tot ? E.totCx : E.cx);
-  f.set(r, 3, t.entregue, tot ? E.totCx : E.cx);
-  f.set(r, 4, t.falta, tot ? E.totCx : E.cx);
-  f.set(r, 5, t.insuf, tot ? (ok ? E.totOk : E.totNo) : (ok ? E.ok : E.no));
-  f.set(r, 6, t.fillRate, tot ? E.totPct : E.pct);
-  f.set(r, 7, t.acimaMeta, tot ? E.totCx : E.cx);
-  f.set(r, 8, alvo ? 'Detalhes →' : '', alvo ? E.link : (tot ? E.totTxt : E.txt), alvo);
-}
+// Larguras da planilha (CB NORTE e Resumo), em unidades do Excel.
+const COLS_UNIDADE = '<col min="1" max="1" width="0.33203125" customWidth="1"/><col min="2" max="4" width="15.6640625" customWidth="1"/><col min="5" max="5" width="40" customWidth="1"/><col min="6" max="6" width="21.33203125" style="1" customWidth="1"/><col min="7" max="7" width="17.88671875" style="2" customWidth="1"/><col min="8" max="8" width="18.44140625" style="2" customWidth="1"/><col min="9" max="9" width="11.33203125" style="2" customWidth="1"/><col min="10" max="10" width="0.5546875" customWidth="1"/><col min="11" max="11" width="23.6640625" style="1" customWidth="1"/><col min="12" max="12" width="19.5546875" style="3" customWidth="1"/><col min="13" max="13" width="0.5546875" customWidth="1"/><col min="14" max="14" width="30.5546875" style="3" customWidth="1"/><col min="15" max="15" width="19.5546875" style="3" customWidth="1"/>';
+const COLS_RESUMO = '<col min="2" max="2" width="16.33203125" style="1" customWidth="1"/><col min="3" max="4" width="18.44140625" customWidth="1"/><col min="5" max="5" width="0.5546875" customWidth="1"/><col min="6" max="6" width="23.6640625" hidden="1" customWidth="1"/><col min="7" max="7" width="19.5546875" customWidth="1"/><col min="8" max="8" width="0.5546875" customWidth="1"/><col min="9" max="9" width="29.109375" customWidth="1"/><col min="10" max="10" width="17.5546875" customWidth="1"/><col min="11" max="11" width="14.6640625" customWidth="1"/>';
 
-function abaComparativo(E, ano, porMes, mesAtual) {
+// ---------------------------------------------------------------- COMPARATIVO (o quadro da aba Resumo, mês a mês)
+function abaComparativo(S, ano, porMes, mesAtual) {
   const resumos = Object.fromEntries(Object.entries(porMes).map(([m, r]) => [m, resumoMesFR(r)]));
-  const c = comparativoFR(resumos, ano), f = folha('COMPARATIVO', { tab: COR.brand }), n = CAB.length;
-  f.set(0, 0, `FILL RATE · INSUFICIÊNCIA DE ESTOQUE — MÊS A MÊS ${ano}`, E.titulo); f.alto(0, 22);
-  f.set(1, 0, `Insuficiência % = falta ÷ (pedido entregue + falta), em CX UNIT. Fill rate = 100% − insuficiência. Meta: insuficiência até ${META_FR * 100}% (verde); meta em CX UNIT = ${META_FR * 100}% do pedido.`, E.nota);
+  const c = comparativoFR(resumos, ano), f = folha('COMPARATIVO', { cols: COLS_RESUMO, zoom: 100 });
+  const B = C('B'), J = C('J'), K = C('K');
+  f.mescla(0, B, J, `FILL RATE - INSUFICIÊNCIA DE ESTOQUE - MÊS A MÊS ${ano}`, 46);
+  const hoje = new Date(), iso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+  f.mescla(1, B, J, serial(iso), 47, 48);
   let r = 3;
-  const faixa = (txt) => { f.set(r, 0, txt, E.faixa); for (let k = 1; k < n; k++) f.set(r, k, '', E.faixaResto); f.alto(r, 20); r++; };
-  const cab = () => { CAB.forEach((t, i) => f.set(r, i, t, E.cab)); f.alto(r, 32); r++; };
+  const cab = () => {
+    [['B', 'REVENDA', 5], ['C', 'META%', 5], ['D', 'META', 5], ['F', 'PEDIDO ENTREGUE', 17], ['G', 'FALTA DE ESTOQUE', 5], ['I', '% FILL RATE', 5], ['J', 'INSUFICIÊNCIA', 8]]
+      .forEach(([l, t, s]) => f.set(r, C(l), t, s));
+    r++;
+  };
+  const linha = (rot, x, alvo) => {
+    f.set(r, C('B'), rot, 6);
+    if (x) {
+      const t = x.totais;
+      f.set(r, C('C'), t.meta, 6); f.set(r, C('D'), t.metaCx, 7); f.set(r, C('F'), t.entregue, 10); f.set(r, C('G'), t.falta, 7);
+      f.set(r, C('I'), t.insuf, 6); f.set(r, C('J'), t.acimaMeta, 9);
+      f.cf(ref(r, C('I')), `$C$${r + 1}`, 5, 4); f.cf(ref(r, C('J')), '0', 1, 0);
+    } else { f.set(r, C('C'), 'sem dados no mês', 6); for (const l of ['D', 'F', 'G', 'I', 'J']) f.set(r, C(l), null, l === 'J' ? 9 : 6); }
+    if (alvo) f.set(r, K, 'Detalhes →', S.link, alvo);
+    r++;
+  };
   for (const mes of c.meses) {
     const pega = (s) => s.linhas.find((l) => l.mes === mes);
-    faixa(`${nomeMes(mes)}${mes === mesAtual ? ' (parcial)' : ''}`);
+    f.mescla(r++, B, J, `${nomeMes(mes)}${mes === mesAtual ? ' (PARCIAL)' : ''}`, 43, 44, 45);
     cab();
-    for (const u of Object.keys(UNIDADES_FR)) { const x = pega(c.unidades[u]); linhaResumo(f, E, r++, UNIDADES_FR[u].toUpperCase(), x, x ? abaDetalheFR(mes, u) : null); }
-    linhaResumo(f, E, r++, 'GERAL', pega(c.geral), null, true);
+    for (const u of Object.keys(UNIDADES_FR)) { const x = pega(c.unidades[u]); linha(UNIDADES_FR[u].toUpperCase(), x, x ? abaDetalheFR(mes, u) : null); }
+    linha('GERAL', pega(c.geral), null);
     r++;
   }
-  faixa(`ACUMULADO ${ano}`);
+  f.mescla(r++, B, J, `ACUMULADO ${ano}`, 43, 44, 45);
   cab();
   const acm = (s) => (s.acumulado ? { totais: s.acumulado } : null);
-  for (const u of Object.keys(UNIDADES_FR)) linhaResumo(f, E, r++, UNIDADES_FR[u].toUpperCase(), acm(c.unidades[u]), null);
-  linhaResumo(f, E, r++, 'GERAL', acm(c.geral), null, true);
-  f.set(r + 1, 0, `Acumulado = falta ÷ pedido somados de ${c.meses.length} mês(es) (não é a média dos %). "Detalhes →" abre a aba da revenda no mês; o A1 de cada aba volta para cá.`, E.nota);
-  f.cols([20, 9, 16, 22, 22, 15, 13, 21, 13]);
+  for (const u of Object.keys(UNIDADES_FR)) linha(UNIDADES_FR[u].toUpperCase(), acm(c.unidades[u]), null);
+  linha('GERAL', acm(c.geral), null);
   return { f, meses: c.meses };
 }
 
-// ---------------------------------------------------------------- detalhe (layout da planilha de Insuficiência)
-function abaDetalhe(E, u, mes, d) {
-  const f = folha(abaDetalheFR(mes, u), { tab: u === 'SUL' ? COR.sul : COR.norte }), t = d.totais, ok = (p) => p != null && p <= t.meta;
-  f.set(0, 0, '← COMPARATIVO', E.voltar, 'COMPARATIVO');
-  f.set(0, 1, `${UNIDADES_FR[u].toUpperCase()} - INSUFICIÊNCIA DE ESTOQUE · ${nomeMes(mes)}`, E.titulo); f.alto(0, 22);
-  ['META %', 'META (CX UNIT)', 'PEDIDO ENTREGUE', 'FALTA DE ESTOQUE', 'INSUFICIÊNCIA %', 'FILL RATE %', 'ACIMA DA META'].forEach((x, i) => f.set(2, 1 + i, x, E.cab));
-  f.alto(2, 30);
-  f.set(3, 1, t.meta, E.meta); f.set(3, 2, t.metaCx, E.cx); f.set(3, 3, t.entregue, E.cx); f.set(3, 4, t.falta, E.cx);
-  f.set(3, 5, t.insuf, ok(t.insuf) ? E.ok : E.no); f.set(3, 6, t.fillRate, E.pct); f.set(3, 7, t.acimaMeta, E.cx);
-  const faixa = (c0, c1, txt) => { f.set(5, c0, txt, E.faixa); for (let k = c0 + 1; k <= c1; k++) f.set(5, k, '', E.faixaResto); };
-  faixa(1, 8, 'INFORMAÇÃO POR DATA E PRODUTO'); faixa(10, 13, 'INFORMAÇÃO POR DIA'); faixa(15, 20, 'INFORMAÇÃO POR PRODUTO');
-  ['DA', 'CATEGORIA', 'CÓD', 'PROD DESCR', 'DATA', 'PEDIDO ENTREGUE', 'FALTA DE ESTOQUE', 'INSUF. %'].forEach((x, i) => f.set(6, 1 + i, x, E.cab));
-  ['DATA', 'PEDIDO ENTREGUE', 'FALTA DE ESTOQUE', 'INSUF. %'].forEach((x, i) => f.set(6, 10 + i, x, E.cab));
-  ['PROD DESCR', 'CATEGORIA', 'CÓD', 'FALTA DE ESTOQUE', '% DA FALTA', 'INSUF. %'].forEach((x, i) => f.set(6, 15 + i, x, E.cab));
-  f.alto(6, 30); f.congelar(7);
+// ---------------------------------------------------------------- detalhe (a aba CB NORTE / CB SUL da planilha)
+function abaDetalhe(S, u, mes, d, mesAtual) {
+  const f = folha(abaDetalheFR(mes, u), { cols: COLS_UNIDADE }), t = d.totais, B = C('B'), E = C('E');
+  const dxf = u === 'SUL' ? { n: [9, 8], o: [7, 6] } : { n: [13, 12], o: [11, 10] };
+  f.mescla(0, B, E, `${UNIDADES_FR[u].toUpperCase()} - INSUFICIÊNCIA DE ESTOQUE`, 46);
+  f.set(0, C('K'), '← COMPARATIVO', S.link, 'COMPARATIVO');
+  f.mescla(1, B, E, d.ultimoDia ? serial(d.ultimoDia.data) : null, 47, 48);
+  f.mescla(2, B, E, mes === mesAtual ? null : `FECHAMENTO DE ${NOMES[+mes.slice(5, 7) - 1]}'${mes.slice(2, 4)}`, 52);
+  f.set(2, C('N'), t.fillRate, 35);
+  [['H', 'META%', 5], ['I', 'META', 5], ['K', 'PEDIDO ENTREGUE', 17], ['L', 'FALTA DE ESTOQUE', 5], ['N', '% FILL RATE', 5], ['O', 'INSUFICIÊNCIA', 8]].forEach(([l, x, s]) => f.set(3, C(l), x, s));
+  [['H', t.meta, 6], ['I', t.metaCx, 7], ['K', t.entregue, 10], ['L', t.falta, 7], ['N', t.insuf, 38], ['O', t.acimaMeta, 9]].forEach(([l, v, s]) => f.set(4, C(l), v, s));
+  f.cf('N5', '$H$5', ...dxf.n); f.cf('O5', '0', ...dxf.o);
+  f.mescla(7, B, C('I'), 'INFORMAÇÃO POR DATA E PRODUTO', 43, 44, 45);
+  f.mescla(7, C('K'), C('L'), 'INFORMAÇÃO POR DIA', 50, 51);
+  f.mescla(7, C('N'), C('O'), 'INFORMAÇÃO POR PRODUTO', 49);
+  [['B', 'DA', 27], ['C', 'CATEGORIA', 27], ['D', 'CÓD', 27], ['E', 'PROD DESCR', 27], ['F', 'DATA', 27], ['G', 'PEDIDO ENTREGUE', 28], ['H', 'FALTA DE ESTOQUE', 28], ['I', '% FILL RATE', 28],
+    ['K', 'DATA', 12], ['L', 'FALTA DE ESTOQUE', 13], ['N', 'PROD DESCR', 12], ['O', 'FALTA DE ESTOQUE', 13]].forEach(([l, x, s]) => f.set(8, C(l), x, s));
+  // Por data e produto: uma linha por produto e dia, da maior falta para a menor (a ordem do relatório).
   d.detalhe.forEach((x, i) => {
-    const r = 7 + i;
-    f.set(r, 1, UNIDADES_FR[u], E.txt); f.set(r, 2, x.cat, E.txt); f.set(r, 3, codigo(x.cod), E.cod); f.set(r, 4, x.prod, E.txt); f.set(r, 5, serial(x.data), E.data);
-    f.set(r, 6, x.ent, E.cx); f.set(r, 7, x.falta, E.cx); f.set(r, 8, x.pct, ok(x.pct) ? E.ok : E.no);
+    const r = 9 + i;
+    f.set(r, C('B'), DA[u], 26); f.set(r, C('C'), x.cat, 26); f.set(r, C('D'), codigo(x.cod), 39); f.set(r, C('E'), x.prod, 40);
+    f.set(r, C('F'), serial(x.data), 34); f.set(r, C('G'), x.ent, 30); f.set(r, C('H'), x.falta, 31);
+    f.set(r, C('I'), x.ent + x.falta > 0 ? 1 - x.falta / (x.ent + x.falta) : 1, 36);   // % FILL RATE da linha, como na planilha
   });
-  f.set(7, 10, 'Totais', E.totTxt); f.set(7, 11, t.entregue, E.totCx); f.set(7, 12, t.falta, E.totCx); f.set(7, 13, t.insuf, ok(t.insuf) ? E.totOk : E.totNo);
-  d.dias.forEach((x, i) => { const r = 8 + i; f.set(r, 10, serial(x.data), E.data); f.set(r, 11, x.ent, E.cx); f.set(r, 12, x.falta, E.cx); f.set(r, 13, x.pct, ok(x.pct) ? E.ok : E.no); });
-  // O código do "por produto" sai do detalhe (o mesmo produto tem o mesmo código em todas as linhas).
-  const cods = new Map(d.detalhe.map((x) => [x.prod, x.cod]));
-  f.set(7, 15, 'Totais', E.totTxt); f.set(7, 16, '', E.totTxt); f.set(7, 17, '', E.totTxt); f.set(7, 18, t.falta, E.totCx); f.set(7, 19, 1, E.totPct); f.set(7, 20, t.insuf, ok(t.insuf) ? E.totOk : E.totNo);
-  d.produtos.forEach((x, i) => {
-    const r = 8 + i;
-    f.set(r, 15, x.prod, E.txt); f.set(r, 16, x.cat, E.txt); f.set(r, 17, codigo(x.cod ?? cods.get(x.prod)), E.cod); f.set(r, 18, x.falta, E.cx); f.set(r, 19, x.partFalta, E.pct); f.set(r, 20, x.pct, ok(x.pct) ? E.ok : E.no);
-  });
-  f.cols([15, 12, 12, 10, 38, 11, 16, 16, 9, 2, 11, 16, 16, 9, 2, 38, 12, 10, 16, 11, 9]);
+  // Por dia: todos os dias do mês, como na planilha (dia sem relatório = 0).
+  f.set(9, C('K'), 'Totais', 14); f.set(9, C('L'), t.falta, 16);
+  const porDia = new Map(d.dias.map((x) => [x.data, x.falta])), ultimo = new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7), 0)).getUTCDate();
+  for (let dia = 1; dia <= ultimo; dia++) {
+    const iso = `${mes}-${String(dia).padStart(2, '0')}`;
+    f.set(9 + dia, C('K'), serial(iso), 34); f.set(9 + dia, C('L'), porDia.get(iso) || 0, 24);
+  }
+  // Por produto: todos os produtos, da maior falta para a menor (como a lista da planilha).
+  f.set(9, C('N'), 'Totais', 14); f.set(9, C('O'), t.falta, 16);
+  d.produtos.forEach((p, i) => { f.set(10 + i, C('N'), p.prod, 11); f.set(10 + i, C('O'), p.falta, 15); });
   return f;
 }
 
 // ---------------------------------------------------------------- pacote
 export async function gerarComparativoFR(ano, porMes, { mesAtual = null } = {}) {
   if (!globalThis.JSZip) throw new Error('O componente de exportação não carregou. Atualize a página e tente novamente.');
-  const S = estilos(), E = paleta(S), comp = abaComparativo(E, ano, porMes, mesAtual), folhas = [comp.f];
+  const S = estilosPlanilha(), comp = abaComparativo(S, ano, porMes, mesAtual), folhas = [comp.f];
   for (const mes of comp.meses) for (const u of Object.keys(UNIDADES_FR)) {
     const d = porMes[mes]?.unidades?.[u];
-    if (d?.temDados) folhas.push(abaDetalhe(E, u, mes, d));
+    if (d?.temDados) folhas.push(abaDetalhe(S, u, mes, d, mesAtual));
   }
   const zip = new JSZip();
   zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>
-<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
 ${folhas.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`);
   zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
   zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0" firstSheet="0"/></bookViews>
 <sheets>${folhas.map((f, i) => `<sheet name="${esc(f.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`);
+  const n = folhas.length;
   zip.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${folhas.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}
-<Relationship Id="rId${folhas.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+<Relationship Id="rId${n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId${n + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/></Relationships>`);
   folhas.forEach((f, i) => zip.file(`xl/worksheets/sheet${i + 1}.xml`, f.xml()));
-  zip.file('xl/styles.xml', S.xml());   // por último: os estilos são criados enquanto as folhas são montadas
+  zip.file('xl/styles.xml', S.xml);
+  zip.file('xl/theme/theme1.xml', THEME_XML);
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 }
 
