@@ -1,11 +1,11 @@
 // Telas do Fill rate / Insuficiência de estoque, como a planilha: aba RESUMO (o quadro da aba Resumo) e uma aba
 // por revenda (CB NORTE, CB SUL) com o cabeçalho, "por dia", "por produto" e "por data e produto". Sem gráfico.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-14';
-import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261125-14';
-import { baixarComparativoFR } from './exportar_fillrate.js?v=20261125-14';
-import * as F from './dados_fillrate.js?v=20261125-14';
-import * as D from './dados.js?v=20261125-14';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-15';
+import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261125-15';
+import { baixarComparativoFR } from './exportar_fillrate.js?v=20261125-15';
+import * as F from './dados_fillrate.js?v=20261125-15';
+import * as D from './dados.js?v=20261125-15';
 
 const fcx = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (pct, meta) => (pct == null ? '' : pct <= meta ? 'c-ok' : 'c-no');
@@ -156,11 +156,11 @@ export function paginaComparativoFR(resumos, { ano, admin, topo, mesAtual = null
     const pega = (s) => s.linhas.find((l) => doMes(l) === mes);
     const us = Object.keys(UNIDADES_FR).map((u) => lin(nomeAba(u), pega(c.unidades[u]), pega(c.unidades[u]) ? `#/fillrate/${u}/${mes}` : null)).join('');
     return `<section class="bloco fr-mes"><div class="faixa"><span>${nomeMesLongo(mes)}${mes === mesAtual ? ' <span class="small">(parcial)</span>' : ''}</span></div><div class="corpo"><div class="tw scroll fr-resumo"><table><thead>${cab}</thead><tbody>
-${us}${lin('GERAL', pega(c.geral), null, 'tot')}</tbody></table></div></div></section>`;
+${us}</tbody></table></div></div></section>`;
   }).join('');
   const acm = (s) => (s.acumulado ? { totais: s.acumulado, ultimoDia: s.linhas.at(-1)?.ultimoDia } : null);
   const acumulado = `<section class="bloco fr-mes"><div class="faixa"><span>ACUMULADO ${ano}</span></div><div class="corpo"><div class="tw scroll fr-resumo"><table><thead>${cab}</thead><tbody>
-${Object.keys(UNIDADES_FR).map((u) => lin(nomeAba(u), acm(c.unidades[u]), null)).join('')}${lin('GERAL', acm(c.geral), null, 'tot')}</tbody></table></div>
+${Object.keys(UNIDADES_FR).map((u) => lin(nomeAba(u), acm(c.unidades[u]), null)).join('')}</tbody></table></div>
 <p class="small">Acumulado = falta ÷ pedido somados de ${fi(c.meses.length)} mês(es) (não é a média dos %).</p></div></section>`;
   const faltam = admin ? (() => {
     const fim = mesAtual && mesAtual.startsWith(`${ano}-`) ? +mesAtual.slice(5, 7) : 12;

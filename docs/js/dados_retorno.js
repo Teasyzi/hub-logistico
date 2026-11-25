@@ -6,7 +6,7 @@
 // Os DLs não têm coleção própria: usam venda/ e retorno/ da Montagem de Cargas.
 import { db, auth } from './firebase.js';
 import { collection, doc, getDoc, getDocs, query, where, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { UNIDADES_RET, DAS_RET, DLS_RET, calcularRetorno, agregadoPublicadoRetorno } from './retorno.js?v=20261125-14';
+import { UNIDADES_RET, DAS_RET, DLS_RET, calcularRetorno, agregadoPublicadoRetorno } from './retorno.js?v=20261125-15';
 
 const refDados = (u, mes) => doc(db, 'retorno_dados', `${u}_${mes}`);
 const refPar = (u, mes) => doc(db, 'retorno_parametro', `${u}_${mes}`);
