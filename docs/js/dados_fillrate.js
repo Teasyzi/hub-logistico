@@ -2,11 +2,25 @@
 //   fr_dados/{NORTE|SUL}_{mes}     {unidade, mes, produtos (JSON), linhas (JSON), nLinhas, arquivo, atualizado}  (admin)
 //   fr_publicado/{NORTE|SUL}_{mes} {unidade, mes, placar (JSON), publicadoEm, por}                              (admin e leitores)
 //   meta/publicacoes_fr            {meses:[...]}
+//   fr_parametro/produtos          {mapa (JSON {DESCRIÇÃO: código}), n, arquivo, atualizado}                    (admin)
 import { db, auth } from './firebase.js';
 import { doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { UNIDADES_FR, calcularFR, compactar, descompactar, agregadoPublicadoFR, lerAgregadoFR } from './fillrate.js?v=20261125-7';
+import { UNIDADES_FR, calcularFR, compactar, descompactar, agregadoPublicadoFR, lerAgregadoFR } from './fillrate.js?v=20261125-8';
 
 const refDados = (u, mes) => doc(db, 'fr_dados', `${u}_${mes}`);
+const refCadastro = () => doc(db, 'fr_parametro', 'produtos');
+
+// Cadastro de produtos (descrição → código). Soma ao que já existe: um código novo substitui o antigo, e os
+// produtos que saíram do cadastro continuam com código nos meses antigos.
+export async function lerCadastroFR() {
+  const d = (await getDoc(refCadastro())).data();
+  return d ? { mapa: JSON.parse(d.mapa || '{}'), n: d.n, arquivo: d.arquivo, atualizado: d.atualizado?.toDate?.() || null } : { mapa: {}, n: 0 };
+}
+export async function gravarCadastroFR(mapa, arquivo) {
+  const atual = (await lerCadastroFR()).mapa, novo = { ...atual, ...mapa }, n = Object.keys(novo).length;
+  await setDoc(refCadastro(), { mapa: JSON.stringify(novo), n, arquivo, atualizado: serverTimestamp() });
+  return n;
+}
 
 // O relatório é acumulado do mês: reimportar substitui o mês inteiro da revenda que o arquivo traz.
 export async function gravarFR(meses, arquivo) {
@@ -23,7 +37,7 @@ export async function gravarFR(meses, arquivo) {
 }
 
 export async function lerDadosFR(mes) {
-  const us = Object.keys(UNIDADES_FR), xs = await Promise.all(us.map((u) => getDoc(refDados(u, mes))));
+  const us = Object.keys(UNIDADES_FR), [xs, cad] = await Promise.all([Promise.all(us.map((u) => getDoc(refDados(u, mes)))), lerCadastroFR()]);
   const dados = {}, atualizados = [];
   us.forEach((u, i) => {
     const d = xs[i].data();
@@ -31,7 +45,7 @@ export async function lerDadosFR(mes) {
     dados[u] = { arquivo: d.arquivo, linhas: descompactar({ produtos: JSON.parse(d.produtos || '[]'), linhas: JSON.parse(d.linhas || '[]') }, mes) };
     if (d.atualizado?.toDate) atualizados.push(d.atualizado.toDate());
   });
-  return { mes, dados, atualizado: atualizados.sort((a, b) => b - a)[0] || null };
+  return { mes, dados, codigos: cad.mapa, atualizado: atualizados.sort((a, b) => b - a)[0] || null };
 }
 
 export async function calcularFRAoVivo(mes) {

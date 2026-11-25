@@ -105,3 +105,7 @@ Lidas todas as células e fórmulas dos 11 arquivos de 2026 (`01 - … Janeiro` 
 
 ### 11.3 Conferência na prévia
 Entregue e falta das duas revendas batem com a soma das linhas das planilhas oficiais (tolerância de 0,01 CX UNIT) em abr, jul, out e nov/26, importando a planilha antiga, e em nov/26 importando o relatório. Em abr/Sul o Hub soma os 141 produtos repetidos no mesmo dia, como a planilha.
+
+### 11.4 Ajustes de tela (25/11/2026)
+- "Informação por dia" mostra todos os dias, sem barra de rolagem. "Informação por produto" fica do lado com a mesma altura e rola por dentro.
+- "Informação por data e produto" ganhou a coluna **Cód.**, e a busca também acha pelo código. O código vem do cadastro de produtos (colunas Descricao e Reduzido; é a aba PRODUTOS da planilha de out/26 em diante), importado em ⚙ Importar e guardado em `fr_parametro/produtos` (regra nova). Casa pela descrição, sem diferença de maiúsculas e espaços: o "Cerv Eisen Ameripa…" agora acha o código (1200153). Sem código ficam só os itens "Repasse", que não estão no cadastro (aviso para o admin). Cadastro reimportado soma ao anterior.

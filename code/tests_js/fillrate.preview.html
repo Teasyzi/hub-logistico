@@ -2,15 +2,15 @@
 <meta charset="utf-8">
 <title>Prévia Fill rate</title>
 <!-- Prévia local das telas do Fill rate / Insuficiência, sem Firebase. Os arquivos vêm de /amostras/:
-     ?mes=AAAA-MM&arquivos=<arquivo1>|<arquivo2>&pagina=resumo|NORTE|SUL[&admin=0]
+     ?mes=AAAA-MM&arquivos=<arquivo1>|<arquivo2>&pagina=resumo|NORTE|SUL[&admin=0][&cadastro=<arquivo com o cadastro de produtos>]
      Com ?conferir=<AAAA-MM> compara entregue e falta com as somas das linhas da planilha oficial
      (AUDITORIA/Fill_Rate_Insuficiencia.md §10). -->
-<link rel="stylesheet" href="../../docs/css/hub.css?v=20261125-7">
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261125-8">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <main id="app"><p>carregando…</p></main>
 <script type="module">
-const R = await import('../../docs/js/fillrate.js?v=20261125-7');
-const T = await import('../../docs/js/fillrate_telas.js?v=20261125-7');
+const R = await import('../../docs/js/fillrate.js?v=20261125-8');
+const T = await import('../../docs/js/fillrate_telas.js?v=20261125-8');
 const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'resumo', admin = q.get('admin') !== '0';
 const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array', cellDates: false });
 const dados = {}, lidos = [];
@@ -23,7 +23,9 @@ for (const n of (q.get('arquivos') || '').split('|').filter(Boolean)) {
     dados[u] = { arquivo: n, linhas: R.descompactar(JSON.parse(JSON.stringify(c)), mes) };
   }
 }
-let res = R.calcularFR({ mes, dados });
+// Cadastro de produtos (códigos): só o mapa do arquivo indicado, sem os dados de insuficiência dele.
+const codigos = q.get('cadastro') ? R.lerArquivoFR(await ler(q.get('cadastro'))).cadastro || {} : null;
+let res = R.calcularFR({ mes, dados, codigos });
 // Leitor: passa pelo agregado publicado (o mesmo JSON que vai para fr_publicado).
 if (!admin) {
   const ag = JSON.parse(JSON.stringify(R.agregadoPublicadoFR(res)));

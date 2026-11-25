@@ -76,9 +76,30 @@ function lerBloco(rows, unidadeFixa, out, ign) {
   return n;
 }
 
+// Código do produto: o relatório não traz. Vem do cadastro de produtos do ERP (colunas "Descricao" e "Reduzido";
+// é a aba PRODUTOS oculta da planilha desde out/26), casando pela descrição como o PROCV, mas sem diferença de
+// maiúsculas e espaços (o PROCV dava #N/D no "Cerv Eisen Ameripa…" por um espaço a mais no cadastro).
+// Descrição repetida no cadastro: vale a primeira, como o PROCV.
+export const chaveProduto = (s) => String(s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toUpperCase();
+function lerCadastro(rows) {
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const cab = (rows[i] || []).map(chave), cD = cab.indexOf('descricao'), cR = cab.indexOf('reduzido');
+    if (cD < 0 || cR < 0) continue;
+    const mapa = {};
+    for (const l of rows.slice(i + 1)) {
+      const k = chaveProduto(l?.[cD]), cod = l?.[cR];
+      if (!k || cod == null || String(cod).trim() === '' || k in mapa) continue;
+      mapa[k] = String(typeof cod === 'number' ? Math.round(cod) : cod).trim();
+    }
+    return Object.keys(mapa).length ? mapa : null;
+  }
+  return null;
+}
+
 export function lerArquivoFR(wb) {
   const out = {}, ign = new Set();
-  let n = 0, tipo = null;
+  let n = 0, tipo = null, cadastro = null;
+  for (const s of wb.SheetNames) { cadastro = lerCadastro(linhas(wb.Sheets[s])); if (cadastro) break; }
   const abas = [['CB NORTE', 'NORTE'], ['CB SUL', 'SUL']].filter(([a]) => wb.Sheets[a]);
   if (abas.length) {
     for (const [a, u] of abas) n += lerBloco(linhas(wb.Sheets[a]), u, out, ign);
@@ -88,34 +109,38 @@ export function lerArquivoFR(wb) {
     for (const s of wb.SheetNames) { n += lerBloco(linhas(wb.Sheets[s]), null, out, ign); if (n) break; }
     if (n) tipo = 'relatório de insuficiência (DA · Prod Descr · Data · Pedido Entregue · Falta de Estoque)';
   }
-  return n ? { tipo, meses: out, ignoradas: [...ign], linhas: n } : { tipo: null, meses: {}, ignoradas: [], linhas: 0 };
+  const cad = cadastro ? { cadastro, produtosCadastro: Object.keys(cadastro).length } : {};
+  if (n) return { tipo, meses: out, ignoradas: [...ign], linhas: n, ...cad };
+  if (cadastro) return { tipo: 'cadastro de produtos (Descricao · Reduzido)', meses: {}, ignoradas: [], linhas: 0, ...cad };
+  return { tipo: null, meses: {}, ignoradas: [], linhas: 0 };
 }
 
-// Formato compacto para o Firestore (sem arrays aninhados): produtos [{p, c}] e linhas [[iProduto, dia, entregue, falta]].
+// Formato compacto para o Firestore (sem arrays aninhados): produtos [{p, c, k?}] e linhas [[iProduto, dia, entregue, falta]].
 export function compactar(lista) {
   const idx = new Map(), produtos = [], ls = [];
   for (const x of lista) {
     const k = `${x.prod}\u0000${x.cat}`;
-    if (!idx.has(k)) { idx.set(k, produtos.length); produtos.push({ p: x.prod, c: x.cat }); }
+    if (!idx.has(k)) { idx.set(k, produtos.length); produtos.push(x.cod == null ? { p: x.prod, c: x.cat } : { p: x.prod, c: x.cat, k: x.cod }); }
     ls.push([idx.get(k), +x.data.slice(8, 10), x.ent, x.falta]);
   }
   return { produtos, linhas: ls };
 }
 export function descompactar({ produtos = [], linhas: ls = [] }, mes) {
-  return ls.map(([i, d, ent, falta]) => ({ prod: produtos[i]?.p ?? '?', cat: produtos[i]?.c ?? '', data: `${mes}-${p2(d)}`, ent, falta }));
+  return ls.map(([i, d, ent, falta]) => ({ prod: produtos[i]?.p ?? '?', cat: produtos[i]?.c ?? '', cod: produtos[i]?.k ?? null, data: `${mes}-${p2(d)}`, ent, falta }));
 }
 
 const insuf = (ent, falta) => (ent + falta > 0 ? falta / (ent + falta) : null);
 
 // Uma unidade no mês: linhas [{cat,prod,data,ent,falta}] → totais, por dia, por produto e detalhe.
-export function calcularUnidadeFR(lista = [], { meta = META_FR } = {}) {
+export function calcularUnidadeFR(bruta = [], { meta = META_FR, codigos = null } = {}) {
+  const lista = codigos ? bruta.map((x) => ({ ...x, cod: codigos[chaveProduto(x.prod)] ?? x.cod ?? null })) : bruta;
   const entregue = lista.reduce((s, x) => s + x.ent, 0), falta = lista.reduce((s, x) => s + x.falta, 0), pedido = entregue + falta;
   const pct = insuf(entregue, falta), metaCx = meta * pedido;
   const porDia = new Map(), porProd = new Map(), repetidas = new Map();
   for (const x of lista) {
     const d = porDia.get(x.data) || { data: x.data, ent: 0, falta: 0, linhas: 0 };
     d.ent += x.ent; d.falta += x.falta; d.linhas++; porDia.set(x.data, d);
-    const kp = chave(x.prod), p = porProd.get(kp) || { prod: x.prod, cat: x.cat, ent: 0, falta: 0, dias: 0 };
+    const kp = chave(x.prod), p = porProd.get(kp) || { prod: x.prod, cat: x.cat, cod: x.cod ?? null, ent: 0, falta: 0, dias: 0 };
     p.ent += x.ent; p.falta += x.falta; if (x.falta > 0) p.dias++; porProd.set(kp, p);
     const kr = `${kp}|${x.data}`; repetidas.set(kr, (repetidas.get(kr) || 0) + 1);
   }
@@ -132,15 +157,16 @@ export function calcularUnidadeFR(lista = [], { meta = META_FR } = {}) {
     ultimoDia: ultimo,
     dias, produtos, detalhe,
     repetidas: [...repetidas.values()].filter((n) => n > 1).length,
+    semCodigo: produtos.filter((p) => p.cod == null).map((p) => p.prod),
   };
 }
 
-// dados: {NORTE|SUL: {linhas:[...], arquivo}} → {mes, unidades, geral}
-export function calcularFR({ mes, dados = {}, meta = META_FR }) {
+// dados: {NORTE|SUL: {linhas:[...], arquivo}}; codigos: {DESCRICAO: código} do cadastro → {mes, unidades, geral}
+export function calcularFR({ mes, dados = {}, meta = META_FR, codigos = null }) {
   const unidades = {};
   for (const [u, nome] of Object.entries(UNIDADES_FR)) {
     const d = dados[u] || {};
-    unidades[u] = { unidade: u, nome, mes, arquivo: d.arquivo || null, ...calcularUnidadeFR(d.linhas || [], { meta }) };
+    unidades[u] = { unidade: u, nome, mes, arquivo: d.arquivo || null, ...calcularUnidadeFR(d.linhas || [], { meta, codigos }) };
   }
   const us = Object.values(unidades).filter((d) => d.temDados);
   const entregue = us.reduce((s, d) => s + d.totais.entregue, 0), falta = us.reduce((s, d) => s + d.totais.falta, 0), pct = insuf(entregue, falta);
