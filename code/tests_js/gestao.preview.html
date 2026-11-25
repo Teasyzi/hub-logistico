@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Prévia Gestão à vista</title>
+<!-- Prévia local das telas da Gestão à vista, sem Firebase. Os arquivos vêm de /amostras/ e são importados na ordem:
+     ?ano=AAAA&arquivos=<arq1>|<arq2>|…&pagina=CBAR|CCRT|importar[&admin=0][&conferir=<planilha da Gestão à vista>]
+     Aceita a planilha da Gestão à vista, o KPI do mês e a planilha de Perdas (como o ⚙ Importar).
+     Com ?conferir= compara as linhas calculadas (jan–dez) com os valores da aba Dados daquela planilha.
+     window.exportarTeste(u) gera a planilha e devolve a aba Dados relida (alguns valores e fórmulas). -->
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261125-18">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<main id="app"><p>carregando…</p></main>
+<script type="module">
+const R = await import('../../docs/js/gestao.js?v=20261125-18');
+const T = await import('../../docs/js/gestao_telas.js?v=20261125-18').catch((e) => { throw e; });
+const X = await import('../../docs/js/exportar_gestao.js?v=20261125-18');
+const q = new URLSearchParams(location.search), ano = +(q.get('ano') || 2026), pagina = q.get('pagina') || 'CBAR', admin = q.get('admin') !== '0';
+const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array', cellDates: false });
+// Como no Firestore: um documento por DL e ano, juntando cada arquivo com aplicarGV.
+const docs = {}, lidos = [];
+for (const n of (q.get('arquivos') || '').split('|').filter(Boolean)) {
+  const x = R.lerArquivoGV(await ler(n), n, ano), res = {};
+  for (const [u, anos] of Object.entries(R.porAnoGV(x))) for (const [a, es] of Object.entries(anos)) {
+    const r = R.aplicarGV(docs[`${u}_${a}`], es);
+    docs[`${u}_${a}`] = { valores: JSON.parse(JSON.stringify(r.valores)), origem: r.origem };
+    (res[u] ??= {})[a] = { n: r.n, mantidos: r.mantidos };
+  }
+  lidos.push({ arquivo: n, tipo: x.tipo, mes: x.mes, ano: x.ano, res });
+}
+const anosDe = (u) => Object.fromEntries(Object.entries(docs).filter(([k]) => k.startsWith(`${u}_`)).map(([k, d]) => [+k.slice(5), d.valores]));
+const topo = (aba, t) => `<h1>Gestão à vista — ${t} (prévia)</h1>${T.abasGV(aba, ano, admin)}`;
+const render = () => {
+  let h;
+  if (pagina === 'importar') h = `${topo('importar', 'Importar arquivos')}${T.explicaImportarGV}<pre class="small">${JSON.stringify(lidos, null, 1)}</pre>`;
+  else h = T.paginaUnidadeGV(pagina, docs[`${pagina}_${ano}`], { ano, admin, topo: topo(pagina, `${T.nomeAbaGV(pagina)} · ${ano}`) });
+  document.getElementById('app').innerHTML = (window.avisoConferencia || '') + h;
+  if (admin) T.ligarEdicaoGV(document, docs[`${pagina}_${ano}`], async (ed) => { docs[`${pagina}_${ano}`] = R.editarGV(docs[`${pagina}_${ano}`], ed); }, render);
+  document.getElementById('exportarGV')?.addEventListener('click', () => X.baixarGestaoGV(pagina, ano, anosDe(pagina)));
+};
+// Conferência: o cálculo do Hub × os valores (cache) da aba Dados da planilha oficial, mês a mês (B:M).
+if (q.get('conferir')) {
+  const wb = await ler(q.get('conferir')), ws = wb.Sheets.Dados, u = /CCRT/.test(q.get('conferir')) ? 'CCRT' : 'CBAR';
+  const cc = R.calcularAnoGV(docs[`${u}_${ano}`]?.valores), dif = [];
+  let ok = 0;
+  for (const x of R.LINHAS_GV) for (let m = 1; m <= 12; m++) {
+    const a1 = `${'BCDEFGHIJKLM'[m - 1]}${x.l}`, p = ws[a1]?.v, h = cc.linhas[x.l].m[m - 1];
+    const pv = typeof p === 'number' ? p : (p === '' || p == null ? null : p), hv = h;
+    const igual = (typeof pv === 'number' && typeof hv === 'number') ? Math.abs(pv - hv) <= 1e-6 * Math.max(1, Math.abs(pv)) : (pv ?? null) === (hv ?? null) || (pv === 0 && hv == null);
+    if (igual) ok++; else dif.push({ cel: a1, planilha: p, hub: h });
+  }
+  window.conferencia = { ok, dif };
+  window.avisoConferencia = `<div class="${dif.length ? 'aviso' : 'okmsg'}">Conferência com ${q.get('conferir')}: ${ok} células iguais, ${dif.length} diferentes${dif.length ? ': ' + dif.slice(0, 12).map((d) => `${d.cel} planilha ${d.planilha} × Hub ${d.hub}`).join('; ') : ''}</div>`;
+}
+render();
+window.exportarTeste = async (u = pagina) => {
+  const bytes = await X.gerarGestaoGV(u, ano, anosDe(u));
+  const lido = XLSX.read(bytes, { type: 'array', cellFormula: true });
+  const ws = lido.Sheets.Dados, pega = (a) => ({ v: ws[a]?.v, f: ws[a]?.f });
+  return { bytes: bytes.length, abas: lido.SheetNames, celulas: Object.fromEntries(['B3', 'B4', 'B6', 'B7', 'B9', 'H9', 'O9', 'O35', 'B14', 'F14', 'B17', 'B20', 'Q3', 'Q6', 'Q21', 'AD21', 'AF3'].map((a) => [a, pega(a)])) };
+};
+window.gerarBytes = async (u = pagina) => Array.from(await X.gerarGestaoGV(u, ano, anosDe(u)));
+window.docs = docs; window.lidos = lidos; window.pronto = true;
+</script>

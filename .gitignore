@@ -28,3 +28,6 @@ Thumbs.db
 AUDITORIA/arquivos.csv
 AUDITORIA/inventario.csv
 AUDITORIA/amostras.csv
+# Modelos da exportação (planilha oficial sem dados e sem nomes; gerados por code/tools/modelo_gestao.ps1)
+!docs/modelos/*.xlsx
+!docs/modelos/*.XLSX

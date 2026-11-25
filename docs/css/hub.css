@@ -183,3 +183,9 @@ svg .ret-barra{fill:var(--s1)}svg .ret-barra.canc{fill:var(--axis)}.ret-grafico{
 .fr-mes{margin-bottom:12px}.fr-det{padding:3px 10px;font-size:12px}
 .fr-graficos{margin:4px 0 14px}
 svg text.fr-pct{font-size:10px;font-weight:700}svg text.fr-pct.ok{fill:var(--good)}svg text.fr-pct.no{fill:var(--bad)}
+/* Gestão à vista: quadro da aba Dados (jan–dez + Acum) e gráficos das abas de gráfico */
+.gv-dados table{min-width:1180px}.gv-dados td,.gv-dados th{white-space:nowrap;padding:6px 8px}.gv-dados td.t{min-width:330px}
+.gv-dados td.gv-calc{color:var(--ink2)}.gv-dados td.gv-acum{font-weight:700;background:var(--row)}.gv-dados td.manual{color:var(--brand);font-weight:700}
+.gv-dados td input{width:86px;text-align:right}.gv-botoes{margin:6px 0 10px}.gv-botoes [hidden]{display:none}
+.gv-aba{margin-top:14px}.gv-graf{min-width:0}.gv-tit{font-weight:750;font-size:12.5px;margin:2px 0 4px;color:var(--ink)}
+.grafico-legenda i.gv-leg0{background:var(--s1)}.grafico-legenda i.gv-leg1{background:var(--s2)}

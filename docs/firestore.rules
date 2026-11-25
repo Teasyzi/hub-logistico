@@ -82,6 +82,14 @@ service cloud.firestore {
       allow read: if admin() || leitor();
       allow write: if admin();
     }
+    match /gav_publicado/{id} {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
+    match /meta/publicacoes_gav {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
     match /meta/acesso {
       allow read, write: if admin();
     }
@@ -105,5 +113,6 @@ service cloud.firestore {
     match /fr_dados/{id}          { allow read, write: if admin(); }
     match /fr_parametro/{id}      { allow read, write: if admin(); }
     match /fr_resumo/{id}         { allow read, write: if admin(); }
+    match /gav_dados/{id}         { allow read, write: if admin(); }
   }
 }

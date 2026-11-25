@@ -126,3 +126,37 @@ Tudo é digitado. Nenhum número vem de um relatório bruto: os valores são cop
 6. **"Acum":** é a média só dos meses com dado. Os meses vazios não entram.
 7. **Linhas do Easy Pallet sempre "-"** (17, 18, 20): continuam, por enquanto.
 8. **TRIXLOG "Acum":** o 99,5 fixo é um erro. O certo é a média do desempenho acumulado até o mês.
+9. **Base do custo de distribuição (P-GV-4):** fica como está. Quem preenche o custo é outra pessoa.
+10. **Telas:** seguir a planilha, com uma aba para Barreiras e outra para Juazeiro.
+11. **Exportação (detalhe):** um arquivo por DL (CB LOG CBAR e CB LOG II CCRT), **igual à planilha oficial**. Ela vem com as fórmulas, e os gráficos ficam exatamente como estão (as 13 abas de gráfico, com o mesmo tipo, as mesmas cores e as mesmas faixas `Dados!B:O`).
+
+## 11. No Hub (`#/gestao`, 25/11/2026)
+- **Arquivos:**
+  - `docs/js/gestao.js`: indicadores (linha da planilha 4–46), cálculo e leitura dos arquivos;
+  - `dados_gestao.js`: Firestore;
+  - `gestao_telas.js`: telas;
+  - `exportar_gestao.js`: planilha;
+  - `docs/modelos/gestao_a_vista_CBAR.xlsx` e `_CCRT.xlsx`: a planilha oficial de 2026 sem dados e sem nomes, gerada por `code/tools/modelo_gestao.ps1`.
+- **Coleções:**
+  - `gav_dados/{CBAR|CCRT}_{ano}`, com os valores e a origem de cada célula (admin);
+  - `gav_publicado/{u}_{ano}` e `meta/publicacoes_gav` (leitores).
+- **Importar** (vários arquivos de uma vez):
+  - a planilha da Gestão à vista: o ano dela e os blocos dos anos anteriores;
+  - o KPI do mês: 14 linhas dos dois DLs. O faturamento e a ocupação vêm da aba oculta "Montagem das cargas". O mês sai do B4 ("FECHAMENTO DE …"), e, quando ele está vazio, do nome do arquivo e do ano do B3;
+  - a planilha de Perdas: o PERDAS TOTAL.
+- **Força de cada origem:** o valor digitado vale mais que o KPI e as Perdas, que valem mais que a planilha do ano, que vale mais que os blocos de anos anteriores. Um valor só é trocado por uma origem igual ou mais forte.
+- **Telas:**
+  - uma aba por DL, com o quadro da aba Dados (jan–dez + Acum) e os gráficos das 12 abas de gráfico, na mesma ordem;
+  - ✎ para editar os valores digitados: em vermelho, com a origem no "title".
+- **Exportação:**
+  - o modelo oficial com a aba Dados reescrita célula a célula, com o mesmo estilo de cada célula;
+  - as linhas calculadas saem como fórmula, com o resultado em cache;
+  - Acum = média dos meses com valor, e as divisões ficam vazias quando falta o número;
+  - os blocos de anos anteriores são preenchidos com ano − 1, ano − 2…;
+  - o cache dos 28 gráficos é regravado, e o Excel recalcula ao abrir (`fullCalcOnLoad`).
+- **Conferência na prévia** (`code/tests_js/gestao.preview.html`, config "hub-gestao", porta 8770):
+  - o cálculo do Hub bate com a aba Dados da planilha oficial em 516/516 células (Juazeiro 2026, Barreiras 2025) e em 515/516 em Barreiras 2026. A única diferença é o `F11`, que estava digitado à mão com 1,66;
+  - a exportação abre no Excel com as 14 abas e os 28 gráficos, e o PDF sai igual ao da planilha oficial (formatação e gráficos). Mudam só os valores corrigidos.
+- **Dados que o usuário precisa corrigir depois de importar** (com ✎):
+  - cargas de dez/25 em Barreiras (3.936);
+  - perdas de Juazeiro de fev–mar/26 (copiadas de Barreiras; janeiro já é corrigido ao importar a planilha de Perdas de janeiro).
