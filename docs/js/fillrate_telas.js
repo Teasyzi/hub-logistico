@@ -1,11 +1,11 @@
 // Telas do Fill rate / Insuficiência de estoque, como a planilha: aba RESUMO (o quadro da aba Resumo) e uma aba
 // por revenda (CB NORTE, CB SUL) com o cabeçalho, "por dia", "por produto" e "por data e produto". Sem gráfico.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-18';
-import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261125-18';
-import { baixarComparativoFR } from './exportar_fillrate.js?v=20261125-18';
-import * as F from './dados_fillrate.js?v=20261125-18';
-import * as D from './dados.js?v=20261125-18';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261125-19';
+import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261125-19';
+import { baixarComparativoFR } from './exportar_fillrate.js?v=20261125-19';
+import * as F from './dados_fillrate.js?v=20261125-19';
+import * as D from './dados.js?v=20261125-19';
 
 const fcx = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (pct, meta) => (pct == null ? '' : pct <= meta ? 'c-ok' : 'c-no');
@@ -197,7 +197,7 @@ ${Object.keys(UNIDADES_FR).map((u) => lin(nomeAba(u), acm(c.unidades[u]), null))
 async function topoFR(ctx, aba, mes, titulo, comMes = true) {
   let sel = '';
   if (comMes) {
-    const meses = new Set(ctx.adminNaTela() ? [ctx.mesAtual(), mes, ...(await F.mesesFRPublicados())] : await F.mesesFRPublicados());
+    const meses = new Set(ctx.adminNaTela() ? mesesAdmin(mes, await F.mesesFRPublicados()) : await F.mesesFRPublicados());
     meses.add(mes);
     sel = seletorMes([...meses].sort().reverse(), mes);
     if (ctx.adminNaTela() && (aba === 'resumo' || UNIDADES_FR[aba])) {

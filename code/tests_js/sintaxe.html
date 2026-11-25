@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Sintaxe dos módulos</title>
+<!-- Carrega os módulos do site e escreve "ok" ou o erro de cada um (útil com o Edge headless: --dump-dom). -->
+<pre id="r">carregando…</pre>
+<script type="module">
+const v = new URLSearchParams(location.search).get('v') || '';
+const mods = ['views', 'gestao', 'exportar_gestao', 'fillrate_telas', 'perdas_telas', 'retorno_telas', 'transportes_telas', 'gestao_telas'];
+const out = [];
+for (const m of mods) {
+  try { await import(`../../docs/js/${m}.js?v=${v}`); out.push(`${m}: ok`); } catch (e) { out.push(`${m}: ${e.name}: ${e.message}`); }
+}
+const V = await import(`../../docs/js/views.js?v=${v}`);
+out.push(`mesesAdmin: ${V.mesesAdmin('2026-11').length} meses, de ${V.mesesAdmin().at(-1)} a ${V.mesesAdmin()[0]}`);
+document.getElementById('r').textContent = out.join('\n');
+</script>

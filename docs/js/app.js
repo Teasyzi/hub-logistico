@@ -4,17 +4,17 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261125-18';
-import { lerArquivo, num } from './importar.js?v=20261125-18';
-import * as V from './views.js?v=20261125-18';
-import { hojeKM } from './km.js?v=20261125-18';
-import { rotearPerdas } from './perdas_telas.js?v=20261125-18';
-import { rotearRetorno } from './retorno_telas.js?v=20261125-18';
-import { rotearFR } from './fillrate_telas.js?v=20261125-18';
-import { rotearTX } from './transportes_telas.js?v=20261125-18';
-import { rotearGV } from './gestao_telas.js?v=20261125-18';
+import * as D from './dados.js?v=20261125-19';
+import { lerArquivo, num } from './importar.js?v=20261125-19';
+import * as V from './views.js?v=20261125-19';
+import { hojeKM } from './km.js?v=20261125-19';
+import { rotearPerdas } from './perdas_telas.js?v=20261125-19';
+import { rotearRetorno } from './retorno_telas.js?v=20261125-19';
+import { rotearFR } from './fillrate_telas.js?v=20261125-19';
+import { rotearTX } from './transportes_telas.js?v=20261125-19';
+import { rotearGV } from './gestao_telas.js?v=20261125-19';
 import { diasDoMes } from './calc.js?v=20261117-5';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261125-18';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261125-19';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';
@@ -433,7 +433,7 @@ async function mesPadraoPES() {
 async function topoKM(aba, mes, titulo, comMes = true) {
   let ctrl = '';
   if (comMes) {
-    const meses = new Set(adminNaTela() ? [mesAtual(), mes] : await D.mesesKMPublicados());
+    const meses = new Set(adminNaTela() ? V.mesesAdmin(mes, await D.mesesKMPublicados()) : await D.mesesKMPublicados());
     meses.add(mes);
     ctrl = V.seletorMes([...meses].sort().reverse(), mes);
     if (adminNaTela() && ['resumo', 'NORTE', 'SUL', 'CBAR', 'CCRT'].includes(aba)) {

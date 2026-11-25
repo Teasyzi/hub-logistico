@@ -1,9 +1,9 @@
 // Telas do acompanhamento Perdas de estoque (DLs). As funções pagina* são puras (dados → HTML) e servem à prévia
 // local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-18';
-import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261125-18';
-import * as P from './dados_perdas.js?v=20261125-18';
-import * as D from './dados.js?v=20261125-18';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261125-19';
+import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261125-19';
+import * as P from './dados_perdas.js?v=20261125-19';
+import * as D from './dados.js?v=20261125-19';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const frc = (x) => (x == null ? '–' : `R$ ${nf(2).format(x)}`);
@@ -132,7 +132,7 @@ ${d.produtos.length > 30 ? `<details><summary class="small">Ver todos os ${fi(d.
 async function topoPerdas(ctx, aba, mes, titulo, comMes = true) {
   let sel = '';
   if (comMes) {
-    const meses = new Set(ctx.adminNaTela() ? [ctx.mesAtual(), mes] : await P.mesesPerdasPublicados());
+    const meses = new Set(ctx.adminNaTela() ? mesesAdmin(mes, await P.mesesPerdasPublicados()) : await P.mesesPerdasPublicados());
     meses.add(mes);
     sel = seletorMes([...meses].sort().reverse(), mes);
     if (ctx.adminNaTela() && ['resumo', 'CBAR', 'CCRT'].includes(aba)) {

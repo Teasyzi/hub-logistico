@@ -1,7 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261125-18';
+import { UNIDADES } from './dados.js?v=20261125-19';
 import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
-import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261125-18';
+import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261125-19';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -26,6 +26,14 @@ const corSinal = (v) => (v == null ? '' : v >= 0 ? 't-up' : 't-down');          
 export function status(ok, tOk, tNo) {
   if (ok == null) return '<span class="st na">sem dado</span>';
   return ok ? `<span class="st ok">✓ ${E(tOk)}</span>` : `<span class="st no">✕ ${E(tNo)}</span>`;
+}
+
+// Meses que o admin pode abrir: de jan/2025 até o mês atual, tenham sido publicados ou não. A importação grava no
+// rascunho na hora; sem isso, um mês antigo importado (e ainda não publicado) não aparecia na lista.
+export function mesesAdmin(...extras) {
+  const fim = new Date().toISOString().slice(0, 7), out = new Set(extras.flat().filter(Boolean));
+  for (let a = 2025, m = 1, k = '2025-01'; k <= fim; m === 12 ? (a++, m = 1) : m++, k = `${a}-${String(m).padStart(2, '0')}`) out.add(k);
+  return [...out].sort().reverse();
 }
 
 export function seletorMes(meses, mes) {

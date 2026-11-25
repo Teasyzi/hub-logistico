@@ -4,7 +4,7 @@
 //   meta/publicacoes_gav              {anos: [...], atualizado}                                                                        (admin e leitores)
 import { db, auth } from './firebase.js';
 import { doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { UNIDADES_GV, aplicarGV, editarGV, porAnoGV } from './gestao.js?v=20261125-18';
+import { UNIDADES_GV, aplicarGV, editarGV, porAnoGV } from './gestao.js?v=20261125-19';
 
 const refDados = (u, ano) => doc(db, 'gav_dados', `${u}_${ano}`);
 const refPub = (u, ano) => doc(db, 'gav_publicado', `${u}_${ano}`);
