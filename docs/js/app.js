@@ -4,15 +4,16 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261125-6';
-import { lerArquivo, num } from './importar.js?v=20261125-6';
-import * as V from './views.js?v=20261125-6';
-import { hojeKM } from './km.js?v=20261125-6';
-import { rotearPerdas } from './perdas_telas.js?v=20261125-6';
-import { rotearRetorno } from './retorno_telas.js?v=20261125-6';
-import { rotearTX } from './transportes_telas.js?v=20261125-6';
+import * as D from './dados.js?v=20261125-7';
+import { lerArquivo, num } from './importar.js?v=20261125-7';
+import * as V from './views.js?v=20261125-7';
+import { hojeKM } from './km.js?v=20261125-7';
+import { rotearPerdas } from './perdas_telas.js?v=20261125-7';
+import { rotearRetorno } from './retorno_telas.js?v=20261125-7';
+import { rotearFR } from './fillrate_telas.js?v=20261125-7';
+import { rotearTX } from './transportes_telas.js?v=20261125-7';
 import { diasDoMes } from './calc.js?v=20261117-5';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261125-6';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261125-7';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';
@@ -71,7 +72,7 @@ function cabecalhoSite(titulo) {
         estado.modoAntesDaVisita = estado.modo;
         estado.visualizarComoVisitante = true; estado.modo = 'publicado';
         const p = (location.hash.replace(/^#/, '') || '/').split('/').filter(Boolean), mes = p.map(mesP).find(Boolean) || mesAtual();
-        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : p[0] === 'cargas' ? '#/cargas/resumo' : p[0] === 'perdas' ? `#/perdas/resumo/${mes}` : p[0] === 'retorno' ? `#/retorno/NORTE/${mes}` : p[0] === 'transportes' ? `#/transportes/resumo/${mes}` : `#/montagem/resumo/${mes}`;
+        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : p[0] === 'cargas' ? '#/cargas/resumo' : p[0] === 'perdas' ? `#/perdas/resumo/${mes}` : p[0] === 'retorno' ? `#/retorno/NORTE/${mes}` : p[0] === 'transportes' ? `#/transportes/resumo/${mes}` : p[0] === 'fillrate' ? `#/fillrate/resumo/${mes}` : `#/montagem/resumo/${mes}`;
         if (location.hash === destino) rotear(); else location.hash = destino;
       } else {
         estado.visualizarComoVisitante = false; estado.modo = estado.modoAntesDaVisita || 'rascunho';
@@ -953,6 +954,10 @@ async function rotear() {
     if (p[0] === 'transportes') {
       cabecalhoSite('Transportes 1x1');
       return await rotearTX(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
+    }
+    if (p[0] === 'fillrate') {
+      cabecalhoSite('Fill rate');
+      return await rotearFR(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'cargas') {
       cabecalhoSite('Cargas em aberto');

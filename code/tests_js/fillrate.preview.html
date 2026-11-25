@@ -1,0 +1,55 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Prévia Fill rate</title>
+<!-- Prévia local das telas do Fill rate / Insuficiência, sem Firebase. Os arquivos vêm de /amostras/:
+     ?mes=AAAA-MM&arquivos=<arquivo1>|<arquivo2>&pagina=resumo|NORTE|SUL[&admin=0]
+     Com ?conferir=<AAAA-MM> compara entregue e falta com as somas das linhas da planilha oficial
+     (AUDITORIA/Fill_Rate_Insuficiencia.md §10). -->
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261125-7">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<main id="app"><p>carregando…</p></main>
+<script type="module">
+const R = await import('../../docs/js/fillrate.js?v=20261125-7');
+const T = await import('../../docs/js/fillrate_telas.js?v=20261125-7');
+const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'resumo', admin = q.get('admin') !== '0';
+const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array', cellDates: false });
+const dados = {}, lidos = [];
+for (const n of (q.get('arquivos') || '').split('|').filter(Boolean)) {
+  const x = R.lerArquivoFR(await ler(n));
+  lidos.push({ arquivo: n, tipo: x.tipo, linhas: x.linhas, meses: Object.keys(x.meses), ignoradas: x.ignoradas });
+  // Como no Firestore: o arquivo substitui o mês inteiro de cada revenda que ele traz (e passa pelo formato compacto).
+  for (const [u, d] of Object.entries(x.meses[mes] || {})) {
+    const c = R.compactar(d.linhas);
+    dados[u] = { arquivo: n, linhas: R.descompactar(JSON.parse(JSON.stringify(c)), mes) };
+  }
+}
+let res = R.calcularFR({ mes, dados });
+// Leitor: passa pelo agregado publicado (o mesmo JSON que vai para fr_publicado).
+if (!admin) {
+  const ag = JSON.parse(JSON.stringify(R.agregadoPublicadoFR(res)));
+  res = { ...res, unidades: Object.fromEntries(Object.entries(ag).map(([u, p]) => [u, R.lerAgregadoFR(u, p)])) };
+}
+const topo = (aba, t) => `<h1>Fill rate · Insuficiência de estoque — ${t} (prévia)</h1>${T.abasFR(aba, mes, admin)}`;
+let h = pagina === 'resumo' ? T.paginaResumoFR(res, { mes, admin, topo: topo('resumo', mes) })
+  : T.paginaUnidadeFR(pagina, res.unidades[pagina], { mes, admin, topo: topo(pagina, R.UNIDADES_FR[pagina]) });
+// Somas das linhas das planilhas oficiais (entregue, falta), lidas célula a célula na auditoria.
+const ESPERADO = {
+  '2026-04': { NORTE: [520919.1152, 14297.3666], SUL: [407041.4771, 12127.4835] },
+  '2026-07': { NORTE: [631924.8311, 20253.4663], SUL: [508848.9593, 9614.4578] },
+  '2026-10': { NORTE: [679513.2786, 22044.1194], SUL: [582216.1246, 23741.6768] },
+  '2026-11': { NORTE: [708098.9964, 19602.2797], SUL: [579268.9772, 49936.1524] },
+};
+if (q.get('conferir') && ESPERADO[q.get('conferir')]) {
+  const linhas = [];
+  for (const [u, [ent, falta]] of Object.entries(ESPERADO[q.get('conferir')])) {
+    const t = res.unidades[u].totais;
+    linhas.push({ u, k: 'entregue', esperado: ent, calculado: t.entregue, ok: Math.abs(t.entregue - ent) < 0.01 });
+    linhas.push({ u, k: 'falta', esperado: falta, calculado: t.falta, ok: Math.abs(t.falta - falta) < 0.01 });
+  }
+  window.conferencia = linhas;
+  h = `<div class="${linhas.every((l) => l.ok) ? 'okmsg' : 'erro'}">Conferência ${q.get('conferir')}: ${linhas.filter((l) => l.ok).length}/${linhas.length} batem</div>` + h;
+}
+document.getElementById('app').innerHTML = h;
+T.ligarFiltrosFR();
+window.resultado = res; window.lidos = lidos; window.pronto = true;
+</script>

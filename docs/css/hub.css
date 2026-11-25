@@ -170,3 +170,9 @@ svg .ret-barra{fill:var(--s1)}svg .ret-barra.canc{fill:var(--axis)}.ret-grafico{
 .tx-mot .corpo{flex:1;position:relative;min-height:320px}
 .tx-mot .corpo .tw{position:absolute;inset:10px 12px;overflow-y:auto}
 .tx-mot thead th{position:sticky;top:0;z-index:1}
+
+/* Fill rate: "por dia" e "por produto" lado a lado, com rolagem e cabeçalho fixo */
+.fr-lado{display:grid;gap:14px;grid-template-columns:minmax(0,2fr) minmax(0,3fr);align-items:start}
+@media(max-width:1100px){.fr-lado{grid-template-columns:minmax(0,1fr)}}
+.fr-alta{max-height:560px;overflow-y:auto}.fr-alta thead th{position:sticky;top:0;z-index:1}
+.fr-resumo{max-width:1200px}.fr-resumo td,.fr-resumo th{padding:9px 12px}

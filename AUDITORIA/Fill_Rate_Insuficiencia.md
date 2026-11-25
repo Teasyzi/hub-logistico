@@ -24,7 +24,7 @@ Medir quanto do pedido deixou de ser entregue por falta de estoque, por dia e pr
 ## 3. Relatórios-fonte
 | # | Relatório | Sistema | Filtros e período | Frequência | Aba | Amostra |
 |---|---|---|---|---|---|---|
-| 1 | Insuficiência / corte por produto e dia | **a confirmar** (BI ou ERP): colunas `DA`, `Categoria`, `Prod Descr`, `Data`, `Pedido entregue`, `Falta de estoque` | mês, revendas CB CE Norte/Sul | mensal | `CB NORTE` / `CB SUL` (B10:H) | ❌ faltando |
+| 1 | Insuficiência por produto e dia: `DA · Categ Prod · Prod Descr · Data · Pedido Entregue · Falta de Estoque` (CX UNIT), as duas revendas no mesmo arquivo, acumulado do mês | BI | mês, CB CE Norte e Sul | diária/mensal | `CB NORTE` / `CB SUL` (B10:H) | ✅ recebida em 25/11 (6.240 linhas, nov até 25/11) |
 | 2 | Cadastro de produtos | ERP das revendas (export "Produtos") | todos | quando mudar | `PRODUTOS` | ❌ faltando |
 
 ## 4. Entradas manuais
@@ -48,7 +48,7 @@ A meta de 2% está fixa em `H5`.
 2. O código do produto pode vir direto no export, em vez de ser buscado pela descrição?
 
 ## 9. Situação no Hub
-**Não implementado** (fase 7 do plano). Bloqueado pela falta das amostras 1 e 2.
+Módulo `#/fillrate` construído em 25/11 (ver §11). O cadastro de produtos (amostra 2) não é necessário: o código não entra em nenhuma conta.
 
 ## 10. Leitura completa jan–nov/26 (25/11/2026)
 Lidas todas as células e fórmulas dos 11 arquivos de 2026 (`01 - … Janeiro` a `11 - … Novembro`, parcial). Não há links externos, conexões nem macros. Abas `CB NORTE` e `CB SUL` visíveis; `Resumo` oculta (só referências ao cabeçalho das duas abas); `PRODUTOS` oculta só em out e nov.
@@ -87,3 +87,21 @@ Lidas todas as células e fórmulas dos 11 arquivos de 2026 (`01 - … Janeiro` 
 7. **`CÓD` com #N/D** — `PROCV` pela descrição: "Cerv Eisen Ameripa Ln 355ml Desc (Cx12)" (o cadastro tem um espaço no fim) e os itens "Repasse" não acham código. O cadastro tem 71 descrições repetidas (vale a primeira). O código não entra em nenhuma conta.
 8. **Linhas soltas** — dias com 1–2 linhas e entregue ~0 (06/06, 04/07, 18/07, 31/10). Não mudam o %.
 9. **Rótulo trocado** — "% FILL RATE" (`N4`) está sobre a insuficiência; o fill rate de verdade fica em `N3`, sem rótulo.
+
+## 11. Decisões do usuário e módulo no Hub (25/11/2026)
+### 11.1 Decisões
+1. **Unidade:** pedido entregue e falta estão em **CX UNIT**.
+2. **Falta zero é real:** quando um dia tem falta zero, havia estoque para todo o pedido. O Hub não marca esses dias como erro; só informa a contagem para o admin.
+3. **Meta em CX UNIT = 2% do pedido (entregue + falta)**, na mesma base do %. A planilha usava 2% só do entregue (§10.3 item 4). O % de insuficiência não muda.
+4. **Layout:** seguir a planilha, com aba **RESUMO** (o quadro da aba Resumo, mais a linha GERAL) e uma aba para **CB NORTE** e outra para **CB SUL**. Sem gráfico.
+5. **Fonte confirmada:** o relatório recebido bate **linha a linha** com as abas de novembro (3.124 linhas no Norte e 3.116 no Sul, mesma ordem, mesmos valores).
+
+### 11.2 Módulo
+- Arquivos: `docs/js/fillrate.js` (leitura e cálculo), `dados_fillrate.js` (Firestore) e `fillrate_telas.js` (telas). Prévia: `code/tests_js/fillrate.preview.html?mes=AAAA-MM&arquivos=<arq1>|<arq2>&pagina=resumo|NORTE|SUL[&admin=0][&conferir=AAAA-MM]`.
+- Importa o relatório (as duas revendas no mesmo arquivo) e também a planilha antiga (abas CB NORTE / CB SUL, layouts jan–set e out–nov), para o histórico. O mês sai da coluna Data; reimportar substitui o mês da revenda.
+- Coleções: `fr_dados/{NORTE|SUL}_{mes}` (só admin), `fr_publicado/{u}_{mes}` e `meta/publicacoes_fr` (admin e leitores). As regras novas estão em `docs/firestore.rules` e precisam ser publicadas no console.
+- Telas: RESUMO (meta %, meta CX UNIT, entregue, falta, insuficiência %, fill rate %, acima da meta, último dia; linha GERAL; abre no link); unidade com os indicadores, "Informação por dia" e "Informação por produto" lado a lado e "Informação por data e produto" com filtros (dia, categoria, só com falta, busca).
+- Correções em relação à planilha: totais por dia e por produto somam todas as linhas (sem o dia 31 perdido nem o intervalo fixo), a meta não entra na soma da falta e o % aparece com o nome certo (insuficiência %, com o fill rate ao lado).
+
+### 11.3 Conferência na prévia
+Entregue e falta das duas revendas batem com a soma das linhas das planilhas oficiais (tolerância de 0,01 CX UNIT) em abr, jul, out e nov/26, importando a planilha antiga, e em nov/26 importando o relatório. Em abr/Sul o Hub soma os 141 produtos repetidos no mesmo dia, como a planilha.
