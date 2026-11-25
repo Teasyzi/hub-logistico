@@ -120,7 +120,7 @@ export function calcular({ mes, venda, retorno, plan, par, prevendaData }) {
   return { mes, dias, total, media: med, resumo, prevenda, reprog: rp };
 }
 
-// Pareto de motivos de retorno externo do mês (cx unit e clientes)
+// Pareto de motivos de retorno externo do mês (CX UNIT e clientes)
 export function motivos(retorno, mes, limite = 12) {
   const m = {};
   for (const r of retorno) {

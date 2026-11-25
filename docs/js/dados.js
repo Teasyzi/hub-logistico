@@ -13,8 +13,8 @@ import {
   collection, doc, getDoc, getDocs, query, where, writeBatch, setDoc, addDoc, serverTimestamp, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { calcular, motivos } from './calc.js?v=20261117-5';
-import { placarPES } from './pes.js';
-import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261124-4';
+import { placarPES } from './pes.js?v=20261125-1';
+import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261125-1';
 import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261123-2';
 
 export const UNIDADES = {
@@ -24,9 +24,9 @@ export const UNIDADES = {
 export const PARAMETROS = {
   dias_uteis: ['Dias úteis', null],
   ajuste_dias_trabalhados: ['Ajuste manual de dias trabalhados (vazio = 0; ex.: -1)', null],
-  volume_aa: ['Volume cx unit ano anterior (AA)', null],
-  meta_volume: ['Meta de volume (cx unit)', null],
-  tarifa: ['Tarifa R$ por cx unit', null],
+  volume_aa: ['Volume CX UNIT ano anterior (AA)', null],
+  meta_volume: ['Meta de volume (CX UNIT)', null],
+  tarifa: ['Tarifa R$ por CX UNIT', null],
   faturamento_aa: ['Faturamento ano anterior (R$)', null],
   meta_faturamento: ['Meta de faturamento (R$)', null],
   meta_reprog: ['Meta % reprogramação', 0.03],

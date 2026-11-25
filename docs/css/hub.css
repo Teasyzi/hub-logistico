@@ -146,3 +146,8 @@ input[type=date]{padding:6px 8px;border:1px solid var(--axis);border-radius:6px;
 .km-lanc td input[type=text]{text-align:left;min-width:90px}.km-lanc tr.novo td{background:var(--row)}
 #rotas,#lancamentos{margin-top:16px}
 .km-farol th{text-align:center}
+
+/* Retorno por motivo: tabela com o gráfico de barras ao lado (como na planilha) */
+.ret-lado{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+svg .ret-barra{fill:var(--s1)}svg .ret-barra.canc{fill:var(--axis)}.ret-grafico{display:block;max-width:100%}
+@media(max-width:1100px){.ret-lado{grid-template-columns:minmax(0,1fr)}}

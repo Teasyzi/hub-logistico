@@ -33,9 +33,9 @@ function automatico(k, m, meta) {
   if (k === 'reprog_vol' && semRp('rp_reprog')) return { real: null, falta: null, faltaUn: null };
   if (k === 'reprog_cli' && semRp('rp_cli')) return { real: null, falta: null, faltaUn: null };
   switch (k) {
-    case 'ret_vol': return { real: t.ret_vol, falta: t.ret_vol == null ? null : meta * t.venda_cxu - t.ret_ext_cxu, faltaUn: 'cx unit' };
+    case 'ret_vol': return { real: t.ret_vol, falta: t.ret_vol == null ? null : meta * t.venda_cxu - t.ret_ext_cxu, faltaUn: 'CX UNIT' };
     case 'ret_cli': return { real: t.ret_cli, falta: t.ret_cli == null ? null : meta * ent - t.ret_cli * ent, faltaUn: 'clientes' };
-    case 'reprog_vol': return { real: rp.pct, falta: rp.pct == null ? null : meta * rp.rp_uc_total - rp.rp_reprog, faltaUn: 'cx unit' };
+    case 'reprog_vol': return { real: rp.pct, falta: rp.pct == null ? null : meta * rp.rp_uc_total - rp.rp_reprog, faltaUn: 'CX UNIT' };
     case 'reprog_cli': return { real: rp.pct_cli, falta: rp.pct_cli == null ? null : meta * ent - rp.rp_cli, faltaUn: 'clientes' };
     default: return { real: null, falta: null, faltaUn: null };
   }

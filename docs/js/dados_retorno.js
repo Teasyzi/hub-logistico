@@ -6,7 +6,7 @@
 // Os DLs não têm coleção própria: usam venda/ e retorno/ da Montagem de Cargas.
 import { db, auth } from './firebase.js';
 import { collection, doc, getDoc, getDocs, query, where, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { UNIDADES_RET, DAS_RET, DLS_RET, calcularRetorno, agregadoPublicadoRetorno } from './retorno.js?v=20261124-4';
+import { UNIDADES_RET, DAS_RET, DLS_RET, calcularRetorno, agregadoPublicadoRetorno } from './retorno.js?v=20261125-1';
 
 const refDados = (u, mes) => doc(db, 'retorno_dados', `${u}_${mes}`);
 const refPar = (u, mes) => doc(db, 'retorno_parametro', `${u}_${mes}`);
@@ -76,10 +76,3 @@ export async function lerRetornoPublicado(mes) {
   return { mes, unidades, publicadoEm };
 }
 export async function mesesRetornoPublicados() { return (await getDoc(doc(db, 'meta', 'publicacoes_retorno'))).data()?.meses || []; }
-
-// Evolução: os últimos meses publicados (só os totais).
-export async function evolucaoRetorno(n = 12) {
-  const meses = (await mesesRetornoPublicados()).slice(0, n);
-  const xs = await Promise.all(meses.map((m) => lerRetornoPublicado(m)));
-  return xs.map((x) => ({ mes: x.mes, unidades: Object.fromEntries(Object.entries(x.unidades).map(([u, d]) => [u, d.totais])) })).sort((a, b) => a.mes.localeCompare(b.mes));
-}

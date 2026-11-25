@@ -150,9 +150,13 @@ Lidas todas as células e fórmulas dos 10 arquivos de 2026 (sem os "(ANTIGO)") 
 - **DAs:**
   - ⚙ Importar recebe as duas exportações do BI, com o mês escolhido na tela. Também aceita a planilha antiga "MM. Retorno - <Mês>.xlsx", para trazer o histórico (motivos, motoristas e o volume `E5`).
   - O volume (Saída) é digitado em ⚙ Parâmetros.
-- **Telas:**
-  - Resumo com as 4 unidades (% s/ cancelamento, % total, cancelamento, volume, principais motivos) e a evolução dos meses publicados.
-  - Página por unidade com o Pareto de motivos: o cancelamento aparece marcado como "fora do % s/ cancelamento" e os motivos em observação com marca.
+- **Telas:** uma página por unidade com o Pareto de motivos. O cancelamento aparece marcado como "fora do % s/ cancelamento" e os motivos em observação têm marca.
+- **Ajuste de 25/11 (pedido do usuário):**
+  - não há mais aba de resumo: uma aba por unidade, e `#/retorno` abre o CB Norte;
+  - a tabela de motivos tem só o retorno (CX UNIT) e o % retorno (motivo ÷ volume total do mês);
+  - o cancelamento de NF aparece em %;
+  - a tabela tem o gráfico de barras ao lado, como na planilha. O gráfico não mostra o cancelamento, que achataria as outras barras;
+  - "CX UNIT" fica sempre em maiúsculas, em todo o Hub.
 - **Motoristas:** o retorno por motorista (R$) aparece só no rascunho do admin. A publicação leva os números e os motivos, sem nomes, como nos outros acompanhamentos.
 - **Firestore:**
   - novas coleções `retorno_dados`, `retorno_parametro` e `retorno_publicado`;

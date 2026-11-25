@@ -104,7 +104,8 @@ Unidades que não fazem parte do acompanhamento ficam fora das abas. Exemplo: Fi
 - [ ] 375px de largura sem rolagem horizontal da página (só dentro de `.tw`).
 - [ ] Só tokens e componentes desta página.
 - [ ] Nomes de unidade vindos do mapa único.
-- [ ] Gráfico no estilo de `grafico()`, com valor em cima da barra.
+- [ ] Gráfico no estilo de `grafico()`, com valor em cima da barra. Tabela de motivos/motoristas: barras horizontais ao lado da tabela (`.ret-lado` + `graficoBarras()`), como nas planilhas.
+- [ ] Unidade de medida **CX UNIT** sempre em maiúsculas (nunca "cx unit" ou "Cx unit"). Teste: `grep -rnE "[Cc]x unit\b" docs/js` sem resultado.
 
 ## 7. Imagens Frota
 - O site `imagens-frotaV3` usa outra base: vermelho `#E30613`, neutros slate, Tailwind e ícones Lucide.

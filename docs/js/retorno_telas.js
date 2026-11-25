@@ -1,85 +1,79 @@
-// Telas do acompanhamento Retorno por motivo (CB Norte, CB Sul, DL Barreiras, DL Juazeiro). As funções pagina* são
-// puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261124-4';
-import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261124-4';
-import * as R from './dados_retorno.js?v=20261124-4';
-import * as D from './dados.js?v=20261124-4';
+// Telas do acompanhamento Retorno por motivo (CB Norte, CB Sul, DL Barreiras, DL Juazeiro): uma aba por unidade,
+// como na planilha (tabela de valores com o gráfico de barras ao lado). As funções pagina* são puras (dados → HTML)
+// e servem à prévia local; as tela* usam o Firestore e o contexto do app (ctx).
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-1';
+import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261125-1';
+import * as R from './dados_retorno.js?v=20261125-1';
+import * as D from './dados.js?v=20261125-1';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const fcx = (x) => (x == null ? '–' : nf(1).format(x));
 const frs = (x) => (x == null ? '–' : `R$ ${nf(2).format(x)}`);
 const fp2 = (x) => fp(x, 2);
+const UNIDADE_PADRAO = 'NORTE';
 const tagObs = '<span class="tag" title="Motivo que já foi desconsiderado em algum mês. Conta no retorno; confira se é mesmo retorno da operação.">em observação</span>';
 const tagCanc = '<span class="tag" title="Sai do retorno e do volume no % sem cancelamento.">fora do % s/ cancelamento</span>';
 
 export function abasRetorno(ativa, mes, admin) {
-  const a = [['resumo', 'Resumo', `#/retorno/resumo/${mes}`], ...Object.entries(UNIDADES_RET).map(([u, n]) => [u, n.toUpperCase(), `#/retorno/${u}/${mes}`])];
+  const a = Object.entries(UNIDADES_RET).map(([u, n]) => [u, n.toUpperCase(), `#/retorno/${u}/${mes}`]);
   const adm = admin ? [['importar', 'Importar', `#/retorno/importar/${mes}`], ['parametros', 'Parâmetros', `#/retorno/parametros/${mes}`], ['publicar', 'Publicar', `#/retorno/publicar/${mes}`]] : [];
   return `<nav class="abas">${a.map(([k, t, h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
     + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
 }
 
+// Barras horizontais, como os gráficos da planilha: rótulo à esquerda, valor no fim da barra.
+// itens: [{rot, v, txt, canc}] na ordem da tabela.
+export function graficoBarras(itens) {
+  if (!itens.length) return '';
+  const lin = 22, topo = 4, rotW = 200, barW = 280, w = rotW + barW + 80, h = topo * 2 + itens.length * lin;
+  const max = Math.max(...itens.map((x) => x.v), 0) || 1;
+  const corta = (s) => (s.length > 30 ? `${s.slice(0, 29)}…` : s);
+  const barras = itens.map((x, i) => {
+    const y = topo + i * lin, bw = Math.max(1, (Math.max(x.v, 0) / max) * barW);
+    return `<text x="${rotW - 6}" y="${y + 15}" text-anchor="end">${E(corta(x.rot))}</text>`
+      + `<rect class="ret-barra${x.canc ? ' canc' : ''}" x="${rotW}" y="${y + 4}" width="${bw.toFixed(1)}" height="${lin - 8}" rx="2"><title>${E(x.rot)}: ${E(x.txt)}</title></rect>`
+      + `<text class="val" x="${(rotW + bw + 5).toFixed(1)}" y="${y + 15}">${E(x.txt)}</text>`;
+  }).join('');
+  return `<svg class="ret-grafico" viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="Gráfico de barras">${barras}<line x1="${rotW}" x2="${rotW}" y1="${topo}" y2="${h - topo}" stroke="var(--axis)"/></svg>`;
+}
+
 // Avisos só para o admin.
-function avisos(u, d, mes, detalhe = true) {
+function avisos(u, d, mes) {
   const t = d.totais, it = [];
   if (!d.temDados) it.push(DLS_RET.includes(u) ? `Sem retorno Externo de ${E(d.nome)} em ${nomeMes(mes)}. Importe o VOLUMES DE RETORNOS / ZSD0090 na <a href="#/montagem/importar">Montagem</a>.`
     : `Sem o retorno por motivo do BI em ${nomeMes(mes)}. <a href="#/retorno/importar/${mes}">Importar</a>`);
   if (t.volume == null) it.push(DLS_RET.includes(u) ? 'Sem a venda do mês na Montagem: o % não é calculado. Importe a venda ou informe o volume em ⚙ Parâmetros.'
-    : `Sem o volume (Saída cx unit) de ${E(d.nome)}: o % não é calculado. <a href="#/retorno/parametros/${mes}">Informar em ⚙ Parâmetros</a>`);
+    : `Sem o volume (Saída em CX UNIT) de ${E(d.nome)}: o % não é calculado. <a href="#/retorno/parametros/${mes}">Informar em ⚙ Parâmetros</a>`);
   if (DAS_RET.includes(u) && d.temDados && !d.motoristas) it.push('Sem o retorno por motorista (R$) do BI neste mês.');
-  if (d.observacao.length) it.push(`<b>${fi(d.observacao.length)} motivo(s) em observação</b> (${d.observacao.map((m) => `${E(m.motivo)}: ${fcx(m.cx)} cx`).join('; ')}): já foram desconsiderados em algum mês. Pela regra atual contam no retorno.`);
-  if (detalhe && d.linhasInterno) it.push(`${fi(d.linhasInterno)} linha(s) Interno (${fcx(d.cxInterno)} cx: cancelamento de notas, SEFAZ, trocas) ficam fora, como na planilha.`);
+  if (d.observacao.length) it.push(`<b>${fi(d.observacao.length)} motivo(s) em observação</b> (${d.observacao.map((m) => `${E(m.motivo)}: ${fp(m.pctVolume, 3)}`).join('; ')}): já foram desconsiderados em algum mês. Pela regra atual contam no retorno.`);
+  if (d.linhasInterno) it.push(`${fi(d.linhasInterno)} linha(s) Interno (${fcx(d.cxInterno)} CX UNIT: cancelamento de notas, SEFAZ, trocas) ficam fora, como na planilha.`);
   return it.map((x) => `<div class="aviso">${x}</div>`).join('');
-}
-
-function cardUnidade(u, d, { mes, admin }) {
-  if (!d || !d.temDados) return `<section class="bloco"><div class="faixa">${E(UNIDADES_RET[u])}</div><div class="corpo"><div class="aviso">Sem retorno de ${E(UNIDADES_RET[u])} em ${nomeMes(mes)}.</div>${admin ? avisos(u, d, mes) : ''}</div></section>`;
-  const t = d.totais, top = d.motivos.filter((m) => !m.cancelamento).slice(0, 3);
-  return `<section class="bloco km-card"><div class="faixa">${E(d.nome)} <a class="btn sec" href="#/retorno/${u}/${mes}">Detalhe →</a></div><div class="corpo">
-<div class="km-disp"><div class="l">% retorno sem cancelamento de NF</div><div class="v">${fp2(t.pctSemCanc)}</div><div class="d">${fcx(t.semCanc)} cx unit de ${fcx(t.volSemCanc)}</div></div>
-<table class="kv km-kv"><tbody>
-<tr><td>Retorno total</td><td>${fcx(t.retorno)} cx · ${fp2(t.pctTotal)}</td></tr>
-<tr><td>Cancelamento de NF</td><td>${fcx(t.cancelamento)} cx</td></tr>
-<tr><td>Volume do mês</td><td>${fcx(t.volume)} cx unit</td></tr>
-${t.totalRS != null ? `<tr><td>Retorno por motorista</td><td>${frs(t.totalRS)}</td></tr>` : ''}
-<tr><td>Principais motivos</td><td>${top.map((m) => `${E(m.motivo)} (${fp(m.pctRetorno, 0)})`).join(' · ') || '–'}</td></tr>
-</tbody></table>${admin ? avisos(u, d, mes, false) : ''}</div></section>`;
-}
-
-function tabelaEvolucao(evol) {
-  if (!evol?.length) return '';
-  const us = Object.keys(UNIDADES_RET);
-  return `<h2>Evolução (meses publicados)</h2><div class="tw scroll"><table><thead><tr><th class="t" rowspan="2">Mês</th>${us.map((u) => `<th colspan="2">${E(UNIDADES_RET[u])}</th>`).join('')}</tr>
-<tr>${us.map(() => '<th>% s/ canc.</th><th>% total</th>').join('')}</tr></thead><tbody>
-${evol.map((x) => `<tr><td class="t">${nomeMes(x.mes)}</td>${us.map((u) => `<td>${fp2(x.unidades[u]?.pctSemCanc)}</td><td>${fp2(x.unidades[u]?.pctTotal)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-}
-
-export function paginaResumoRetorno(resultado, { mes, admin, topo, evolucao }) {
-  const us = resultado.unidades || {};
-  return `${topo}<div class="g2 km-cards">${Object.keys(UNIDADES_RET).map((u) => cardUnidade(u, us[u], { mes, admin })).join('')}</div>
-<p class="small">% oficial (KPI e PES) = retorno sem o motivo CANCELAMENTO DE NF ÷ volume do mês sem esse mesmo retorno, em caixa unitária. DLs: só o retorno Externo do SAP e a venda da Montagem. DAs: retorno do BI e volume (Saída) informado.</p>${tabelaEvolucao(evolucao)}`;
 }
 
 export function paginaUnidadeRetorno(u, d, { mes, admin, topo }) {
   if (!d || !d.temDados) return `${topo}${admin && d ? avisos(u, d, mes) : `<div class="aviso">Sem retorno de ${E(UNIDADES_RET[u])} em ${nomeMes(mes)}.</div>`}`;
   const t = d.totais;
   const tiles = `<div class="tiles">
-<div class="tile"><div class="l">% sem cancelamento de NF</div><div class="v">${fp2(t.pctSemCanc)}</div><div class="d">${fcx(t.semCanc)} cx unit</div></div>
-<div class="tile"><div class="l">% total</div><div class="v">${fp2(t.pctTotal)}</div><div class="d">${fcx(t.retorno)} cx unit</div></div>
-<div class="tile"><div class="l">Cancelamento de NF</div><div class="v">${fcx(t.cancelamento)}</div><div class="d">cx unit, fora do % oficial</div></div>
-<div class="tile"><div class="l">Volume do mês</div><div class="v">${fcx(t.volume)}</div><div class="d">${E(d.origemVolume || 'sem volume')}</div></div>
+<div class="tile"><div class="l">% retorno sem cancelamento de NF</div><div class="v">${fp2(t.pctSemCanc)}</div><div class="d">${fcx(t.semCanc)} CX UNIT · % oficial</div></div>
+<div class="tile"><div class="l">% retorno total</div><div class="v">${fp2(t.pctTotal)}</div><div class="d">${fcx(t.retorno)} CX UNIT</div></div>
+<div class="tile"><div class="l">% cancelamento de NF</div><div class="v">${fp2(t.pctCancelamento)}</div><div class="d">fora do % oficial</div></div>
+<div class="tile"><div class="l">Volume do mês</div><div class="v">${fcx(t.volume)}</div><div class="d">CX UNIT · ${E(d.origemVolume || 'sem volume')}</div></div>
 ${t.totalRS != null ? `<div class="tile"><div class="l">Retorno por motorista</div><div class="v">${frs(t.totalRS)}</div><div class="d">${fi(t.motoristas)} motoristas</div></div>` : ''}</div>`;
-  const lin = (m) => `<tr${m.cancelamento ? ' class="pv"' : ''}><td class="t">${E(m.motivo)} ${m.cancelamento ? tagCanc : ''}${m.observacao ? tagObs : ''}</td><td>${fcx(m.cx)}</td><td>${fp(m.pctRetorno, 1)}</td><td>${fp(m.pctAcumulado, 1)}</td><td>${fp(m.pctVolume, 3)}</td></tr>`;
-  const motivos = `<section class="bloco"><div class="faixa">Por motivo (cx unit)</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Motivo</th><th>Retorno</th><th>% do retorno s/ canc.</th><th>% acumulado</th><th>% do volume</th></tr></thead><tbody>
+  const lin = (m) => `<tr${m.cancelamento ? ' class="pv"' : ''}><td class="t">${E(m.motivo)} ${m.cancelamento ? tagCanc : ''}${m.observacao ? tagObs : ''}</td><td>${fcx(m.cx)}</td><td>${fp(m.pctVolume, 3)}</td></tr>`;
+  const tabela = `<div class="tw scroll"><table><thead><tr><th class="t">Motivo</th><th>Retorno (CX UNIT)</th><th>% retorno</th></tr></thead><tbody>
 ${d.motivos.map(lin).join('')}
-<tr class="tot"><td class="t">Total retorno</td><td>${fcx(t.retorno)}</td><td></td><td></td><td>${fp(t.pctTotal, 3)}</td></tr>
-<tr class="dest"><td class="t">Total retorno s/ cancelamento NF</td><td>${fcx(t.semCanc)}</td><td>100%</td><td></td><td>${fp(t.pctSemCanc, 3)}</td></tr>
-</tbody></table></div>
-<p class="small">Ordenado do maior para o menor (Pareto). O % do retorno e o acumulado não contam o cancelamento de NF. No % sem cancelamento, o cancelamento sai também do volume: ${fcx(t.volume)} − ${fcx(t.cancelamento)} = ${fcx(t.volSemCanc)} cx unit.</p></div></section>`;
-  const motoristas = admin && d.motoristas?.length ? `<section class="bloco"><div class="faixa">Retorno por motorista (R$)</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Motorista</th><th>Dev (R$)</th><th>% do total</th></tr></thead><tbody>
+<tr class="tot"><td class="t">Total retorno</td><td>${fcx(t.retorno)}</td><td>${fp(t.pctTotal, 3)}</td></tr>
+<tr class="dest"><td class="t">Total retorno s/ cancelamento NF</td><td>${fcx(t.semCanc)}</td><td>${fp(t.pctSemCanc, 3)}</td></tr>
+</tbody></table></div>`;
+  // O cancelamento fica fora do gráfico: é desconsiderado e, sozinho, achataria as outras barras (está no quadro de cima).
+  const grafico = graficoBarras(d.motivos.filter((m) => !m.cancelamento).map((m) => ({ rot: m.motivo, v: m.pctVolume ?? m.cx, txt: m.pctVolume == null ? fcx(m.cx) : fp(m.pctVolume, 3) })));
+  const motivos = `<section class="bloco"><div class="faixa">Por motivo</div><div class="corpo"><div class="ret-lado">${tabela}<div>${grafico}</div></div>
+<p class="small">% retorno = retorno do motivo ÷ volume total do mês (Saída), em CX UNIT. No total sem cancelamento, o CANCELAMENTO DE NF sai do retorno e do volume. O gráfico mostra os motivos sem o cancelamento.</p></div></section>`;
+  const motoristas = admin && d.motoristas?.length ? `<section class="bloco"><div class="faixa">Retorno por motorista (R$)</div><div class="corpo"><div class="ret-lado"><div class="tw scroll"><table><thead><tr><th class="t">Motorista</th><th>Dev (R$)</th><th>% do total</th></tr></thead><tbody>
 ${d.motoristas.map((m) => `<tr><td class="t">${E(m.nome)}</td><td>${frs(m.rs)}</td><td>${fp(m.pct, 1)}</td></tr>`).join('')}
 <tr class="tot"><td class="t">Total</td><td>${frs(t.totalRS)}</td><td>100%</td></tr></tbody></table></div>
-<p class="small">Só no rascunho do admin: os nomes não vão para a publicação. Em R$, como no BI (não se compara com a tabela de motivos, que é em cx unit).</p></div></section>` : '';
+<div>${graficoBarras(d.motoristas.map((m) => ({ rot: m.nome, v: m.rs, txt: `R$ ${nf(0).format(m.rs)}` })))}</div></div>
+<p class="small">Só no rascunho do admin: os nomes não vão para a publicação. Em R$, como no BI.</p></div></section>` : '';
   const fonte = admin ? `<p class="small">${DLS_RET.includes(u) ? `Fonte: retorno Externo e venda da Montagem de Cargas (${fi(d.linhasExterno)} linhas de retorno${d.ultimoDia ? `, até ${fdata(d.ultimoDia)}` : ''}).` : `Fonte: ${E(d.arquivos?.motivos || 'arquivo do BI')}${d.arquivos?.motoristas && d.arquivos.motoristas !== d.arquivos.motivos ? ` e ${E(d.arquivos.motoristas)}` : ''}.`}</p>` : '';
   return `${topo}${tiles}${admin ? avisos(u, d, mes) : ''}${motivos}${motoristas}${fonte}`;
 }
@@ -91,7 +85,7 @@ async function topoRetorno(ctx, aba, mes, titulo, comMes = true) {
     const meses = new Set(ctx.adminNaTela() ? [ctx.mesAtual(), mes, ...(await R.mesesRetornoPublicados())] : await R.mesesRetornoPublicados());
     meses.add(mes);
     sel = seletorMes([...meses].sort().reverse(), mes);
-    if (ctx.adminNaTela() && (aba === 'resumo' || UNIDADES_RET[aba])) {
+    if (ctx.adminNaTela() && UNIDADES_RET[aba]) {
       sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
     }
   }
@@ -105,18 +99,11 @@ async function resultado(ctx, mes) {
 }
 const status = (data) => { const el = document.getElementById('statusAtualizacao'); if (el) el.textContent = data ? `Última atualização: ${data.toLocaleString('pt-BR')}` : 'Última atualização ainda não registrada'; };
 
-async function telaResumo(ctx, mes) {
-  ctx.html('<p class="small">Calculando o retorno…</p>');
-  const [topo, r, evolucao] = await Promise.all([topoRetorno(ctx, 'resumo', mes, nomeMes(mes)), resultado(ctx, mes), R.evolucaoRetorno()]);
-  const vazio = !Object.values(r.unidades || {}).some((d) => d?.temDados);
-  ctx.html(paginaResumoRetorno(r, { mes, admin: rascunho(ctx), topo, evolucao }) + (vazio && !rascunho(ctx) ? `<div class="aviso">O retorno de ${nomeMes(mes)} ainda não foi publicado.</div>` : ''));
-  status(r.atualizado); ctx.ligarTopo((m) => `#/retorno/resumo/${m}`);
-}
-
 async function telaUnidade(ctx, u, mes) {
   ctx.html('<p class="small">Calculando o retorno…</p>');
   const topo = await topoRetorno(ctx, u, mes, `${UNIDADES_RET[u]} · ${nomeMes(mes)}`), r = await resultado(ctx, mes);
-  ctx.html(paginaUnidadeRetorno(u, r.unidades?.[u], { mes, admin: rascunho(ctx), topo }));
+  const vazio = !r.unidades?.[u]?.temDados && !rascunho(ctx);
+  ctx.html(vazio ? `${topo}<div class="aviso">O retorno de ${E(UNIDADES_RET[u])} em ${nomeMes(mes)} ainda não foi publicado.</div>` : paginaUnidadeRetorno(u, r.unidades?.[u], { mes, admin: rascunho(ctx), topo }));
   status(r.atualizado); ctx.ligarTopo((m) => `#/retorno/${u}/${m}`);
 }
 
@@ -143,12 +130,12 @@ async function telaImportar(ctx, mes) {
         const x = lerArquivoRetorno(XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: false }));
         if (!x.tipo) throw new Error('Não reconheci o arquivo: esperava a exportação do BI (Revenda, Dev Motivo, Dev (Caixa Unitária) ou Motorista, Dev (R$)) ou a planilha antiga de Retorno (abas CB NORTE / CB SUL).');
         const n = await R.gravarRetornoDA(mesArq, x.unidades, f.name);
-        const resumo = Object.entries(x.unidades).map(([u, d]) => `${UNIDADES_RET[u]}: ${[d.motivos && `${fi(d.motivos.length)} motivos`, d.motoristas && `${fi(d.motoristas.length)} motoristas`, d.volume != null && `volume ${fcx(d.volume)}`].filter(Boolean).join(', ')}`).join(' · ');
+        const resumo = Object.entries(x.unidades).map(([u, d]) => `${UNIDADES_RET[u]}: ${[d.motivos && `${fi(d.motivos.length)} motivos`, d.motoristas && `${fi(d.motoristas.length)} motoristas`, d.volume != null && `volume ${fcx(d.volume)} CX UNIT`].filter(Boolean).join(', ')}`).join(' · ');
         await D.registrarImportacao({ arquivo: f.name, tipo: x.tipo, linhas: n, periodo: mesArq, acompanhamento: 'retorno' });
         rows += `<tr><td class="t">${E(f.name)}</td><td class="t">${E(x.tipo)}</td><td class="t">${E(resumo)}${x.ignoradas.length ? ` · revenda(s) ignorada(s): ${E(x.ignoradas.join(', '))}` : ''}</td><td class="t">${nomeMes(mesArq)}</td><td class="st ok">Importado</td></tr>`;
       } catch (e) { rows += `<tr><td class="t">${E(f.name)}</td><td colspan="4" class="st no">${E(e.message)}</td></tr>`; }
     }
-    document.getElementById('res').innerHTML = `<h2>Resultado</h2><div class="tw"><table><thead><tr><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Conteúdo</th><th class="t">Mês</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><p><a class="btn" href="#/retorno/resumo/${mesArq}">Conferir rascunho</a></p>`;
+    document.getElementById('res').innerHTML = `<h2>Resultado</h2><div class="tw"><table><thead><tr><th class="t">Arquivo</th><th class="t">Tipo</th><th class="t">Conteúdo</th><th class="t">Mês</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><p><a class="btn" href="#/retorno/${UNIDADE_PADRAO}/${mesArq}">Conferir rascunho</a></p>`;
     document.getElementById('hist').innerHTML = historico(await D.ultimasImportacoes('retorno'));
   };
   const drop = document.getElementById('drop');
@@ -164,10 +151,10 @@ async function telaParametros(ctx, mes) {
   const campo = (u) => {
     const auto = r.unidades[u].totais.volume, dl = DLS_RET.includes(u);
     return `<section class="bloco"><div class="faixa">${E(UNIDADES_RET[u])}</div><div class="corpo"><div class="modelo-box">
-<label>Volume do mês, cx unit ${dl ? '(vazio = venda da Montagem)' : '(Saída do BI)'}<br><input type="text" data-u="${u}" value="${x.parametros[u]?.volume ?? ''}" placeholder="${auto == null ? '' : E(fd(auto, 3))}"></label>
+<label>Volume do mês em CX UNIT ${dl ? '(vazio = venda da Montagem)' : '(Saída do BI)'}<br><input type="text" data-u="${u}" value="${x.parametros[u]?.volume ?? ''}" placeholder="${auto == null ? '' : E(fd(auto, 3))}"></label>
 </div></div></section>`;
   };
-  ctx.html(`${topo}<p class="sub">Volume em caixa unitária de cada unidade no mês. Nos DAs ele é obrigatório (os arquivos do BI não trazem a Saída). Nos DLs, deixe vazio para usar a venda importada na Montagem (o número em cinza).</p>
+  ctx.html(`${topo}<p class="sub">Volume em CX UNIT de cada unidade no mês. Nos DAs ele é obrigatório (os arquivos do BI não trazem a Saída). Nos DLs, deixe vazio para usar a venda importada na Montagem (o número em cinza).</p>
 <div class="g2">${Object.keys(UNIDADES_RET).map(campo).join('')}</div><p><button class="btn" id="salvarPar">Salvar volumes</button> <span id="msgPar"></span></p>`);
   document.getElementById('salvarPar').onclick = async (e) => {
     e.target.disabled = true;
@@ -187,21 +174,20 @@ async function telaParametros(ctx, mes) {
 }
 
 async function telaPublicar(ctx, mes) {
-  const topo = await topoRetorno(ctx, 'publicar', mes, `Publicar · ${nomeMes(mes)}`), link = `${location.origin}${location.pathname}#/retorno/resumo/${mes}`;
-  ctx.html(`${topo}<p>Publica os totais e a tabela por motivo das 4 unidades. O retorno por motorista (nomes) fica só no rascunho.</p><p><a class="btn sec" href="#/retorno/resumo/${mes}">Conferir antes</a> <button class="btn" id="pub">Publicar retorno ${nomeMes(mes)}</button> <span id="msg"></span></p><h2>Link para enviar por e-mail</h2><p><input class="campo-link" type="text" readonly value="${E(link)}"> <button class="btn sec" id="copiar">Copiar</button></p>`);
+  const topo = await topoRetorno(ctx, 'publicar', mes, `Publicar · ${nomeMes(mes)}`), link = `${location.origin}${location.pathname}#/retorno/${UNIDADE_PADRAO}/${mes}`;
+  ctx.html(`${topo}<p>Publica os totais e a tabela por motivo das 4 unidades. O retorno por motorista (nomes) fica só no rascunho.</p><p><a class="btn sec" href="#/retorno/${UNIDADE_PADRAO}/${mes}">Conferir antes</a> <button class="btn" id="pub">Publicar retorno ${nomeMes(mes)}</button> <span id="msg"></span></p><h2>Link para enviar por e-mail</h2><p><input class="campo-link" type="text" readonly value="${E(link)}"> <button class="btn sec" id="copiar">Copiar</button></p>`);
   document.getElementById('copiar').onclick = () => navigator.clipboard.writeText(link);
   document.getElementById('pub').onclick = async (e) => { e.target.disabled = true; try { await R.publicarRetorno(mes); document.getElementById('msg').innerHTML = '<span class="st ok">✓ publicado</span>'; } catch (err) { document.getElementById('msg').innerHTML = ctx.erro(err); } e.target.disabled = false; };
   ctx.ligarTopo((m) => `#/retorno/publicar/${m}`);
 }
 
-// p = partes da rota (#/retorno/<sub>/<mes>)
+// p = partes da rota (#/retorno/<sub>/<mes>). Sem aba de resumo: o padrão é a primeira unidade.
 export async function rotearRetorno(p, ctx) {
   const sub = p[1], mes = ctx.mesP(p[2]) || (ctx.adminNaTela() ? ctx.mesAtual() : (await R.mesesRetornoPublicados())[0] || ctx.mesAtual());
-  if (!sub || sub === 'resumo') return telaResumo(ctx, mes);
   if (UNIDADES_RET[sub]) return telaUnidade(ctx, sub, mes);
-  if (!ctx.adminNaTela()) return ctx.html('<p>Área restrita ao administrador.</p>');
+  if (!sub || sub === 'resumo' || !ctx.adminNaTela()) { location.replace(`#/retorno/${UNIDADE_PADRAO}/${mes}`); return; }
   if (sub === 'importar') return telaImportar(ctx, mes);
   if (sub === 'parametros') return telaParametros(ctx, mes);
   if (sub === 'publicar') return telaPublicar(ctx, mes);
-  return telaResumo(ctx, mes);
+  location.replace(`#/retorno/${UNIDADE_PADRAO}/${mes}`);
 }

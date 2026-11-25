@@ -2,7 +2,7 @@
 // Regras (AUDITORIA/Retorno_por_Motivo.md §11, decididas em 24/11/2026):
 //   - DLs: retorno = soma de Cxs Unitarias das linhas Externo do VOLUMES DE RETORNOS / ZSD0090, pelo motivo do SAP;
 //     volume = soma de Cxs Unitaria da venda (os dois já importados na Montagem). Mês = Dt Remessa.
-//   - DAs: retorno por motivo (cx unit) e por motorista (R$) vêm das exportações do BI; o volume (Saída) é digitado.
+//   - DAs: retorno por motivo (CX UNIT) e por motorista (R$) vêm das exportações do BI; o volume (Saída) é digitado.
 //   - % oficial (KPI e PES) = "s/ cancelamento": (retorno − CANCELAMENTO DE NF) ÷ (volume − CANCELAMENTO DE NF).
 //     Só esse motivo sai. Os que já foram tirados alguma vez (consignação, erro na emissão) contam, mas ficam
 //     "em observação" quando aparecem.
@@ -75,7 +75,7 @@ function lerBI(rows) {
     if (o.motivos) o.motivos = somar(o.motivos, 'motivo').filter((x) => Math.abs(x.cx) > 1e-9);
     if (o.motoristas) o.motoristas = somar(o.motoristas, 'nome').filter((x) => Math.abs(x.rs) > 1e-9);
   }
-  const tipo = [temMotivo && 'BI · retorno por motivo (cx unit)', temMotorista && 'BI · retorno por motorista (R$)', cSai >= 0 && 'volume (Saída)'].filter(Boolean).join(' + ');
+  const tipo = [temMotivo && 'BI · retorno por motivo (CX UNIT)', temMotorista && 'BI · retorno por motorista (R$)', cSai >= 0 && 'volume (Saída)'].filter(Boolean).join(' + ');
   return { tipo, unidades: out, ignoradas: [...ign] };
 }
 
@@ -148,15 +148,10 @@ export function calcularUnidade(u, { volume = null } = {}) {
   const retorno = lista.reduce((s, m) => s + m.cx, 0);
   const cancelamento = lista.filter((m) => ehCancelamento(m.motivo)).reduce((s, m) => s + m.cx, 0);
   const semCanc = retorno - cancelamento, volSemCanc = vol == null ? null : vol - cancelamento;
-  let acum = 0;
   const base = lista.filter((m) => !ehCancelamento(m.motivo));
-  const motivos = lista.map((m) => {
-    const canc = ehCancelamento(m.motivo);
-    if (!canc) acum += m.cx;
-    return { motivo: m.motivo, cx: m.cx, cancelamento: canc, observacao: ehObservacao(m.motivo),
-      pctRetorno: canc || !semCanc ? null : m.cx / semCanc, pctAcumulado: canc || !semCanc ? null : acum / semCanc,
-      pctVolume: vol ? m.cx / vol : null };
-  });
+  // % de cada motivo = retorno do motivo ÷ volume total do mês (Saída), como na planilha.
+  const motivos = lista.map((m) => ({ motivo: m.motivo, cx: m.cx, cancelamento: ehCancelamento(m.motivo), observacao: ehObservacao(m.motivo),
+    pctVolume: vol ? m.cx / vol : null }));
   const motoristas = u?.motoristas ? [...u.motoristas].sort((a, b) => b.rs - a.rs) : null;
   const totalRS = motoristas ? motoristas.reduce((s, m) => s + m.rs, 0) : null;
   return {
@@ -165,7 +160,7 @@ export function calcularUnidade(u, { volume = null } = {}) {
     observacao: motivos.filter((m) => m.observacao),
     motoristas: motoristas && motoristas.map((m) => ({ ...m, pct: totalRS ? m.rs / totalRS : null })),
     totais: { retorno, cancelamento, semCanc, volume: vol, volSemCanc,
-      pctTotal: vol ? retorno / vol : null, pctSemCanc: volSemCanc ? semCanc / volSemCanc : null,
+      pctTotal: vol ? retorno / vol : null, pctSemCanc: volSemCanc ? semCanc / volSemCanc : null, pctCancelamento: vol ? cancelamento / vol : null,
       totalRS, motoristas: motoristas ? motoristas.length : null, motivos: base.length },
   };
 }
@@ -181,7 +176,7 @@ export function calcularRetorno({ mes, dados = {}, parametros = {} }) {
       fonte = d; info = { linhasExterno: d.linhasExterno, linhasInterno: d.linhasInterno, cxInterno: d.cxInterno, ultimoDia: d.ultimoDia };
     } else fonte = dados[u] || {};
     const volume = par.volume ?? fonte.volume ?? null;
-    const origemVolume = par.volume != null ? 'digitado em ⚙ Parâmetros' : fonte.volume != null ? (DLS_RET.includes(u) ? 'venda da Montagem (cx unit)' : 'do arquivo importado') : null;
+    const origemVolume = par.volume != null ? 'digitado em ⚙ Parâmetros' : fonte.volume != null ? (DLS_RET.includes(u) ? 'venda da Montagem' : 'do arquivo importado') : null;
     unidades[u] = { unidade: u, nome: UNIDADES_RET[u], mes, ...calcularUnidade(fonte, { volume }), origemVolume, ...info,
       arquivos: fonte.arquivos || null };
   }

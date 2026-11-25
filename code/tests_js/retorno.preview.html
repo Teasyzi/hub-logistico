@@ -2,7 +2,7 @@
 <meta charset="utf-8">
 <title>Prévia Retorno</title>
 <!-- Prévia local das telas do Retorno por motivo, sem Firebase. Os arquivos vêm de /amostras/:
-     ?mes=AAAA-MM&montagem=<planilha da Montagem>&das=<arquivo1>|<arquivo2>&pagina=resumo|NORTE|SUL|CBAR|CCRT[&vol_NORTE=…]
+     ?mes=AAAA-MM&montagem=<planilha da Montagem>&das=<arquivo1>|<arquivo2>&pagina=NORTE|SUL|CBAR|CCRT[&vol_NORTE=…]
      Com ?conferir=out26 compara os totais de out/26 com os valores calculados à mão (AUDITORIA/Retorno_por_Motivo.md §10). -->
 <link rel="stylesheet" href="../../docs/css/hub.css">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -11,7 +11,7 @@
 const R = await import('../../docs/js/retorno.js');
 const T = await import('../../docs/js/retorno_telas.js');
 const I = await import('../../docs/js/importar.js');
-const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-10', pagina = q.get('pagina') || 'resumo';
+const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-10', pagina = q.get('pagina') || 'NORTE';
 const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array' });
 const dados = {}, parametros = {};
 if (q.get('montagem')) {
@@ -34,8 +34,7 @@ for (const n of (q.get('das') || '').split('|').filter(Boolean)) {
 for (const u of Object.keys(R.UNIDADES_RET)) if (q.get('vol_' + u)) parametros[u] = { volume: Number(q.get('vol_' + u)) };
 const res = R.calcularRetorno({ mes, dados, parametros });
 const topo = (aba, t) => `<h1>Retorno por motivo — ${t} (prévia)</h1>${T.abasRetorno(aba, mes, true)}`;
-let h = pagina === 'resumo' ? T.paginaResumoRetorno(res, { mes, admin: true, topo: topo('resumo', 'Resumo'), evolucao: [] })
-  : T.paginaUnidadeRetorno(pagina, res.unidades[pagina], { mes, admin: true, topo: topo(pagina, R.UNIDADES_RET[pagina]) });
+let h = T.paginaUnidadeRetorno(pagina, res.unidades[pagina], { mes, admin: true, topo: topo(pagina, R.UNIDADES_RET[pagina]) });
 // Conferência de out/26 contra as contas feitas à mão na auditoria.
 if (q.get('conferir') === 'out26') {
   const esperado = {

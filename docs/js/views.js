@@ -1,7 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261124-4';
+import { UNIDADES } from './dados.js?v=20261125-1';
 import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
-import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261124-4';
+import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261125-1';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -136,7 +136,7 @@ ${linha('Faturamento AA', fr(r.faturamento_aa))}${linha('Meta', fr(r.meta_fatura
 ${linha('ACM mês', fr(r.fat_acm), 'dest')}${linha('Tendência vs meta', tend(fr(r.fat_tendencia), r.fat_tend_vs_meta), 'dest')}</table></div></div>
 <h2>Montagem de cargas</h2>
 <div class="tw"><table class="kv"><tr><th class="t"></th><th>Pré-venda${pv ? ' ' + fdata(pv.data) : ''}</th><th>Média do mês</th></tr>
-${mont('Cx unit plan', fi(pv?.cx_unit), fi(med.cx_unit))}
+${mont('CX UNIT plan', fi(pv?.cx_unit), fi(med.cx_unit))}
 ${mont('Total cargas', fi(pv?.cargas), fi(t.cargas))}
 ${mont('Cargas por dia', '–', fd(med.cargas))}
 ${mont('Tx ocupação', fp(pv?.ocupacao, 1), fp(med.ocupacao, 1), corOcup(pv?.ocupacao), corOcup(med.ocupacao))}
@@ -144,7 +144,7 @@ ${mont('Volume unit reprog', fi(pv?.reprog_uc), fi(med.reprog_uc))}
 ${mont('Tx reprog', fp(pv?.tx_reprog, 1), fp(med.tx_reprog, 1))}
 ${mont('Clientes reprog', fi(pv?.reprog_cli), fd(med.reprog_cli))}
 ${mont('Cubos por carga', fd(pv?.cubos_carga), fd(med.cubos_carga))}
-${mont('Cx unit por carga', fd(pv?.cx_carga), fd(med.cx_carga))}
+${mont('CX UNIT por carga', fd(pv?.cx_carga), fd(med.cx_carga))}
 ${mont('Notas (entregas) por carga', fd(pv?.entregas_carga), fd(med.entregas_carga))}</table></div>
 <h2>Indicadores PES — acumulado</h2>
 <div class="tw"><table class="kv"><tr><th class="t">Indicador</th><th>Real</th><th>Meta</th></tr>${pes}</table></div>
@@ -174,7 +174,7 @@ export function paginaDetalhe(c, m, mot, ctx) {
 <td class="sep">${fd(d.cubos_carga, 0)}</td><td>${fd(d.cx_carga, 0)}</td><td>${fd(d.entregas_carga)}</td><td class="sep">${fd(d.drop_cubos)}</td><td>${fd(d.drop_cx)}</td></tr>`;
   const nulos = { ocupacao: null, cubos_carga: null, cx_carga: null, entregas_carga: null, drop_cubos: null, drop_cx: null };
   const tabA = `<div class="tw"><table class="diario"><thead><tr><th rowspan="2" class="t">Dia</th><th colspan="3" class="grp">Volume</th><th colspan="3" class="grp">Planejamento</th><th colspan="3" class="grp">Por carga</th><th colspan="2" class="grp">Drop (por entrega)</th></tr>
-<tr><th>Vol plan cx fís</th><th>Cx unit plan</th><th>Cubos</th><th class="sep">Entregas</th><th>Cargas</th><th>Tx ocup.</th><th class="sep">Cubos</th><th>Cx unit</th><th>Entregas</th><th class="sep">Cubos</th><th>Cx unit</th></tr></thead>
+<tr><th>Vol plan cx fís</th><th>CX UNIT plan</th><th>Cubos</th><th class="sep">Entregas</th><th>Cargas</th><th>Tx ocup.</th><th class="sep">Cubos</th><th>CX UNIT</th><th>Entregas</th><th class="sep">Cubos</th><th>CX UNIT</th></tr></thead>
 <tbody>${dias.map((d) => la(d, cls(d))).join('')}</tbody>${la({ ...t, ...nulos }, 'tot', 'TOTAL')}${la(med, 'med', 'MÉDIA')}</table></div>`;
 
   // B) Reprogramação do PES, considerando apenas a categoria REPROG.
@@ -192,22 +192,22 @@ ${lb({ ...t, tx_reprog: null }, 'tot', 'TOTAL', { rp_cubos: rp.rp_cubos, rp_uc_t
   const tabC = `<div class="tw"><table class="diario"><thead><tr><th class="t">Dia</th><th>Retorno vol.<br>(≤ 1%)</th><th>Retorno cli.<br>planilha (≤ 2%)</th><th>Retorno cli.<br>por cliente</th></tr></thead>
 <tbody>${dias.map((d) => lc(d, cls(d))).join('')}</tbody>${lc(t, 'tot', 'ACUMULADO')}</table></div>`;
   const totMot = mot.reduce((a, x) => a + x.cx, 0) || 1;
-  const tabM = `<div class="tw"><table><thead><tr><th class="t">Motivo (retorno externo)</th><th>Cx unit</th><th>%</th><th>Clientes</th></tr></thead>
+  const tabM = `<div class="tw"><table><thead><tr><th class="t">Motivo (retorno externo)</th><th>CX UNIT</th><th>%</th><th>Clientes</th></tr></thead>
 <tbody>${mot.map((x) => `<tr><td class="t">${E(x.motivo)}</td><td>${fd(x.cx)}</td><td>${fp(x.cx / totMot, 1)}</td><td>${fi(x.clientes)}</td></tr>`).join('')}</tbody></table></div>`;
 
   const folga = (rp.folga_uc ?? 0) >= 0 ? `folga ${fi(rp.folga_uc)} cx` : `acima da meta em ${fi(-rp.folga_uc)} cx`;
   const editar = ctx.admin ? ` <a class="btn sec" href="#/montagem/planejamento/${c}/${m.mes}">✎ Editar planejamento</a>` : '';
   return `${ctx.topo}
 <div class="tiles">
- <div class="tile"><div class="l">Volume ACM (cx unit)</div><div class="v">${fi(r.acm)}</div><div class="d">meta ${fi(r.meta_volume)}</div></div>
- <div class="tile"><div class="l">Tendência vs meta</div><div class="v ${corSinal(r.tend_vs_meta)}">${fp(r.tend_vs_meta, 1)}</div><div class="d">${fi(r.tendencia)} cx unit</div></div>
+ <div class="tile"><div class="l">Volume ACM (CX UNIT)</div><div class="v">${fi(r.acm)}</div><div class="d">meta ${fi(r.meta_volume)}</div></div>
+ <div class="tile"><div class="l">Tendência vs meta</div><div class="v ${corSinal(r.tend_vs_meta)}">${fp(r.tend_vs_meta, 1)}</div><div class="d">${fi(r.tendencia)} CX UNIT</div></div>
  <div class="tile"><div class="l">Faturamento ACM</div><div class="v">${fr(r.fat_acm)}</div><div class="d">tendência ${fr(r.fat_tendencia)}</div></div>
  <div class="tile"><div class="l">Tx ocupação média</div><div class="v">${fp(med.ocupacao, 1)}</div><div class="d">${fd(med.cargas)} cargas/dia</div></div>
  <div class="tile"><div class="l">Retorno volume</div><div class="v">${fp(t.ret_vol)}</div><div class="d">${status(t.ret_vol == null ? null : t.ret_vol <= META_PES.ret_vol, 'meta ≤ 1%', 'meta ≤ 1%')}</div></div>
  <div class="tile"><div class="l">% reprog. volume (PES)</div><div class="v">${fp(rp.pct)}</div><div class="d">${status(rp.pct == null ? null : rp.pct <= rp.meta, folga, folga)}</div></div>
 </div>
 <p class="small">${editar}</p>
-<h2>Cx unit por dia · vendido e retorno</h2><div class="card">${graficoVendidoRetorno(m.dias)}</div>
+<h2>CX UNIT por dia · vendido e retorno</h2><div class="card">${graficoVendidoRetorno(m.dias)}</div>
 <h2>Volume e montagem</h2>${tabA}
 <h2>Reprogramação</h2>${tabB}
 <h2>Indicadores e motivos de retorno</h2><div class="g2" style="margin-top:14px">${tabC}${tabM}</div>${legenda()}`;
@@ -255,7 +255,7 @@ ${admin && digOk < dig.length ? `<div class="aviso">Há indicadores digitados em
 export function paginaPES(placares, { mes, admin, topo }) {
   return `${topo}<p class="sub">Programa de Excelência Solar — resultados logísticos. Ponto cheio só se bater a meta. Os 4 percentuais de retorno e reprogramação vêm da Montagem de Cargas do mês; os demais são digitados.</p>
 <div class="pes-dls">${Object.keys(UNIDADES).map((c) => blocoPES(c, placares[c], mes, admin)).join('')}</div>
-<p class="small">vs meta: ▼ abaixo ou ▲ acima da meta no acumulado do mês, em cx unit ou clientes.</p>`;
+<p class="small">vs meta: ▼ abaixo ou ▲ acima da meta no acumulado do mês, em CX UNIT ou clientes.</p>`;
 }
 
 // ---------------------------------------------------------------- KM planejado × realizado
@@ -504,9 +504,9 @@ const criticas = (r) => r.faixas.find((f) => f.nivel === 'critico') || { qtd: 0,
 function tilesCargas(r) {
   const ma = r.maisAntiga, cr = criticas(r);
   return `<div class="tiles">
- <div class="tile"><div class="l">Críticas · ${DIAS_CRITICO}+ dias</div><div class="v ${cr.qtd ? 't-down' : 't-up'}">${fi(cr.qtd)}</div><div class="d">${cr.qtd ? `${fi(cr.cxu)} cx unit · limite: ${DIAS_CRITICO + 1} dias` : `nenhuma venda com ${DIAS_CRITICO} dias ou mais`}</div></div>
+ <div class="tile"><div class="l">Críticas · ${DIAS_CRITICO}+ dias</div><div class="v ${cr.qtd ? 't-down' : 't-up'}">${fi(cr.qtd)}</div><div class="d">${cr.qtd ? `${fi(cr.cxu)} CX UNIT · limite: ${DIAS_CRITICO + 1} dias` : `nenhuma venda com ${DIAS_CRITICO} dias ou mais`}</div></div>
  <div class="tile"><div class="l">Vendas em aberto</div><div class="v">${fi(r.qtd)}</div><div class="d">${fi(r.clientes)} clientes</div></div>
- <div class="tile"><div class="l">Cx unit em aberto</div><div class="v">${fi(r.cxu)}</div><div class="d">sem acerto no ERP</div></div>
+ <div class="tile"><div class="l">CX UNIT em aberto</div><div class="v">${fi(r.cxu)}</div><div class="d">sem acerto no ERP</div></div>
  <div class="tile"><div class="l">Mais antiga</div><div class="v ${ma && ma.dias >= DIAS_CRITICO ? 't-down' : ''}">${ma ? `${fi(ma.dias)} ${ma.dias === 1 ? 'dia' : 'dias'}` : '–'}</div><div class="d">${ma ? `emissão ${fdata(ma.emissao)} · cliente ${E(ma.cli)}` : 'nenhuma venda em aberto'}</div></div>
  <div class="tile"><div class="l">Tempo médio de acerto</div><div class="v">${r.acerto?.diasMedio == null ? '–' : `${fd(r.acerto.diasMedio, 1)} dias`}</div><div class="d">${r.acerto ? `${fi(r.acerto.qtd)} vendas já acertadas no período` : 'sem vendas acertadas no export'}</div></div>
 </div>`;
@@ -523,21 +523,21 @@ export function paginaCargasResumo(res, { data, topo, admin }) {
   const total = { qtd: rs.reduce((s, [, r]) => s + r.qtd, 0), cxu: rs.reduce((s, [, r]) => s + r.cxu, 0), criticas: rs.reduce((s, [, r]) => s + criticas(r).qtd, 0) };
   const linhas = rs[0][1].faixas.map((f, i) => `<tr><td class="t ${f.classe}">${E(f.rotulo)}</td>${rs.map(([, r]) => `<td>${fi(r.faixas[i].qtd)}</td><td>${fi(r.faixas[i].cxu)}</td>`).join('')}</tr>`).join('');
   const tabela = `<div class="tw scroll"><table><thead><tr><th class="t" rowspan="2">Dias em aberto</th>${rs.map(([, r]) => `<th class="grp" colspan="2">${E(r.nome)}</th>`).join('')}</tr>
-<tr>${rs.map(() => '<th>Vendas</th><th>Cx unit</th>').join('')}</tr></thead><tbody>${linhas}
+<tr>${rs.map(() => '<th>Vendas</th><th>CX UNIT</th>').join('')}</tr></thead><tbody>${linhas}
 <tr class="tot"><td class="t">TOTAL</td>${rs.map(([, r]) => `<td>${fi(r.qtd)}</td><td>${fi(r.cxu)}</td>`).join('')}</tr></tbody></table></div>`;
   const blocos = rs.map(([c, r]) => `<section class="bloco"><div class="faixa">${E(r.nome)} <a class="btn sec" href="#/cargas/${c}/${data}">Lista de clientes →</a></div><div class="corpo">
-${tilesCargas(r)}<h3>Cx unit em aberto por data de emissão</h3>${r.porEmissao.length ? graficoCargas(r) : '<p class="small">Nenhuma venda em aberto.</p>'}</div></section>`).join('');
+${tilesCargas(r)}<h3>CX UNIT em aberto por data de emissão</h3>${r.porEmissao.length ? graficoCargas(r) : '<p class="small">Nenhuma venda em aberto.</p>'}</div></section>`).join('');
   return `${topo}<p class="sub">Vendas emitidas e ainda não acertadas no ERP, extraídas da Consulta BI em ${fdataAno(data)}${res.emissaoDe ? ` · emissões de ${fdata(res.emissaoDe)} a ${fdata(res.emissaoAte)}` : ''}.</p>
-<div class="tiles"><div class="tile"><div class="l">Críticas · ${DIAS_CRITICO}+ dias · total</div><div class="v ${total.criticas ? 't-down' : 't-up'}">${fi(total.criticas)}</div></div><div class="tile"><div class="l">Vendas em aberto · total</div><div class="v">${fi(total.qtd)}</div></div><div class="tile"><div class="l">Cx unit em aberto · total</div><div class="v">${fi(total.cxu)}</div></div></div>
+<div class="tiles"><div class="tile"><div class="l">Críticas · ${DIAS_CRITICO}+ dias · total</div><div class="v ${total.criticas ? 't-down' : 't-up'}">${fi(total.criticas)}</div></div><div class="tile"><div class="l">Vendas em aberto · total</div><div class="v">${fi(total.qtd)}</div></div><div class="tile"><div class="l">CX UNIT em aberto · total</div><div class="v">${fi(total.cxu)}</div></div></div>
 <h2>Por faixa de dias em aberto</h2>${tabela}${notaFaixas}<div class="g2">${blocos}</div>`;
 }
 
 export function paginaCargasRevenda(r, { data, topo, admin }) {
   const linhas = r.lista.map((l) => `<tr><td class="t">${E(l.cli)}</td>${admin ? `<td class="t">${E(l.nome || '')}</td>` : ''}<td>${fdataAno(l.emissao)}</td><td class="${faixaClasse(l.dias)}">${fi(l.dias)}</td><td>${fi(l.cxu)}</td></tr>`).join('');
   return `${topo}<p><a href="#/cargas/resumo/${data}">← Resumo</a></p>${tilesCargas(r)}
-<h2>Cx unit em aberto por data de emissão</h2><div class="card">${r.porEmissao.length ? graficoCargas(r) : '<p class="small">Nenhuma venda em aberto.</p>'}</div>
+<h2>CX UNIT em aberto por data de emissão</h2><div class="card">${r.porEmissao.length ? graficoCargas(r) : '<p class="small">Nenhuma venda em aberto.</p>'}</div>
 <h2>Vendas em aberto · da mais antiga para a mais recente</h2>${notaFaixas}
-<div class="tw scroll"><table><thead><tr><th class="t">Cliente (código)</th>${admin ? '<th class="t">Razão social</th>' : ''}<th>Emissão</th><th>Dias em aberto</th><th>Cx unit</th></tr></thead>
+<div class="tw scroll"><table><thead><tr><th class="t">Cliente (código)</th>${admin ? '<th class="t">Razão social</th>' : ''}<th>Emissão</th><th>Dias em aberto</th><th>CX UNIT</th></tr></thead>
 <tbody>${linhas || `<tr><td class="t small" colspan="${admin ? 5 : 4}">Nenhuma venda em aberto.</td></tr>`}
 <tr class="tot"><td class="t">TOTAL</td>${admin ? '<td></td>' : ''}<td></td><td></td><td>${fi(r.cxu)}</td></tr></tbody></table></div>`;
 }

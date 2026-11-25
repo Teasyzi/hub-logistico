@@ -1,8 +1,8 @@
 // Perdas de estoque dos DLs (Barreiras e Juazeiro): leitura dos relatórios do SAP e cálculo puro.
 // Regras (AUDITORIA/Perdas_de_Estoque_DLs.md §11), iguais nos dois DLs:
 //   - MB59: 551 = ESTOQUE; 928 = ROTA; 928 com referência de transferência/transporte = TRANSPORTE; outro = VERIFICAR.
-//   - Cx unit do MB59 (quantidade em UN) = qtd × Fat.Conv2 ÷ Qtd/Un.
-//   - Cx unit do inventário (diferença em CX, caixa física) = qtd × Fat.Conv2. A planilha antiga usava o Qtd/Un
+//   - CX UNIT do MB59 (quantidade em UN) = qtd × Fat.Conv2 ÷ Qtd/Un.
+//   - CX UNIT do inventário (diferença em CX, caixa física) = qtd × Fat.Conv2. A planilha antiga usava o Qtd/Un
 //     (o PROCV pegava a coluna errada) e o resultado saía em unidades.
 //   - Perda = −valor do SAP: perda fica positiva; sobra de inventário fica negativa.
 //   - % do KPI = perdas de rota + estoque (R$) ÷ faturamento acumulado do mês (não a tendência).
@@ -91,7 +91,7 @@ export function lerBaseProdutos(rows) {
   for (const r of rows.slice(h.i + 1)) {
     if (!r) continue;
     if (txt(r[c.sol]) && txt(r[c.cb]) && !(txt(r[c.sol]) in solar)) solar[txt(r[c.sol])] = txt(r[c.cb]);
-    // Fat.Conv2 0 vale (ex.: GÁS CARBÔNICO): entra no R$ e na categoria, sem cx unit.
+    // Fat.Conv2 0 vale (ex.: GÁS CARBÔNICO): entra no R$ e na categoria, sem CX UNIT.
     if (txt(r[c.red]) && (numSAP(r[c.fc]) || txt(r[c.cat])) && !(txt(r[c.red]) in produtos)) produtos[txt(r[c.red])] = { d: txt(r[c.desc]), c: txt(r[c.cat]).toUpperCase(), q: numSAP(r[c.qtd]) || 1, f: numSAP(r[c.fc]) };
   }
   return { solar, produtos };
@@ -201,7 +201,7 @@ export function buscaProdutos(base = {}) {
   return (mat) => { const k = txt(mat), cb = solar[k] ?? (produtos[k] ? k : null); return cb != null && produtos[cb] ? { cb, ...produtos[cb] } : null; };
 }
 
-// Cx unit de uma linha: em UN divide pelo Qtd/Un; em CX (caixa física) é direto × Fat.Conv2.
+// CX UNIT de uma linha: em UN divide pelo Qtd/Un; em CX (caixa física) é direto × Fat.Conv2.
 export const cxUnit = (qtd, um, p) => !p ? 0 : String(um).toUpperCase() === 'CX' ? qtd * p.f : qtd * p.f / (p.q || 1);
 
 export function calcularPerdasDL({ movimentos = [], inventario = [], base = {}, referencia = null, volume = null, faturamento = null, fatTendencia = null, ajustePreco = 0 }) {

@@ -4,14 +4,14 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261124-4';
-import { lerArquivo, num } from './importar.js?v=20261124-4';
-import * as V from './views.js?v=20261124-4';
-import { hojeKM } from './km.js?v=20261124-4';
-import { rotearPerdas } from './perdas_telas.js?v=20261124-4';
-import { rotearRetorno } from './retorno_telas.js?v=20261124-4';
+import * as D from './dados.js?v=20261125-1';
+import { lerArquivo, num } from './importar.js?v=20261125-1';
+import * as V from './views.js?v=20261125-1';
+import { hojeKM } from './km.js?v=20261125-1';
+import { rotearPerdas } from './perdas_telas.js?v=20261125-1';
+import { rotearRetorno } from './retorno_telas.js?v=20261125-1';
 import { diasDoMes } from './calc.js?v=20261117-5';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261125-1';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';
@@ -70,7 +70,7 @@ function cabecalhoSite(titulo) {
         estado.modoAntesDaVisita = estado.modo;
         estado.visualizarComoVisitante = true; estado.modo = 'publicado';
         const p = (location.hash.replace(/^#/, '') || '/').split('/').filter(Boolean), mes = p.map(mesP).find(Boolean) || mesAtual();
-        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : p[0] === 'cargas' ? '#/cargas/resumo' : p[0] === 'perdas' ? `#/perdas/resumo/${mes}` : p[0] === 'retorno' ? `#/retorno/resumo/${mes}` : `#/montagem/resumo/${mes}`;
+        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : p[0] === 'cargas' ? '#/cargas/resumo' : p[0] === 'perdas' ? `#/perdas/resumo/${mes}` : p[0] === 'retorno' ? `#/retorno/NORTE/${mes}` : `#/montagem/resumo/${mes}`;
         if (location.hash === destino) rotear(); else location.hash = destino;
       } else {
         estado.visualizarComoVisitante = false; estado.modo = estado.modoAntesDaVisita || 'rascunho';
@@ -828,7 +828,7 @@ O arquivo é lido neste navegador. A razão social fica só na área administrat
       }).join('');
       await D.registrarImportacao({ arquivo: f.name, tipo: 'consulta BI', linhas: linhas.length, periodo: `extração ${V.fdata(data)}/${data.slice(0, 4)}`, acompanhamento: 'cargas' });
       out.innerHTML = `<p class="st ok">✓ Foto de ${V.fdata(data)}/${data.slice(0, 4)} gravada: ${V.fi(linhas.length)} linhas lidas${ignoradas ? `, ${V.fi(ignoradas)} ignoradas (revenda ou emissão vazia)` : ''}.</p>
-<div class="tw scroll"><table><thead><tr><th class="t">Revenda</th><th>Vendas em aberto</th><th>Cx unit em aberto</th><th>Já acertadas</th></tr></thead><tbody>${porRev}</tbody></table></div>
+<div class="tw scroll"><table><thead><tr><th class="t">Revenda</th><th>Vendas em aberto</th><th>CX UNIT em aberto</th><th>Já acertadas</th></tr></thead><tbody>${porRev}</tbody></table></div>
 <p><a class="btn sec" href="#/cargas/resumo/${data}">Conferir o resumo</a> <a class="btn" href="#/cargas/publicar/${data}">Publicar</a></p>`;
       document.getElementById('hist').innerHTML = historicoKM(await D.ultimasImportacoes('cargas'), 'Cargas em aberto');
     } catch (err) { out.innerHTML = erro(err); }

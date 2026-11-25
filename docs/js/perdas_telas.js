@@ -1,9 +1,9 @@
 // Telas do acompanhamento Perdas de estoque (DLs). As funções pagina* são puras (dados → HTML) e servem à prévia
 // local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261124-4';
-import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261124-4';
-import * as P from './dados_perdas.js?v=20261124-4';
-import * as D from './dados.js?v=20261124-4';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-1';
+import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261125-1';
+import * as P from './dados_perdas.js?v=20261125-1';
+import * as D from './dados.js?v=20261125-1';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const frc = (x) => (x == null ? '–' : `R$ ${nf(2).format(x)}`);
@@ -22,7 +22,7 @@ function avisosPerdas(c, d, mes) {
   const t = d.totais, itens = [];
   const nSem = Array.isArray(d.semCadastro) ? d.semCadastro.length : d.semCadastro || 0;
   const nSug = Array.isArray(d.semCadastro) ? d.semCadastro.filter((s) => s.sugestao).length : 0;
-  if (nSem) itens.push(`<b>${fi(nSem)} material(is) sem cadastro de produto</b>: entram no R$, mas não na cx unit nem na categoria.${nSug ? ` ${fi(nSug)} tem produto provável na base de referência, em observação até você confirmar.` : ''} <a href="#/perdas/${c}/${mes}">Ver na página do DL →</a>`);
+  if (nSem) itens.push(`<b>${fi(nSem)} material(is) sem cadastro de produto</b>: entram no R$, mas não na CX UNIT nem na categoria.${nSug ? ` ${fi(nSug)} tem produto provável na base de referência, em observação até você confirmar.` : ''} <a href="#/perdas/${c}/${mes}">Ver na página do DL →</a>`);
   const v = d.motivos.VERIFICAR;
   if (v.linhas) itens.push(`${fi(v.linhas)} movimento(s) de outro tipo (ex.: 951 trocas comerciais), ${frc(v.rs)}, ficam fora dos totais.`);
   if (!t.volume) itens.push('Sem o volume do DL no mês: o % sobre o volume não é calculado. Importe a Montagem ou informe em ⚙ Parâmetros.');
@@ -38,8 +38,8 @@ function cardDL(c, d, { mes, admin }) {
 <div class="km-disp"><div class="l">Perdas rota + estoque (KPI)</div><div class="v">${frc(t.rotaEstoque)}</div><div class="d">${t.pctKPI == null ? 'sem faturamento do mês' : `${fp2(t.pctKPI)} do faturamento acumulado`}</div></div>
 <table class="kv km-kv"><tbody>
 <tr><td>Total do mês</td><td>${frc(t.total)}</td></tr>
-<tr><td>Total em cx unit</td><td>${fcx(t.totalCx)}${t.pctVolume == null ? '' : ` · ${fp2(t.pctVolume)} do volume`}</td></tr>
-<tr><td>Custo por cx unit</td><td>${frc(t.custoCx)}</td></tr>
+<tr><td>Total em CX UNIT</td><td>${fcx(t.totalCx)}${t.pctVolume == null ? '' : ` · ${fp2(t.pctVolume)} do volume`}</td></tr>
+<tr><td>Custo por CX UNIT</td><td>${frc(t.custoCx)}</td></tr>
 ${t.ajustePreco ? `<tr><td>Ajuste de preço</td><td>${frc(t.ajustePreco)}</td></tr><tr class="dest"><td>Perdas fech. op.</td><td>${frc(t.fechamentoOp)}</td></tr>` : ''}
 </tbody></table>${admin ? avisosPerdas(c, d, mes) : ''}</div></section>`;
 }
@@ -50,12 +50,12 @@ function tabelaMotivosComparada(dls) {
   const lin = (rot, f, cls = '') => `<tr class="${cls}"><td class="t">${rot}</td>${cs.map((c) => f(dls[c])).join('')}</tr>`;
   const cel = (m) => `<td>${frc(m.rs)}</td><td>${fcx(m.cx)}</td><td>${fp2(m.pctVolume)}</td>`;
   return `<h2>Por motivo</h2><div class="tw scroll"><table><thead><tr><th class="t" rowspan="2">Motivo</th>${cs.map((c) => `<th colspan="3"><a href="#/perdas/${c}/${dls[c].mes || ''}">${E(dls[c].nome)}</a></th>`).join('')}</tr>
-<tr>${cs.map(() => '<th>R$</th><th>Cx unit</th><th>% volume</th>').join('')}</tr></thead><tbody>
+<tr>${cs.map(() => '<th>R$</th><th>CX UNIT</th><th>% volume</th>').join('')}</tr></thead><tbody>
 ${MOTIVOS_PERDAS.map((k) => lin(ROTULO_MOTIVO[k], (d) => cel(d.motivos[k]))).join('')}
 ${lin('Rota + estoque (KPI)', (d) => `<td>${frc(d.totais.rotaEstoque)}</td><td>${fcx(d.motivos.ROTA.cx + d.motivos.ESTOQUE.cx)}</td><td>${fp2(d.totais.volume ? (d.motivos.ROTA.cx + d.motivos.ESTOQUE.cx) / d.totais.volume : null)}</td>`, 'dest')}
 ${lin('Total', (d) => `<td>${frc(d.totais.total)}</td><td>${fcx(d.totais.totalCx)}</td><td>${fp2(d.totais.pctVolume)}</td>`, 'tot')}
 </tbody></table></div>
-<p class="small">Perda em R$ e em caixa unitária (positivo = perda; negativo = sobra no inventário). Rota = MB59 tipo 928; estoque = 551; transporte = 928 com referência de transferência; inventário = diferenças de inventário, em caixa física × Fat.Conv2. O total soma os quatro motivos. O % do KPI usa só rota + estoque, sobre o faturamento acumulado do mês.</p>`;
+<p class="small">Perda em R$ e em CX UNIT (positivo = perda; negativo = sobra no inventário). Rota = MB59 tipo 928; estoque = 551; transporte = 928 com referência de transferência; inventário = diferenças de inventário, em caixa física × Fat.Conv2. O total soma os quatro motivos. O % do KPI usa só rota + estoque, sobre o faturamento acumulado do mês.</p>`;
 }
 
 export function paginaResumoPerdas(resultado, { mes, admin, topo }) {
@@ -77,7 +77,7 @@ export function tabelaSemCadastro(lista, mes) {
     ? `<button type="button" class="btn sec conf-prod" data-dl="${x.c}" data-mat="${E(x.mat)}" data-d="${E(x.sugestao.d)}" data-c="${E(x.sugestao.c)}" data-q="${x.sugestao.q}" data-f="${x.sugestao.f}">Confirmar</button>` : '';
   return `<div class="tw scroll"><table><thead><tr><th class="t">DL</th><th class="t">Material</th><th class="t">Descrição no SAP</th><th>R$</th><th>Linhas</th><th class="t">Produto provável (base de referência)</th><th></th></tr></thead><tbody>
 ${lista.map((x) => `<tr><td class="t">${E(DLS_PERDAS[x.c] || '')}</td><td class="t">${E(x.mat)}</td><td class="t">${E(x.texto)}</td><td>${frc(x.rs)}</td><td>${fi(x.linhas)}</td><td class="t">${sug(x)}</td><td>${botao(x)}</td></tr>`).join('')}</tbody></table></div>
-<p class="small">Sem cadastro, o material entra no R$, mas não na cx unit nem na categoria. A sugestão vem da base de referência de produtos e fica <b>em observação</b>: confira se é mesmo o mesmo produto e clique em <b>Confirmar</b> para gravar no cadastro do DL. Para corrigir os valores antes, use a caixa de produtos em <a href="#/perdas/parametros/${mes}">⚙ Parâmetros</a>.</p>`;
+<p class="small">Sem cadastro, o material entra no R$, mas não na CX UNIT nem na categoria. A sugestão vem da base de referência de produtos e fica <b>em observação</b>: confira se é mesmo o mesmo produto e clique em <b>Confirmar</b> para gravar no cadastro do DL. Para corrigir os valores antes, use a caixa de produtos em <a href="#/perdas/parametros/${mes}">⚙ Parâmetros</a>.</p>`;
 }
 
 // Liga os botões "Confirmar" das sugestões: grava o produto no cadastro do DL (material = COD CB) e recarrega.
@@ -98,18 +98,18 @@ export function paginaDLPerdas(c, d, { mes, admin, topo }) {
   const tiles = `<div class="tiles">
 <div class="tile"><div class="l">Rota + estoque (KPI)</div><div class="v">${frc(t.rotaEstoque)}</div><div class="d">${t.pctKPI == null ? 'sem faturamento' : `${fp2(t.pctKPI)} do faturamento acumulado`}</div></div>
 <div class="tile"><div class="l">Total do mês</div><div class="v">${frc(t.total)}</div><div class="d">com inventário e transporte</div></div>
-<div class="tile"><div class="l">Total em cx unit</div><div class="v">${fcx(t.totalCx)}</div><div class="d">${t.pctVolume == null ? 'sem volume' : `${fp2(t.pctVolume)} do volume`}</div></div>
-<div class="tile"><div class="l">Custo por cx unit</div><div class="v">${frc(t.custoCx)}</div></div>
+<div class="tile"><div class="l">Total em CX UNIT</div><div class="v">${fcx(t.totalCx)}</div><div class="d">${t.pctVolume == null ? 'sem volume' : `${fp2(t.pctVolume)} do volume`}</div></div>
+<div class="tile"><div class="l">Custo por CX UNIT</div><div class="v">${frc(t.custoCx)}</div></div>
 ${t.ajustePreco ? `<div class="tile"><div class="l">Perdas fech. op.</div><div class="v">${frc(t.fechamentoOp)}</div><div class="d">ajuste de preço ${frc(t.ajustePreco)}</div></div>` : ''}</div>`;
   const linMot = (k) => `<tr><td class="t">${ROTULO_MOTIVO[k]}</td><td>${frc(m[k].rs)}</td><td>${fp(m[k].pctTotal, 1)}</td><td>${fcx(m[k].cx)}</td><td>${fp2(m[k].pctVolume)}</td><td>${frc(m[k].custoCx)}</td><td>${fi(m[k].linhas)}</td></tr>`;
-  const motivos = `<section class="bloco"><div class="faixa">Por motivo</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Motivo</th><th>R$</th><th>% do total</th><th>Cx unit</th><th>% do volume</th><th>Custo por cx unit</th><th>Linhas</th></tr></thead><tbody>
+  const motivos = `<section class="bloco"><div class="faixa">Por motivo</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Motivo</th><th>R$</th><th>% do total</th><th>CX UNIT</th><th>% do volume</th><th>Custo por CX UNIT</th><th>Linhas</th></tr></thead><tbody>
 ${MOTIVOS_PERDAS.map(linMot).join('')}
 <tr class="dest"><td class="t">Rota + estoque (KPI)</td><td>${frc(t.rotaEstoque)}</td><td>${fp(t.total ? t.rotaEstoque / t.total : null, 1)}</td><td>${fcx(m.ROTA.cx + m.ESTOQUE.cx)}</td><td>${fp2(t.volume ? (m.ROTA.cx + m.ESTOQUE.cx) / t.volume : null)}</td><td>${frc(m.ROTA.cx + m.ESTOQUE.cx ? t.rotaEstoque / (m.ROTA.cx + m.ESTOQUE.cx) : null)}</td><td></td></tr>
 <tr class="tot"><td class="t">Total</td><td>${frc(t.total)}</td><td>100%</td><td>${fcx(t.totalCx)}</td><td>${fp2(t.pctVolume)}</td><td>${frc(t.custoCx)}</td><td>${fi(MOTIVOS_PERDAS.reduce((s, k) => s + m[k].linhas, 0))}</td></tr>
 ${m.VERIFICAR.linhas ? `<tr class="pv"><td class="t">Outros tipos de movimento (fora do total)</td><td>${frc(m.VERIFICAR.rs)}</td><td></td><td>${fcx(m.VERIFICAR.cx)}</td><td></td><td></td><td>${fi(m.VERIFICAR.linhas)}</td></tr>` : ''}
 </tbody></table></div>
 <table class="kv" style="max-width:560px;margin-top:10px"><tbody>
-<tr><td>Volume do DL (cx unit)</td><td>${fcx(t.volume)} <span class="small">${E(d.fontes?.volume || '')}</span></td></tr>
+<tr><td>Volume do DL (CX UNIT)</td><td>${fcx(t.volume)} <span class="small">${E(d.fontes?.volume || '')}</span></td></tr>
 <tr><td>Faturamento acumulado</td><td>${frc(t.faturamento)} <span class="small">${E(d.fontes?.faturamento || '')}</span></td></tr>
 <tr><td>% KPI sobre a tendência (como era)</td><td>${fp2(t.pctKPITendencia)} <span class="small">faturamento tendência ${frc(t.fatTendencia)}</span></td></tr>
 </tbody></table></div></section>`;
@@ -120,7 +120,7 @@ ${d.categorias.map((x) => `<tr><td class="t">${E(x.categoria)}</td><td>${frc(x.I
 ${d.porDia.map((x) => `<tr><td class="t">${fdata(x.data)}</td><td>${frc(x.ROTA)}</td><td>${frc(x.ESTOQUE)}</td><td>${frc(x.TRANSPORTE)}</td><td>${frc(x.ROTA + x.ESTOQUE + x.TRANSPORTE)}</td></tr>`).join('')}</tbody></table></div>
 <p class="small">O inventário não tem dia: entra só no mês.</p></div></section>` : '';
   const linProd = (x) => `<tr><td class="t">${E(x.produto)}</td><td class="t">${E(x.categoria)}</td><td>${frc(x.INVENTARIO)}</td><td>${frc(x.ROTA)}</td><td>${frc(x.ESTOQUE)}</td><td>${frc(x.TRANSPORTE)}</td><td>${frc(x.total)}</td><td>${fcx(x.cx)}</td></tr>`;
-  const cabProd = '<thead><tr><th class="t">Produto</th><th class="t">Categoria</th><th>Inventário</th><th>Rota</th><th>Estoque</th><th>Transporte</th><th>Total R$</th><th>Cx unit</th></tr></thead>';
+  const cabProd = '<thead><tr><th class="t">Produto</th><th class="t">Categoria</th><th>Inventário</th><th>Rota</th><th>Estoque</th><th>Transporte</th><th>Total R$</th><th>CX UNIT</th></tr></thead>';
   const prods = `<section class="bloco"><div class="faixa">Por produto</div><div class="corpo"><div class="tw scroll"><table>${cabProd}<tbody>${d.produtos.slice(0, 30).map(linProd).join('')}</tbody></table></div>
 ${d.produtos.length > 30 ? `<details><summary class="small">Ver todos os ${fi(d.produtos.length)} produtos</summary><div class="tw scroll"><table>${cabProd}<tbody>${d.produtos.slice(30).map(linProd).join('')}</tbody></table></div></details>` : ''}
 <p class="small">Ordenado pelo total. Negativo = sobra no inventário maior que a perda.</p></div></section>`;
@@ -228,7 +228,7 @@ async function telaParametros(ctx, mes) {
   const blocos = Object.keys(DLS_PERDAS).map((c) => { const mo = x.montagem[c] || {};
     return `<section class="bloco"><div class="faixa">${E(DLS_PERDAS[c])}</div><div class="corpo"><div class="modelo-box">
 ${campo(c, 'ajustePreco', 'Ajuste de preço (R$)', null, 'Como no quadro anual: negativo reduz as perdas do fechamento operacional.')}
-${campo(c, 'volume', 'Volume cx unit (vazio = Montagem)', mo.acm ?? x.dados[c]?.volumePlanilha, 'ACM do mês na Montagem de Cargas')}
+${campo(c, 'volume', 'Volume CX UNIT (vazio = Montagem)', mo.acm ?? x.dados[c]?.volumePlanilha, 'ACM do mês na Montagem de Cargas')}
 ${campo(c, 'faturamento', 'Faturamento acumulado R$ (vazio = Montagem)', mo.fat_acm, 'ACM do mês na Montagem de Cargas')}
 ${campo(c, 'fatTendencia', 'Faturamento tendência R$ (vazio = Montagem)', mo.fat_tendencia, 'Só para comparar com o % antigo')}</div></div></section>`; }).join('');
   const sem = Object.keys(DLS_PERDAS).flatMap((c) => (r.dls[c].semCadastro || []).map((s) => ({ ...s, c })));
