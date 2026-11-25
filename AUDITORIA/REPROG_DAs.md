@@ -149,3 +149,6 @@ Hipóteses testadas contra os 600 e os 631 clientes:
   - **Diferença:** quando há clientes sem cadastro ou com SUP 0, o quadro ganha linhas e a lista desce. Em 25/11, no Norte, ela começa na linha 14, e não na 12.
 - **Leitores:** veem códigos, cidade, VEND, SUP, dia de rota e dias, **sem nomes** (regra do projeto). A exportação fica só com o admin. **A confirmar com o usuário.**
 - Prévia: `code/tests_js/reprog.preview.html?arquivos=…&pagina=NORTE|SUL|importar[&dia=][&admin=0][&editar=1][&dump=1]`, configuração "hub-reprog" (porta 8771).
+### 11.4 Ajustes pedidos pelo usuário (25/11, depois do push ce90138)
+- **Tela normal igual à planilha:** só o quadro por supervisor e as colunas B:J (CÓD CLIENTE … DIAS REPROGRAMADOS). O dia anterior, os pedidos, os itens, o valor e os números do dia aparecem **só em ✎ Editar dias**. O código continua clicável para ver os pedidos do dia.
+- **Preencher o intervalo:** na edição, ao digitar um número num cliente e o mesmo número noutro mais abaixo (ou acima), os clientes **vazios** entre os dois recebem esse número. Isso só vale para as linhas visíveis (respeita a busca e o filtro de supervisor), e só quando não há outro número entre os dois. A lista fica na ordem do dia anterior e só se reordena depois de gravar.
