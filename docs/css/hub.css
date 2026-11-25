@@ -181,3 +181,4 @@ svg .ret-barra{fill:var(--s1)}svg .ret-barra.canc{fill:var(--axis)}.ret-grafico{
 .fr-lapis{border:0;background:none;color:var(--ink2);cursor:pointer;padding:0 4px;font-size:13px;line-height:1}.fr-lapis:hover,.fr-lapis:focus-visible{color:var(--brand)}
 .fr-cod input.fr-cod-ed{width:92px;text-align:left}.fr-cod input.erro-campo{border:2px solid var(--bad)}
 .fr-mes{margin-bottom:12px}.fr-det{padding:3px 10px;font-size:12px}
+.fr-graficos{margin:4px 0 14px}

@@ -4,12 +4,14 @@
 //   COMPARATIVO          (só CB NORTE e CB SUL, sem linha GERAL, como o Resumo) o quadro da aba Resumo da planilha (REVENDA · META% · META · PEDIDO ENTREGUE (coluna F oculta,
 //                        como no Resumo) · FALTA DE ESTOQUE · % FILL RATE · INSUFICIÊNCIA) de cada mês, com a faixa
 //                        amarela do mês e o link "Detalhes →" em CB NORTE e CB SUL; no fim, o acumulado do ano.
+//                        À direita (M:O), a falta de estoque (CX UNIT) mês a mês e dois gráficos nativos do Excel,
+//                        um por revenda, que leem essa tabela.
 //   "JAN NORTE", …       a aba CB NORTE / CB SUL da planilha daquele mês, célula a célula. O K1 volta ao COMPARATIVO.
 // Valores, não fórmulas: os números são os do Hub (regras da ficha §11, p. ex. meta = 2% do pedido).
 // Os rótulos são os da planilha ("% FILL RATE" no quadro é a insuficiência, como lá; o fill rate fica no N3).
 // porMes: {AAAA-MM: {unidades: {NORTE|SUL: unidade calculada (totais, dias, produtos, detalhe)}, geral}}
-import { UNIDADES_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261125-15';
-import { STYLES_XML, THEME_XML } from './modelo_fillrate.js?v=20261125-15';
+import { UNIDADES_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261125-16';
+import { STYLES_XML, THEME_XML } from './modelo_fillrate.js?v=20261125-16';
 
 const NOMES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 const nomeMes = (mes) => `${NOMES[+mes.slice(5, 7) - 1]}/${mes.slice(0, 4)}`;
@@ -34,7 +36,7 @@ function estilosPlanilha() {
 }
 
 // ---------------------------------------------------------------- folha (células com o índice de estilo da planilha)
-function folha(nome, { cols, zoom = 85 }) {
+function folha(nome, { cols, zoom = 85, desenho = false }) {
   const cel = new Map(), links = [], merges = [], cfs = [];
   let maxR = 0, maxC = 0;
   const set = (r, c, v, s, alvo) => {
@@ -71,19 +73,19 @@ function folha(nome, { cols, zoom = 85 }) {
 <dimension ref="A1:${ref(maxR, maxC)}"/><sheetViews><sheetView showGridLines="0" zoomScale="${zoom}" zoomScaleNormal="${zoom}" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="14.4"/>
 <cols>${cols}</cols><sheetData>${out.join('')}</sheetData>
 ${merges.length ? `<mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : ''}${cfXml}${links.length ? `<hyperlinks>${links.map((l) => `<hyperlink ref="${l.ref}" location="${esc(`'${l.alvo}'!A1`)}" display="${esc(l.txt)}"/>`).join('')}</hyperlinks>` : ''}
-<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
+<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>${desenho ? '<drawing r:id="rId1"/>' : ''}</worksheet>`;
   };
   return { nome, set, mescla, cf, xml };
 }
 
 // Larguras da planilha (CB NORTE e Resumo), em unidades do Excel.
 const COLS_UNIDADE = '<col min="1" max="1" width="0.33203125" customWidth="1"/><col min="2" max="4" width="15.6640625" customWidth="1"/><col min="5" max="5" width="40" customWidth="1"/><col min="6" max="6" width="21.33203125" style="1" customWidth="1"/><col min="7" max="7" width="17.88671875" style="2" customWidth="1"/><col min="8" max="8" width="18.44140625" style="2" customWidth="1"/><col min="9" max="9" width="11.33203125" style="2" customWidth="1"/><col min="10" max="10" width="0.5546875" customWidth="1"/><col min="11" max="11" width="23.6640625" style="1" customWidth="1"/><col min="12" max="12" width="19.5546875" style="3" customWidth="1"/><col min="13" max="13" width="0.5546875" customWidth="1"/><col min="14" max="14" width="30.5546875" style="3" customWidth="1"/><col min="15" max="15" width="19.5546875" style="3" customWidth="1"/>';
-const COLS_RESUMO = '<col min="2" max="2" width="16.33203125" style="1" customWidth="1"/><col min="3" max="4" width="18.44140625" customWidth="1"/><col min="5" max="5" width="0.5546875" customWidth="1"/><col min="6" max="6" width="23.6640625" hidden="1" customWidth="1"/><col min="7" max="7" width="19.5546875" customWidth="1"/><col min="8" max="8" width="0.5546875" customWidth="1"/><col min="9" max="9" width="29.109375" customWidth="1"/><col min="10" max="10" width="17.5546875" customWidth="1"/><col min="11" max="11" width="14.6640625" customWidth="1"/>';
+const COLS_RESUMO = '<col min="2" max="2" width="16.33203125" style="1" customWidth="1"/><col min="3" max="4" width="18.44140625" customWidth="1"/><col min="5" max="5" width="0.5546875" customWidth="1"/><col min="6" max="6" width="23.6640625" hidden="1" customWidth="1"/><col min="7" max="7" width="19.5546875" customWidth="1"/><col min="8" max="8" width="0.5546875" customWidth="1"/><col min="9" max="9" width="29.109375" customWidth="1"/><col min="10" max="10" width="17.5546875" customWidth="1"/><col min="11" max="11" width="14.6640625" customWidth="1"/><col min="12" max="12" width="3.6640625" customWidth="1"/><col min="13" max="13" width="14.6640625" customWidth="1"/><col min="14" max="15" width="16.6640625" customWidth="1"/>';
 
 // ---------------------------------------------------------------- COMPARATIVO (o quadro da aba Resumo, mês a mês)
 function abaComparativo(S, ano, porMes, mesAtual) {
   const resumos = Object.fromEntries(Object.entries(porMes).map(([m, r]) => [m, resumoMesFR(r)]));
-  const c = comparativoFR(resumos, ano), f = folha('COMPARATIVO', { cols: COLS_RESUMO, zoom: 100 });
+  const c = comparativoFR(resumos, ano), f = folha('COMPARATIVO', { cols: COLS_RESUMO, zoom: 100, desenho: c.meses.length > 0 });
   const B = C('B'), J = C('J'), K = C('K');
   f.mescla(0, B, J, `FILL RATE - INSUFICIÊNCIA DE ESTOQUE - MÊS A MÊS ${ano}`, 46);
   const hoje = new Date(), iso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
@@ -116,7 +118,54 @@ function abaComparativo(S, ano, porMes, mesAtual) {
   cab();
   const acm = (s) => (s.acumulado ? { totais: s.acumulado } : null);
   for (const u of Object.keys(UNIDADES_FR)) linha(UNIDADES_FR[u].toUpperCase(), acm(c.unidades[u]), null);
-  return { f, meses: c.meses };
+  // Dados dos gráficos (M:O) e os dois gráficos embaixo: falta de estoque (CX UNIT) mês a mês de cada revenda.
+  const M = C('M'), us = Object.keys(UNIDADES_FR), r0 = 3;
+  f.mescla(r0, M, C('O'), 'FALTA DE ESTOQUE (CX UNIT) - MÊS A MÊS', 43, 44, 45);
+  [['M', 'MÊS', 5], ['N', 'CB NORTE', 5], ['O', 'CB SUL', 5]].forEach(([l, x, s]) => f.set(r0 + 1, C(l), x, s));
+  const rotulos = c.meses.map((m) => `${NOMES[+m.slice(5, 7) - 1].slice(0, 3)}/${m.slice(2, 4)}${m === mesAtual ? '*' : ''}`);
+  const valores = Object.fromEntries(us.map((u) => [u, c.meses.map((m) => c.unidades[u].linhas.find((l) => l.mes === m)?.totais.falta ?? null)]));
+  c.meses.forEach((m, i) => {
+    const r = r0 + 2 + i;
+    f.set(r, M, rotulos[i], 6);
+    us.forEach((u, k) => f.set(r, M + 1 + k, valores[u][i], 7));
+  });
+  const ini = r0 + 3, fim = r0 + 2 + c.meses.length, abaixo = fim + 2, alto = 17;
+  if (c.meses.includes(mesAtual)) f.set(fim + 1, M, '* mês em andamento (parcial)', 0);
+  const graficos = us.map((u, k) => ({
+    titulo: `${UNIDADES_FR[u].toUpperCase()} - FALTA DE ESTOQUE (CX UNIT) MÊS A MÊS`, cor: u === 'SUL' ? '1F4E79' : 'C00000',
+    nomeRef: `COMPARATIVO!$${col(M + 1 + k)}$${r0 + 2}`, nome: UNIDADES_FR[u].toUpperCase(),
+    catRef: `COMPARATIVO!$M$${ini}:$M$${fim}`, valRef: `COMPARATIVO!$${col(M + 1 + k)}$${ini}:$${col(M + 1 + k)}$${fim}`,
+    cats: rotulos, vals: valores[u], de: { c: M, r: abaixo + k * (alto + 1) }, ate: { c: M + 9, r: abaixo + k * (alto + 1) + alto },
+  }));
+  return { f, meses: c.meses, graficos };
+}
+
+// ---------------------------------------------------------------- gráficos nativos do Excel (DrawingML)
+function xmlGrafico(g) {
+  const n = g.cats.length;
+  const pts = (arr, num) => arr.map((v, i) => (v == null ? '' : `<c:pt idx="${i}"><c:v>${num ? v : esc(v)}</c:v></c:pt>`)).join('');
+  const txt = (sz, b) => `<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${sz}"${b ? ' b="1"' : ''}><a:solidFill><a:srgbClr val="404040"/></a:solidFill></a:defRPr></a:pPr><a:endParaRPr lang="pt-BR"/></a:p></c:txPr>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:roundedCorners val="0"/>
+<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="1200" b="1"/></a:pPr><a:r><a:rPr lang="pt-BR" sz="1200" b="1"/><a:t>${esc(g.titulo)}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/>
+<c:plotArea><c:layout/><c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>
+<c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:strRef><c:f>${g.nomeRef}</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>${esc(g.nome)}</c:v></c:pt></c:strCache></c:strRef></c:tx>
+<c:spPr><a:solidFill><a:srgbClr val="${g.cor}"/></a:solidFill></c:spPr><c:invertIfNegative val="0"/>
+<c:dLbls><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>${txt(900, true)}<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>
+<c:cat><c:strRef><c:f>${g.catRef}</c:f><c:strCache><c:ptCount val="${n}"/>${pts(g.cats, false)}</c:strCache></c:strRef></c:cat>
+<c:val><c:numRef><c:f>${g.valRef}</c:f><c:numCache><c:formatCode>#,##0</c:formatCode><c:ptCount val="${n}"/>${pts(g.vals, true)}</c:numCache></c:numRef></c:val></c:ser>
+<c:gapWidth val="60"/><c:axId val="5001"/><c:axId val="5002"/></c:barChart>
+<c:catAx><c:axId val="5001"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:spPr><a:ln w="9525"><a:solidFill><a:srgbClr val="BFBFBF"/></a:solidFill></a:ln></c:spPr>${txt(900, false)}<c:crossAx val="5002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>
+<c:valAx><c:axId val="5002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines><c:spPr><a:ln w="6350"><a:solidFill><a:srgbClr val="D9D9D9"/></a:solidFill></a:ln></c:spPr></c:majorGridlines><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:spPr><a:ln><a:noFill/></a:ln></c:spPr>${txt(900, false)}<c:crossAx val="5001"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx>
+<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr></c:plotArea><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart>
+<c:spPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="D9D9D9"/></a:solidFill></a:ln></c:spPr></c:chartSpace>`;
+}
+function xmlDesenho(graficos) {
+  const ponto = (p) => `<xdr:col>${p.c}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${p.r}</xdr:row><xdr:rowOff>0</xdr:rowOff>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">${graficos.map((g, i) => `<xdr:twoCellAnchor editAs="oneCell"><xdr:from>${ponto(g.de)}</xdr:from><xdr:to>${ponto(g.ate)}</xdr:to>
+<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${i + 2}" name="Gráfico ${i + 1}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>
+<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId${i + 1}"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>`).join('')}</xdr:wsDr>`;
 }
 
 // ---------------------------------------------------------------- detalhe (a aba CB NORTE / CB SUL da planilha)
@@ -159,7 +208,7 @@ function abaDetalhe(S, u, mes, d, mesAtual) {
 // ---------------------------------------------------------------- pacote
 export async function gerarComparativoFR(ano, porMes, { mesAtual = null } = {}) {
   if (!globalThis.JSZip) throw new Error('O componente de exportação não carregou. Atualize a página e tente novamente.');
-  const S = estilosPlanilha(), comp = abaComparativo(S, ano, porMes, mesAtual), folhas = [comp.f];
+  const S = estilosPlanilha(), comp = abaComparativo(S, ano, porMes, mesAtual), folhas = [comp.f], gs = comp.meses.length ? comp.graficos : [];
   for (const mes of comp.meses) for (const u of Object.keys(UNIDADES_FR)) {
     const d = porMes[mes]?.unidades?.[u];
     if (d?.temDados) folhas.push(abaDetalhe(S, u, mes, d, mesAtual));
@@ -167,7 +216,7 @@ export async function gerarComparativoFR(ano, porMes, { mesAtual = null } = {}) 
   const zip = new JSZip();
   zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>
-<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${gs.length ? `<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>${gs.map((_, i) => `<Override PartName="/xl/charts/chart${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`).join('')}` : ''}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
 ${folhas.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`);
   zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
   zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -180,6 +229,13 @@ ${folhas.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" Co
   folhas.forEach((f, i) => zip.file(`xl/worksheets/sheet${i + 1}.xml`, f.xml()));
   zip.file('xl/styles.xml', S.xml);
   zip.file('xl/theme/theme1.xml', THEME_XML);
+  if (gs.length) {
+    const rel = (id, tipo, alvo) => `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${tipo}" Target="${alvo}"/>`;
+    zip.file('xl/worksheets/_rels/sheet1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rel('rId1', 'drawing', '../drawings/drawing1.xml')}</Relationships>`);
+    zip.file('xl/drawings/drawing1.xml', xmlDesenho(gs));
+    zip.file('xl/drawings/_rels/drawing1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${gs.map((_, i) => rel(`rId${i + 1}`, 'chart', `../charts/chart${i + 1}.xml`)).join('')}</Relationships>`);
+    gs.forEach((g, i) => zip.file(`xl/charts/chart${i + 1}.xml`, xmlGrafico(g)));
+  }
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 }
 
