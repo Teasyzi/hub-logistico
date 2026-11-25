@@ -134,3 +134,31 @@ Lidos célula por célula (fórmulas e valores, inclusive a `Planilha1` oculta) 
 5. **Cargas sem ajudantes lançados** (dia em andamento): ficam fora da meta e do realizado?
 6. **Particularidades:** o Hub gera a lista sozinho (ajudantes > possível) com um campo de observação por carga? Ela continua só informativa?
 7. **Meses fechados:** recalcular pela regra ou manter como foram fechados?
+
+## 12. Decisões do usuário (25/11/2026)
+1. **Meta:** 450 nos DAs e 400 nos DLs, com +5% (possível 1,05 ou 2,10).
+2. **Abono automático:** a carga que fica até 20 abaixo da meta (430 a 450 nos DAs, 380 a 400 nos DLs) e saiu com 2 ajudantes ou mais passa a ter o possível 2,10.
+   - Ela aparece marcada para o admin em vermelho-claro e pode ser alterada à mão.
+   - Com 1 ajudante não há excesso, e o possível fica 1,05 (na planilha isso só aconteceu 2 vezes).
+3. **Abono por particularidade:** no fechamento, as cargas com ajudantes acima do possível vão para os supervisores, que devolvem um motivo para cada uma. Conforme o motivo, o admin edita o possível na aba ⚙ Particularidades. Essas cargas aparecem em vermelho-escuro.
+4. **Fonte dos DAs:** montagens Norte e Sul, colunas Ajudantes e Cubagem.
+   - Só entram as cargas do dia (seção "ROTAS DO DIA"). Recargas, cross e "finalizando rotas" ficam de fora.
+   - Uma carga repetida é descartada, mas continua listada para o admin, riscada em vermelho e fora da conta.
+5. **Fonte dos DLs:** as escalas das bases.
+   - Barreiras: "TRANSPORTE 1X1 E 1X2", com os blocos ENTREGAS 1X1, ENTREGAS 1X2 e ENTREGAS CARRETAS.
+   - Juazeiro: "ESCALA", com os auxiliares 1 e 2.
+   - Ajudantes = nº de nomes nas colunas de auxiliar. "A / B" numa célula conta 2.
+   - Conferido contra o 1x1 de novembro: Juazeiro bate 191 de 191 cargas em cubagem e ajudantes. Barreiras bate 170 de 175, e a diferença está nas viagens do freteiro (item 9).
+6. **Sem ajudantes na fonte:** a carga fica fora da conta até o admin lançar os ajudantes, e aparece para ele com uma observação. Exemplos: Sul de 16/11 e cargas sem auxiliar na escala.
+7. **Particularidades:** o Hub gera a lista sozinho (ajudantes acima do possível), com um campo de observação por carga e o possível editável. Ela só informa: o indicador muda apenas quando o admin edita o possível.
+8. **Meses fechados:** ficam manuais. O Hub não recalcula o histórico.
+9. **Regras tiradas dos dados, para o usuário confirmar:**
+   - **Carretas:** as do bloco ENTREGAS CARRETAS de Barreiras e as linhas "BAU" de Juazeiro ficam fora da conta. Na planilha nunca entraram.
+   - **Mesmo veículo, mesmo dia, DAs:** quando a segunda linha vem sem ajudantes, ela é parte da mesma viagem. As duas viram uma carga só, com a cubagem somada, como no 1x1 Sul ("A|B"). Quando as duas linhas têm ajudantes, são viagens diferentes e contam separadas, como no 1x1 Norte.
+   - **Freteiro em Barreiras:** o 1x1 às vezes junta as linhas FRETE do dia numa carga (05/11: 98 + 177 + 195 = 470) e às vezes não (04/11: 249 e 311 ficaram separadas). Por isso o Hub não junta sozinho: marca as linhas ("freteiro · N linhas no dia"), e o admin junta digitando a cubagem somada numa linha e excluindo as outras.
+   - **Conferência da prévia, novembro (cargas por dia × 1x1):**
+     - Juazeiro é igual em todos os dias.
+     - Barreiras só difere em 04/11, pelo freteiro.
+     - Norte só difere pelas recargas e cargas cross, que agora ficam de fora.
+     - Sul difere pelas cargas sem ajudantes ou sem cubagem, que ficam pendentes (o dia 16/11 inteiro), e por 2 junções a mais (07/11 e 10/11) para o admin conferir.
+   - **Equipamentos:** as rotas com EQUIPAMENTO na descrição ficam fora, como no KM.

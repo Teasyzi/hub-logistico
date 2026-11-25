@@ -151,3 +151,16 @@ input[type=date]{padding:6px 8px;border:1px solid var(--axis);border-radius:6px;
 .ret-lado{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
 svg .ret-barra{fill:var(--s1)}svg .ret-barra.canc{fill:var(--axis)}.ret-grafico{display:block;max-width:100%}
 @media(max-width:1100px){.ret-lado{grid-template-columns:minmax(0,1fr)}}
+
+/* Transportes 1x1: cargas com abono (vermelho-claro = automático, vermelho-escuro = particularidade), pendentes e fora da conta */
+.tx-cargas tr.tx-auto td{background:var(--brand-soft)!important}
+.tx-cargas tr.tx-part td{background:var(--badbg)!important}
+.tx-cargas tr.tx-pend td{background:var(--pv)!important}
+.tx-cargas tr.tx-fora td:not(.ed){color:var(--bad);text-decoration:line-through}.tx-cargas tr.tx-fora td .tag{text-decoration:none;display:inline-block}
+.tx-cargas td.ed{white-space:nowrap}.tx-cargas td.ed .small{display:block;text-align:right}
+.tx-cargas td input[type=text]{width:66px;min-width:54px}.tx-cargas td input.obs{width:190px;text-align:left}
+.tx-cargas td.st-salvo{min-width:60px}.tx-cargas .tag{white-space:nowrap}
+.legenda i.tx-auto{background:var(--brand-soft);border:1px solid var(--border)}.legenda i.tx-part{background:var(--badbg);border:1px solid var(--border)}
+.legenda i.tx-pend{background:var(--pv);border:1px solid var(--border)}.legenda i.tx-fora{background:var(--bad)}
+svg .tx-real,.grafico-legenda i.tx-real{fill:var(--s1);background:var(--s1)}
+svg line.tx-meta{stroke:var(--ink);stroke-width:2;stroke-dasharray:3 2}.grafico-legenda i.tx-meta{background:var(--ink);width:3px}

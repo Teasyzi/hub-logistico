@@ -66,6 +66,14 @@ service cloud.firestore {
       allow read: if admin() || leitor();
       allow write: if admin();
     }
+    match /transp_publicado/{id} {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
+    match /meta/publicacoes_transp {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
     match /meta/acesso {
       allow read, write: if admin();
     }
@@ -83,5 +91,7 @@ service cloud.firestore {
     match /perdas_parametro/{id} { allow read, write: if admin(); }
     match /retorno_dados/{id}     { allow read, write: if admin(); }
     match /retorno_parametro/{id} { allow read, write: if admin(); }
+    match /transp_dados/{id}      { allow read, write: if admin(); }
+    match /transp_ajuste/{id}     { allow read, write: if admin(); }
   }
 }
