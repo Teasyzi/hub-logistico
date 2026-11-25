@@ -4,15 +4,15 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261125-5';
-import { lerArquivo, num } from './importar.js?v=20261125-5';
-import * as V from './views.js?v=20261125-5';
-import { hojeKM } from './km.js?v=20261125-5';
-import { rotearPerdas } from './perdas_telas.js?v=20261125-5';
-import { rotearRetorno } from './retorno_telas.js?v=20261125-5';
-import { rotearTX } from './transportes_telas.js?v=20261125-5';
+import * as D from './dados.js?v=20261125-6';
+import { lerArquivo, num } from './importar.js?v=20261125-6';
+import * as V from './views.js?v=20261125-6';
+import { hojeKM } from './km.js?v=20261125-6';
+import { rotearPerdas } from './perdas_telas.js?v=20261125-6';
+import { rotearRetorno } from './retorno_telas.js?v=20261125-6';
+import { rotearTX } from './transportes_telas.js?v=20261125-6';
 import { diasDoMes } from './calc.js?v=20261117-5';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261125-5';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261125-6';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';

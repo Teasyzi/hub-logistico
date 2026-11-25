@@ -1,10 +1,10 @@
 // Telas do Transportes 1x1: RESUMO (como a aba da planilha) e uma aba por unidade (indicador, por dia, por motorista e
 // a lista de cargas, que o leitor vê só para consulta e o admin confere e edita). ⚙ Particularidades: lista para os
 // supervisores, com o possível editável. As funções pagina* são puras (dados → HTML) e servem à prévia local.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-5';
-import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261125-5';
-import * as T from './dados_transportes.js?v=20261125-5';
-import * as D from './dados.js?v=20261125-5';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes } from './views.js?v=20261125-6';
+import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261125-6';
+import * as T from './dados_transportes.js?v=20261125-6';
+import * as D from './dados.js?v=20261125-6';
 
 const ABA_PADRAO = 'resumo';
 const f2 = (x) => fd(x, 2);
@@ -109,11 +109,11 @@ function quadroCargas(u, d, admin) {
 <td class="ed">${campoNum('cub', c.cub, c.cubOrigem, c.cubManual, 'fonte')}</td>
 <td class="ed">${campoNum('aj', c.aj, c.ajOrigem, c.ajManual, 'fonte')}</td>
 <td class="ed">${campoNum('poss', c.poss, c.possAuto, c.possManual, 'calculado')}</td>
-<td>${c.dif == null ? '–' : fd(c.dif, 2)}</td><td class="t">${situacao(c)}</td><td class="ed"><input type="text" class="obs" data-campo="obs" value="${E(c.obs)}"></td>
+<td class="t">${situacao(c)}</td><td class="ed"><input type="text" class="obs" data-campo="obs" value="${E(c.obs)}"></td>
 <td class="ed">${c.foraFonte === 'repetida' ? `<label class="chk"><input type="checkbox" data-campo="incluir" ${c.fora ? '' : 'checked'}> contar</label>` : `<label class="chk"><input type="checkbox" data-campo="excluir" ${c.fora === 'excluida' ? 'checked' : ''}> excluir</label>`}</td><td class="st-salvo"></td></tr>`;
   const linL = (c) => `<tr data-dia="${c.data}" data-mot="${E(norm(c.motorista))}" data-txt="${E(norm([c.rota, c.placa, c.transporte].join(' ')))}">
 <td class="t">${fdata(c.data)}</td>${ident(u, c)}<td class="t">${E(c.motorista)}</td><td>${fcub(c.cub)}</td><td>${fi(c.aj)}</td><td>${f2(c.poss)}</td><td class="${c.dif > 1e-9 ? 'c-no' : ''}">${fd(c.dif, 2)}</td></tr>`;
-  const cab = `<th class="t">Dia</th><th class="t">${ehDA(u) ? 'Rota' : 'Transporte'}</th><th class="t">Placa</th><th class="t">Motorista</th><th>Cubagem</th><th>Ajudantes</th><th>Possível +5%</th><th>Dif.</th>`;
+  const cab = `<th class="t">Dia</th><th class="t">${ehDA(u) ? 'Rota' : 'Transporte'}</th><th class="t">Placa</th><th class="t">Motorista</th><th>Cubagem</th><th>Ajudantes</th><th>Possível +5%</th>${admin ? '' : '<th>Dif.</th>'}`;
   return `<section class="bloco"><div class="faixa">${admin ? 'Cargas · conferência do admin' : 'Cargas do mês'}</div><div class="corpo">
 ${filtros(u, d, admin)}${admin ? legendaCargas() : ''}
 <div class="tw scroll"><table class="tx-cargas${admin ? ' adm' : ''}"><thead><tr>${cab}${admin ? '<th class="t">Situação</th><th class="t">Observação</th><th class="t">Conta</th><th></th>' : ''}</tr></thead>
