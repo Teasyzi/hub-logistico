@@ -3,11 +3,11 @@
 // % quando a planilha tem), com o farol da formatação condicional. No rascunho, o admin vê de onde veio cada número
 // (passando o mouse), edita (✎), atualiza do Hub (↻) e vê o quadro do Kardex (OCO. 24, 28 e 1).
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-10';
-import { CELULAS_KPI, BLOCOS_KPI, FONTES_KPI, ORIGENS_KPI, FATOR_CUBOS_KPI, calcularKPI, farolKPI, temDadosKPI, lerArquivoKPI } from './kpi.js?v=20261126-10';
-import { baixarKPI } from './exportar_kpi.js?v=20261126-10';
-import * as K from './dados_kpi.js?v=20261126-10';
-import * as D from './dados.js?v=20261126-10';
+import { E, fi, fd, fp, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-11';
+import { CELULAS_KPI, BLOCOS_KPI, FONTES_KPI, ORIGENS_KPI, FATOR_CUBOS_KPI, calcularKPI, farolKPI, temDadosKPI, lerArquivoKPI } from './kpi.js?v=20261126-11';
+import { baixarKPI } from './exportar_kpi.js?v=20261126-11';
+import * as K from './dados_kpi.js?v=20261126-11';
+import * as D from './dados.js?v=20261126-11';
 
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const COLUNAS = { 1: 'DISTRIBUIÇÃO', 2: 'DISTRIBUIÇÃO', 3: 'REMESSA E ESTOQUE', 4: 'FROTA/ DISTRIBUIÇÃO' };
@@ -106,7 +106,7 @@ async function topoKPI(ctx, aba, mes, titulo, comMes = true) {
     sel = seletorMes([...meses].sort().reverse(), mes);
     if (ctx.adminNaTela() && aba === 'painel') sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
   }
-  return `<h1>KPI Distribuição e Logística — ${E(titulo)}</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasKPI(aba, mes, ctx.adminNaTela())}`;
+  return `<h1>KPI Distribuição e Logística</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasKPI(aba, mes, ctx.adminNaTela())}`;
 }
 const status = (data) => { const el = document.getElementById('statusAtualizacao'); if (el) el.textContent = data ? `Última atualização: ${data.toLocaleString('pt-BR')}` : 'Última atualização ainda não registrada'; };
 

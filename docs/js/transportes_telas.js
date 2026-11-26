@@ -1,11 +1,11 @@
 // Telas do Transportes 1x1: RESUMO (como a aba da planilha) e uma aba por unidade (indicador, por dia, por motorista e
 // a lista de cargas, que o leitor vê só para consulta e o admin confere e edita). ⚙ Particularidades: lista para os
 // supervisores, com o possível editável. As funções pagina* são puras (dados → HTML) e servem à prévia local.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-10';
-import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261126-10';
-import * as T from './dados_transportes.js?v=20261126-10';
-import { baixarTransportes } from './exportar_transportes.js?v=20261126-10';
-import * as D from './dados.js?v=20261126-10';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-11';
+import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261126-11';
+import * as T from './dados_transportes.js?v=20261126-11';
+import { baixarTransportes } from './exportar_transportes.js?v=20261126-11';
+import * as D from './dados.js?v=20261126-11';
 
 const ABA_PADRAO = 'resumo';
 const f2 = (x) => fd(x, 2);
@@ -225,7 +225,7 @@ async function topoTX(ctx, aba, mes, titulo, comMes = true) {
       sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
     }
   }
-  return `<h1>Transportes 1x1 — ${E(titulo)}</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasTX(aba, mes, ctx.adminNaTela())}`;
+  return `<h1>Transportes 1x1</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasTX(aba, mes, ctx.adminNaTela())}`;
 }
 const rascunho = (ctx) => ctx.adminNaTela() && ctx.estado.modo === 'rascunho';
 const status = (data) => { const el = document.getElementById('statusAtualizacao'); if (el) el.textContent = data ? `Última atualização: ${data.toLocaleString('pt-BR')}` : 'Última atualização ainda não registrada'; };

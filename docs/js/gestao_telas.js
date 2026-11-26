@@ -2,11 +2,11 @@
 // quadro da aba Dados (jan–dez + Acum) e, embaixo, os gráficos de cada aba de gráfico da planilha, na mesma ordem.
 // No rascunho, o admin edita os valores digitados (✎). O botão exporta a planilha igual à oficial (exportar_gestao.js).
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp } from './views.js?v=20261126-10';
-import { UNIDADES_GV, CIDADE_GV, LINHAS_GV, LINHA_GV, GRAFICOS_GV, ORIGENS_GV, FONTES_AUTO_GV, rotuloGV, calcularAnoGV, lerArquivoGV } from './gestao.js?v=20261126-10';
-import { baixarGestaoGV } from './exportar_gestao.js?v=20261126-10';
-import * as G from './dados_gestao.js?v=20261126-10';
-import * as D from './dados.js?v=20261126-10';
+import { E, fi, fd, fp } from './views.js?v=20261126-11';
+import { UNIDADES_GV, CIDADE_GV, LINHAS_GV, LINHA_GV, GRAFICOS_GV, ORIGENS_GV, FONTES_AUTO_GV, rotuloGV, calcularAnoGV, lerArquivoGV } from './gestao.js?v=20261126-11';
+import { baixarGestaoGV } from './exportar_gestao.js?v=20261126-11';
+import * as G from './dados_gestao.js?v=20261126-11';
+import * as D from './dados.js?v=20261126-11';
 
 const MES3 = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -148,7 +148,7 @@ async function topoGV(ctx, aba, ano, titulo, comAno = true) {
     sel = `Ano: <select id="selMes">${[...anos].sort().reverse().map((a) => `<option value="${a}" ${a === ano ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
     if (ctx.adminNaTela() && UNIDADES_GV[aba]) sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
   }
-  return `<h1>Gestão à vista — ${E(titulo)}</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasGV(aba, ano, ctx.adminNaTela())}`;
+  return `<h1>Gestão à vista</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasGV(aba, ano, ctx.adminNaTela())}`;
 }
 const status = (data) => { const el = document.getElementById('statusAtualizacao'); if (el) el.textContent = data ? `Última atualização: ${data.toLocaleString('pt-BR')}` : 'Última atualização ainda não registrada'; };
 

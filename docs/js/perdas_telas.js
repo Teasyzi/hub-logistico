@@ -1,10 +1,10 @@
 // Telas do acompanhamento Perdas de estoque (DLs). As funções pagina* são puras (dados → HTML) e servem à prévia
 // local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-10';
-import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261126-10';
-import * as P from './dados_perdas.js?v=20261126-10';
-import { baixarPerdas } from './exportar_perdas.js?v=20261126-10';
-import * as D from './dados.js?v=20261126-10';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-11';
+import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261126-11';
+import * as P from './dados_perdas.js?v=20261126-11';
+import { baixarPerdas } from './exportar_perdas.js?v=20261126-11';
+import * as D from './dados.js?v=20261126-11';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const frc = (x) => (x == null ? '–' : `R$ ${nf(2).format(x)}`);
@@ -153,7 +153,7 @@ async function topoPerdas(ctx, aba, mes, titulo, comMes = true) {
       sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
     }
   }
-  return `<h1>Perdas de estoque — ${E(titulo)}</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasPerdas(aba, mes, ctx.adminNaTela())}`;
+  return `<h1>Perdas de estoque</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasPerdas(aba, mes, ctx.adminNaTela())}`;
 }
 const rascunho = (ctx) => ctx.adminNaTela() && ctx.estado.modo === 'rascunho';
 async function resultadoPerdas(ctx, mes) {

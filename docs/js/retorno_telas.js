@@ -1,11 +1,11 @@
 // Telas do acompanhamento Retorno por motivo (CB Norte, CB Sul, DL Barreiras, DL Juazeiro): uma aba por unidade,
 // como na planilha (tabela de valores com o gráfico de barras ao lado). As funções pagina* são puras (dados → HTML)
 // e servem à prévia local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-10';
-import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261126-10';
-import * as R from './dados_retorno.js?v=20261126-10';
-import { baixarRetorno } from './exportar_retorno.js?v=20261126-10';
-import * as D from './dados.js?v=20261126-10';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-11';
+import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261126-11';
+import * as R from './dados_retorno.js?v=20261126-11';
+import { baixarRetorno } from './exportar_retorno.js?v=20261126-11';
+import * as D from './dados.js?v=20261126-11';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const fcx = (x) => (x == null ? '–' : nf(1).format(x));
@@ -90,7 +90,7 @@ async function topoRetorno(ctx, aba, mes, titulo, comMes = true) {
       sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
     }
   }
-  return `<h1>Retorno por motivo — ${E(titulo)}</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasRetorno(aba, mes, ctx.adminNaTela())}`;
+  return `<h1>Retorno por motivo</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasRetorno(aba, mes, ctx.adminNaTela())}`;
 }
 const rascunho = (ctx) => ctx.adminNaTela() && ctx.estado.modo === 'rascunho';
 async function resultado(ctx, mes) {

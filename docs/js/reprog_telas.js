@@ -4,11 +4,11 @@
 // Admin (rascunho): também pedidos, itens e valor do dia, o detalhe de cada cliente e ✎ Editar dias, com o número do
 // dia anterior que foi feito ao lado de cada cliente. Leitores: só códigos (sem nomes), cidade, dia de rota e dias.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd } from './views.js?v=20261126-10';
-import { REVENDAS_RP, EMPRESA_RP, fdataRP, resumoRP, farolRP, lerDiasRP, lerTxtRP, ehTxtRP, lerPlanilhaRP, revendaPeloCadastroRP } from './reprog.js?v=20261126-10';
-import { baixarReprogRP } from './exportar_reprog.js?v=20261126-10';
-import * as P from './dados_reprog.js?v=20261126-10';
-import * as D from './dados.js?v=20261126-10';
+import { E, fi, fd } from './views.js?v=20261126-11';
+import { REVENDAS_RP, EMPRESA_RP, fdataRP, resumoRP, farolRP, lerDiasRP, lerTxtRP, ehTxtRP, lerPlanilhaRP, revendaPeloCadastroRP } from './reprog.js?v=20261126-11';
+import { baixarReprogRP } from './exportar_reprog.js?v=20261126-11';
+import * as P from './dados_reprog.js?v=20261126-11';
+import * as D from './dados.js?v=20261126-11';
 
 const fr2 = (v) => (v == null ? '' : `R$ ${fd(v, 2)}`);
 
@@ -195,7 +195,7 @@ async function topoRP(ctx, aba, dia, titulo, dias = null) {
     sel = `Dia: <select id="selMes">${lista.map((d) => `<option value="${d}" ${d === dia ? 'selected' : ''}>${fdataRP(d)}</option>`).join('')}</select>`;
     if (ctx.adminNaTela() && REVENDAS_RP[aba]) sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
   }
-  return `<h1>REPROG — ${E(titulo)}</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasRP(aba, dia, ctx.adminNaTela())}`;
+  return `<h1>REPROG (DAs)</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasRP(aba, dia, ctx.adminNaTela())}`;
 }
 const status = (data) => { const el = document.getElementById('statusAtualizacao'); if (el) el.textContent = data ? `Última atualização: ${data.toLocaleString('pt-BR')}` : 'Última atualização ainda não registrada'; };
 

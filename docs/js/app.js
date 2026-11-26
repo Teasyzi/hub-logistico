@@ -4,27 +4,27 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261126-10';
-import { lerArquivo, num } from './importar.js?v=20261126-10';
-import * as V from './views.js?v=20261126-10';
-import { hojeKM } from './km.js?v=20261126-10';
-import { rotearPerdas } from './perdas_telas.js?v=20261126-10';
-import { rotearRetorno } from './retorno_telas.js?v=20261126-10';
-import { rotearFR } from './fillrate_telas.js?v=20261126-10';
-import { rotearTX } from './transportes_telas.js?v=20261126-10';
-import { rotearGV } from './gestao_telas.js?v=20261126-10';
-import { rotearRP } from './reprog_telas.js?v=20261126-10';
-import { rotearKPI } from './kpi_telas.js?v=20261126-10';
-import { diasDoMes } from './calc.js?v=20261126-10';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-10';
-import { exportarPES } from './exportar_pes.js?v=20261126-10';
-import { exportarMontagem } from './exportar_montagem.js?v=20261126-10';
-import { exportarKM } from './exportar_km.js?v=20261126-10';
-import { conectarModeloExportacao } from './modelos.js?v=20261126-10';
-import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-10';
-import { exportarMontadores } from './exportar_montadores.js?v=20261126-10';
-import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-10';
-import { baixarCargas } from './exportar_cargas.js?v=20261126-10';
+import * as D from './dados.js?v=20261126-11';
+import { lerArquivo, num } from './importar.js?v=20261126-11';
+import * as V from './views.js?v=20261126-11';
+import { hojeKM } from './km.js?v=20261126-11';
+import { rotearPerdas } from './perdas_telas.js?v=20261126-11';
+import { rotearRetorno } from './retorno_telas.js?v=20261126-11';
+import { rotearFR } from './fillrate_telas.js?v=20261126-11';
+import { rotearTX } from './transportes_telas.js?v=20261126-11';
+import { rotearGV } from './gestao_telas.js?v=20261126-11';
+import { rotearRP } from './reprog_telas.js?v=20261126-11';
+import { rotearKPI } from './kpi_telas.js?v=20261126-11';
+import { diasDoMes } from './calc.js?v=20261126-11';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-11';
+import { exportarPES } from './exportar_pes.js?v=20261126-11';
+import { exportarMontagem } from './exportar_montagem.js?v=20261126-11';
+import { exportarKM } from './exportar_km.js?v=20261126-11';
+import { conectarModeloExportacao } from './modelos.js?v=20261126-11';
+import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-11';
+import { exportarMontadores } from './exportar_montadores.js?v=20261126-11';
+import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-11';
+import { baixarCargas } from './exportar_cargas.js?v=20261126-11';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
@@ -72,8 +72,8 @@ function destinoVisitante(hash) {
   return publico[p[0]] || '#/';
 }
 
-function cabecalhoSite(titulo) {
-  document.getElementById('nav').innerHTML = titulo ? `<span>· ${V.E(titulo)}</span>` : '';
+function cabecalhoSite() {
+  document.getElementById('nav').innerHTML = ''; // o nome já está no título da página
   const adminVisivel = adminNaTela();
   document.getElementById('usuario').innerHTML = estado.user
     ? `${adminVisivel ? '<a href="#/">Painel principal</a> · ' : ''}${V.E(estado.user.email)}${adminVisivel ? ' <span class="tag" style="color:inherit;border-color:currentColor">admin</span>' : estado.visualizarComoVisitante ? ' <span class="badge pub">VISITANTE</span>' : ''} · <a href="#" id="sair">sair</a>` : '';
@@ -116,7 +116,7 @@ async function topoMontagem(aba, mes, titulo, comMes = true) {
     }
   }
   const atualizado = adminNaTela() && estado.modo === 'rascunho' ? await ultimaMontagem(mes) : await ultimaPublicacaoMontagem(mes);
-  return `<h1>Montagem de Cargas — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${statusAtualizacao(atualizado, 'statusAtualizacao')}${V.abasMontagem(aba, mes, adminNaTela())}`;
+  return `<h1>Montagem de Cargas${titulo.startsWith('Editar') ? `: ${V.E(titulo)}` : ''}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${statusAtualizacao(atualizado, 'statusAtualizacao')}${V.abasMontagem(aba, mes, adminNaTela())}`;
 }
 
 async function ultimaMontagem(mes = mesAtual()) {
@@ -344,7 +344,7 @@ async function topoPES(aba, mes, titulo, comModo = false) {
     ? [await ultimaPES(mes)]
     : await Promise.all(Object.keys(D.UNIDADES).map(async (c) => (await D.lerPESPublicado(c, mes))?.publicadoEm));
   const atualizado = fontes.filter(Boolean).sort((a, b) => b - a)[0] || null;
-  return `<h1>PES Logístico — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${statusAtualizacao(atualizado, 'statusAtualizacao')}${V.abasPES(aba, mes, adminNaTela())}`;
+  return `<h1>PES Logístico</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${statusAtualizacao(atualizado, 'statusAtualizacao')}${V.abasPES(aba, mes, adminNaTela())}`;
 }
 
 async function telaPESResumo(mes) {
@@ -458,7 +458,7 @@ async function topoKM(aba, mes, titulo, comMes = true) {
     }
   }
   const atualizado = adminNaTela() && estado.modo === 'rascunho' ? await ultimaKM(mes) : await ultimaPublicacaoKM(mes);
-  return `<h1>KM planejado × realizado — ${V.E(titulo)}</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${statusAtualizacao(atualizado, 'statusAtualizacao')}${V.abasKM(aba, mes, adminNaTela())}`;
+  return `<h1>KM planejado × realizado</h1><p class="sub">${ctrl} <span id="pubinfo" class="small"></span></p>${statusAtualizacao(atualizado, 'statusAtualizacao')}${V.abasKM(aba, mes, adminNaTela())}`;
 }
 
 async function ultimaKM(mes = mesAtual()) {
@@ -712,7 +712,7 @@ async function topoMontadores(aba, mes, titulo) {
   const registros = await dadosMontadores(mes), meses = [...new Set([...(await mesesMontadores()), mes])].sort().reverse();
   if (!meses.includes(mes)) meses.unshift(mes);
   const atualizado = await atualizacaoMontadores();
-  const topo = `<h1>Montadores — ${V.E(titulo)}</h1><p class="sub">${V.seletorMes(meses, mes)} <span class="badge">EM VALIDAÇÃO</span></p>${statusAtualizacao(atualizado ? new Date(atualizado) : null, 'statusAtualizacao')}${V.abasMontadores(aba, mes)}`;
+  const topo = `<h1>Montadores</h1><p class="sub">${V.seletorMes(meses, mes)}</p>${statusAtualizacao(atualizado ? new Date(atualizado) : null, 'statusAtualizacao')}${V.abasMontadores(aba, mes)}`;
   return { topo, registros };
 }
 
@@ -788,7 +788,7 @@ async function topoCargas(aba, data, titulo, comData = true) {
         + (estado.modo === 'rascunho' ? '<span class="badge">rascunho</span>' : '<span class="badge pub">publicado</span>');
     }
   }
-  return `<h1>Cargas em aberto — ${V.E(titulo)}</h1><p class="sub">${ctrl}</p>${statusAtualizacao(null, 'statusAtualizacao')}${V.abasCargas(aba, data, adminNaTela())}`;
+  return `<h1>Cargas em aberto</h1><p class="sub">${ctrl}</p>${statusAtualizacao(null, 'statusAtualizacao')}${V.abasCargas(aba, data, adminNaTela())}`;
 }
 
 async function resultadoCargas(data) {
@@ -927,7 +927,7 @@ Administradores são definidos só no console do Firebase (coleção <code>admin
 
 // ---------------------------------------------------------------- login
 function telaLogin() {
-  cabecalhoSite('');
+  cabecalhoSite();
   html(`<div class="login card"><h1>Entrar</h1>
 <label>E-mail<input type="email" id="em" autocomplete="username"></label>
 <label>Senha<input type="password" id="pw" autocomplete="current-password"></label>
@@ -955,7 +955,7 @@ async function rotear() {
   const p = (location.hash.replace(/^#/, '') || '/').split('/').filter(Boolean);
   try {
     if (p[0] === 'montagem') {
-      cabecalhoSite('Montagem de Cargas');
+      cabecalhoSite();
       const sub = p[1];
       if (sub === 'CBAR' || sub === 'CCRT') return await telaDetalhe(sub, mesP(p[2]) || await mesPadrao());
       if (!sub || sub === 'resumo') return await telaResumo(mesP(p[2]) || await mesPadrao());
@@ -967,7 +967,7 @@ async function rotear() {
       if (sub === 'planejamento' && D.UNIDADES[p[2]]) return await telaPlanejamento(p[2], mesP(p[3]) || mesAtual());
     }
     if (p[0] === 'pes') {
-      cabecalhoSite('PES Logístico');
+      cabecalhoSite();
       const sub = p[1];
       if (!sub || sub === 'resumo') return await telaPESResumo(mesP(p[2]) || await mesPadraoPES());
       if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
@@ -976,7 +976,7 @@ async function rotear() {
       if (sub === 'exportar') return await telaPESExportar(mesP(p[2]) || mesAtual());
     }
     if (p[0] === 'km') {
-      cabecalhoSite('KM planejado × realizado');
+      cabecalhoSite();
       const sub = p[1];
       if (!sub || sub === 'resumo') return await telaKMResumo(mesP(p[2]) || mesAtual());
       if (sub === 'exportar') {
@@ -992,27 +992,27 @@ async function rotear() {
       if (sub === 'motoristas' || sub === 'rotas') { location.replace(`#/km/${['NORTE', 'SUL', 'CBAR', 'CCRT'].includes(p[2]) ? p[2] : 'NORTE'}/${mesP(p[3]) || mesAtual()}`); return; }
     }
     if (p[0] === 'perdas') {
-      cabecalhoSite('Perdas de estoque DLs');
+      cabecalhoSite();
       return await rotearPerdas(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'retorno') {
-      cabecalhoSite('Retorno por motivo');
+      cabecalhoSite();
       return await rotearRetorno(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'transportes') {
-      cabecalhoSite('Transportes 1x1');
+      cabecalhoSite();
       return await rotearTX(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'fillrate') {
-      cabecalhoSite('Fill rate');
+      cabecalhoSite();
       return await rotearFR(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'gestao') {
-      cabecalhoSite('Gestão à vista');
+      cabecalhoSite();
       return await rotearGV(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'kpi') {
-      cabecalhoSite('KPI Distribuição e Logística');
+      cabecalhoSite();
       return await rotearKPI(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'reprog') {
@@ -1020,7 +1020,7 @@ async function rotear() {
       return await rotearRP(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'cargas') {
-      cabecalhoSite('Cargas em aberto');
+      cabecalhoSite();
       const sub = p[1] || 'resumo';
       if (sub === 'resumo' || sub === 'NORTE' || sub === 'SUL') return await telaCargas(sub, dataP(p[2]));
       if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
@@ -1028,7 +1028,7 @@ async function rotear() {
       if (sub === 'publicar') return await telaCargasPublicar(dataP(p[2]));
     }
     if (p[0] === 'montadores') {
-      cabecalhoSite('Montadores');
+      cabecalhoSite();
       if (!adminNaTela()) return html('<p>Área restrita ao administrador.</p>');
       const sub = p[1], mes = mesP(p[2]) || mesAtual();
       if (!sub || sub === 'resumo') { location.hash = `#/montadores/NORTE/${mes}`; return; }
@@ -1036,7 +1036,7 @@ async function rotear() {
       if (sub === 'importar') return await telaMontadoresImportar();
       if (sub === 'exportar') return await telaMontadoresExportar(mes);
     }
-    cabecalhoSite('');
+    cabecalhoSite();
     if (!adminNaTela()) {
       return html('<div class="card"><h1>Hub Logístico</h1><p>Abra o acompanhamento pelo link que você recebeu por e-mail.</p></div>');
     }

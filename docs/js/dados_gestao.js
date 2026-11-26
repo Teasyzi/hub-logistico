@@ -8,12 +8,12 @@
 // O que vale em cada célula: digitado à mão > automático do Hub > importado (efetivoGV em gestao.js).
 import { db, auth } from './firebase.js';
 import { doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { UNIDADES_GV, aplicarGV, editarGV, porAnoGV, autoDoMesGV, efetivoGV, KPI_CELULAS_GV } from './gestao.js?v=20261126-10';
-import { lerEfetivoKPI } from './dados_kpi.js?v=20261126-10';
-import { calcularAoVivo } from './dados.js?v=20261126-10';
-import { calcularKMAoVivo } from './dados.js?v=20261126-10';
-import { calcularPerdasAoVivo } from './dados_perdas.js?v=20261126-10';
-import { calcularTXAoVivo } from './dados_transportes.js?v=20261126-10';
+import { UNIDADES_GV, aplicarGV, editarGV, porAnoGV, autoDoMesGV, efetivoGV, KPI_CELULAS_GV } from './gestao.js?v=20261126-11';
+import { lerEfetivoKPI } from './dados_kpi.js?v=20261126-11';
+import { calcularAoVivo } from './dados.js?v=20261126-11';
+import { calcularKMAoVivo } from './dados.js?v=20261126-11';
+import { calcularPerdasAoVivo } from './dados_perdas.js?v=20261126-11';
+import { calcularTXAoVivo } from './dados_transportes.js?v=20261126-11';
 
 const refDados = (u, ano) => doc(db, 'gav_dados', `${u}_${ano}`);
 const refPub = (u, ano) => doc(db, 'gav_publicado', `${u}_${ano}`);

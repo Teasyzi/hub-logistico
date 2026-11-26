@@ -7,8 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <pre id="log">gerando…</pre>
 <script type="module">
-const P = await import('../../docs/js/perdas.js?v=20261126-10');
-const X = await import('../../docs/js/exportar_perdas.js?v=20261126-10');
+const P = await import('../../docs/js/perdas.js?v=20261126-11');
+const X = await import('../../docs/js/exportar_perdas.js?v=20261126-11');
 const arqs = (new URLSearchParams(location.search).get('arqs') || '').split('|').filter(Boolean);
 const dados = {}, bases = {}, log = [];
 for (const n of arqs) {

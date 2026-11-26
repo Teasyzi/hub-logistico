@@ -1,11 +1,11 @@
 // Telas do Fill rate / Insuficiência de estoque, como a planilha: aba RESUMO (o quadro da aba Resumo) e uma aba
 // por revenda (CB NORTE, CB SUL) com o cabeçalho, "por dia", "por produto" e "por data e produto". Sem gráfico.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-10';
-import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261126-10';
-import { baixarComparativoFR } from './exportar_fillrate.js?v=20261126-10';
-import * as F from './dados_fillrate.js?v=20261126-10';
-import * as D from './dados.js?v=20261126-10';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-11';
+import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261126-11';
+import { baixarComparativoFR } from './exportar_fillrate.js?v=20261126-11';
+import * as F from './dados_fillrate.js?v=20261126-11';
+import * as D from './dados.js?v=20261126-11';
 
 const fcx = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (pct, meta) => (pct == null ? '' : pct <= meta ? 'c-ok' : 'c-no');
@@ -204,7 +204,7 @@ async function topoFR(ctx, aba, mes, titulo, comMes = true) {
       sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
     }
   }
-  return `<h1>Fill rate · Insuficiência de estoque — ${E(titulo)}</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasFR(aba, mes, ctx.adminNaTela())}`;
+  return `<h1>Fill rate · Insuficiência de estoque</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasFR(aba, mes, ctx.adminNaTela())}`;
 }
 const rascunho = (ctx) => ctx.adminNaTela() && ctx.estado.modo === 'rascunho';
 async function resultado(ctx, mes) {
@@ -229,7 +229,7 @@ async function telaComparativo(ctx, mes) {
   const anos = [...new Set([ctx.mesAtual().slice(0, 4), ano, ...pub.map((m) => m.slice(0, 4))])].sort().reverse();
   let sel = `Ano: <select id="selMes">${anos.map((a) => `<option value="${a}-01" ${a === ano ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
   if (ctx.adminNaTela()) sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
-  const topo = `<h1>Fill rate · Insuficiência de estoque — Mês a mês ${E(ano)}</h1><p class="sub">${sel}</p>${abasFR('comparativo', mes, ctx.adminNaTela())}`;
+  const topo = `<h1>Fill rate · Insuficiência de estoque</h1><p class="sub">${sel}</p>${abasFR('comparativo', mes, ctx.adminNaTela())}`;
   ctx.html(paginaComparativoFR(resumos, { ano, admin: adm, topo, mesAtual: ctx.mesAtual() }));
   ctx.ligarTopo((m) => `#/fillrate/comparativo/${m}`);
   const b = document.getElementById('exportarFR');
