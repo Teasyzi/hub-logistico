@@ -1,7 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261126-01';
-import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
-import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261126-01';
+import { UNIDADES } from './dados.js?v=20261126-02';
+import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261126-02';
+import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261126-02';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -111,12 +111,12 @@ export function graficoVendidoRetorno(dias, altura = 290) {
 
 // ---------------------------------------------------------------- painel principal (só admin)
 export function painelPrincipal() {
-  const acomp = [['Montagem de cargas (DLs)', '#/montagem', 'ativo · Barreiras e Juazeiro'], ['KPI Distribuição e Logística', '#/kpi', 'novo · painel do Grupo CB · 4 unidades'],
-    ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', '#/cargas', 'novo · CB Norte e CB Sul (Consulta BI)'], ['Montadores', '#/montadores/NORTE', 'em validação · dados locais'],
-    ['Perdas de estoque DLs', '#/perdas', 'em validação · Barreiras e Juazeiro'], ['KM planejado × realizado', '#/km', 'em validação · 4 unidades'], ['Retorno por motivo', '#/retorno', 'em validação · 4 unidades'], ['Transportes 1x1', '#/transportes', 'novo · ajudantes por carga · 4 unidades'],
-    ['Fill rate · Insuficiência', '#/fillrate', 'novo · CB Norte e CB Sul'], ['Gestão à vista', '#/gestao', 'novo · DLs Barreiras e Juazeiro'], ['REPROG (DAs)', '#/reprog', 'novo · clientes reprogramados · CB Norte e CB Sul'], ['Custos de descarga', null, 'planejado']];
+  // Só os acompanhamentos que já existem na pasta da planilha. Sem observações de status por enquanto.
+  const acomp = [['Montagem de cargas (DLs)', '#/montagem'], ['KPI Distribuição e Logística', '#/kpi'], ['PES Logístico', '#/pes'], ['Cargas em aberto', '#/cargas'],
+    ['Montadores', '#/montadores/NORTE'], ['Perdas de estoque DLs', '#/perdas'], ['KM planejado × realizado', '#/km'], ['Retorno por motivo', '#/retorno'],
+    ['Transportes 1x1', '#/transportes'], ['Fill rate · Insuficiência', '#/fillrate'], ['Gestão à vista', '#/gestao'], ['REPROG (DAs)', '#/reprog']];
   return `<h1>Painel principal</h1><p class="sub">Acompanhamentos do Hub. Cada um tem link próprio para enviar por e-mail; quem recebe vê só aquele acompanhamento.</p>
-<div class="grid">${acomp.map(([n, h, s]) => `<div class="bloco"><div class="faixa">${E(n)}</div><div class="corpo"><p class="small">${s}</p>
+<div class="grid">${acomp.map(([n, h]) => `<div class="bloco"><div class="faixa">${E(n)}</div><div class="corpo">
 ${h ? `<a class="btn" href="${h}">Abrir</a> <button class="btn sec" data-copiar="${h}">Copiar link</button>` : ''}</div></div>`).join('')}
 <div class="bloco"><div class="faixa">Acessos</div><div class="corpo"><p class="small">Quem pode ver o que foi publicado.</p><a class="btn" href="#/acessos">Gerenciar</a></div></div></div>`;
 }
@@ -237,7 +237,7 @@ function faltaPES(l) {
   if (l.falta == null) return '';
   const q = Math.abs(l.falta), n = l.faltaUn === 'clientes' ? fd(q, 1) : fi(q);
   const abaixo = l.falta >= 0;   // nos automáticos a meta é "≤": folga positiva = real abaixo da meta
-  return `<span class="${abaixo ? 't-up' : 't-down'}">${abaixo ? '▼' : '▲'} ${n} ${l.faltaUn}</span>`;
+  return `<span class="${abaixo ? 't-up' : 't-down'}">${abaixo ? '▲' : '▼'} ${n} ${l.faltaUn}</span>`;
 }
 
 function blocoPES(c, pl, mes, admin) {
@@ -311,7 +311,8 @@ export function paginaMontadoresUnidade(base, rows, {mes, topo}) {
 
 // Farol da dispersão: verde quando o realizado fica igual ou abaixo do planejado (foi bem no dia); amarelo até
 // a meta acima do planejado (5%); vermelho além disso. Dia planejado sem nenhum abastecimento fica neutro.
-export const farolKM = (disp, meta = 0.05) => disp == null ? '' : disp <= 0 ? 'c-ok' : disp <= meta ? 'c-mid' : 'c-no';
+// Dispersão negativa = realizado acima do planejado (ruim). Ex.: −3% é 3% acima; a meta de +5% vira −5%.
+export const farolKM = (disp, meta = 0.05) => disp == null ? '' : disp >= 0 ? 'c-ok' : disp >= -meta ? 'c-mid' : 'c-no';
 const semRealKM = (d) => !!(d && Math.round(d.planejado) && !Math.round(d.realizado));
 const fsinal = (x) => x == null ? '–' : `${x > 0 ? '+' : ''}${fi(x)}`;
 const fpSinal = (x) => x == null ? '–' : `${x > 0 ? '+' : ''}${fp(x, 1)}`;
@@ -361,7 +362,7 @@ function cardUnidadeKM(c, u, { mes, admin }) {
   if (!u.temDados) return `<section class="bloco"><div class="faixa">${E(u.nome)}</div><div class="corpo"><div class="aviso">Sem dados de KM em ${nomeMes(mes)}.</div>${admin ? '<a class="btn sec" href="#/km/importar">Importar arquivos</a>' : ''}</div></section>`;
   const t = u.totais;
   return `<section class="bloco km-card"><div class="faixa">${E(u.nome)} <a class="btn sec" href="#/km/${c}/${mes}">Detalhe →</a></div><div class="corpo">
-<div class="km-disp ${farolKM(t.dispersao, t.meta)}"><div class="l">Dispersão do mês</div><div class="v">${fpSinal(t.dispersao)}</div><div class="d">${t.dispersao == null ? '' : t.dispersao <= 0 ? 'realizado abaixo do planejado' : t.dentroMeta ? `acima do planejado, dentro de +${fp(t.meta, 0)}` : `acima da meta de +${fp(t.meta, 0)}`}</div></div>
+<div class="km-disp ${farolKM(t.dispersao, t.meta)}"><div class="l">Dispersão do mês</div><div class="v">${fpSinal(t.dispersao)}</div><div class="d">${t.dispersao == null ? '' : t.dispersao >= 0 ? 'realizado igual ou abaixo do planejado' : t.dentroMeta ? `acima do planejado, dentro de ${fp(-t.meta, 0)}` : `acima da meta de ${fp(-t.meta, 0)}`}</div></div>
 <table class="kv km-kv"><tbody><tr><td>Planejado até ${u.ultimoDia ? fdata(u.ultimoDia) : '–'}</td><td>${fi(t.planejado)} km</td></tr><tr><td>Realizado</td><td>${fi(t.realizado)} km</td></tr><tr class="dest"><td>Diferença</td><td>${fsinal(t.diferenca)} km</td></tr><tr><td>Custo da dispersão</td><td>${fr(t.custo)}</td></tr></tbody></table>
 ${admin ? avisosRevisaoKM(c, u, mes) : ''}</div></section>`;
 }

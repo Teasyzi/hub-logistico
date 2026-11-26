@@ -1,9 +1,9 @@
 // Telas do acompanhamento Perdas de estoque (DLs). As funções pagina* são puras (dados → HTML) e servem à prévia
 // local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-01';
-import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261126-01';
-import * as P from './dados_perdas.js?v=20261126-01';
-import * as D from './dados.js?v=20261126-01';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-02';
+import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261126-02';
+import * as P from './dados_perdas.js?v=20261126-02';
+import * as D from './dados.js?v=20261126-02';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const frc = (x) => (x == null ? '–' : `R$ ${nf(2).format(x)}`);
@@ -11,7 +11,7 @@ const fcx = (x) => (x == null ? '–' : nf(2).format(x));
 const fp2 = (x) => fp(x, 2);
 
 export function abasPerdas(ativa, mes, admin) {
-  const a = [['resumo', 'Resumo', `#/perdas/resumo/${mes}`], ['CBAR', 'BARREIRAS', `#/perdas/CBAR/${mes}`], ['CCRT', 'JUAZEIRO', `#/perdas/CCRT/${mes}`]];
+  const a = [['CBAR', 'BARREIRAS', `#/perdas/CBAR/${mes}`], ['CCRT', 'JUAZEIRO', `#/perdas/CCRT/${mes}`]];
   const adm = admin ? [['importar', 'Importar', `#/perdas/importar/${mes}`], ['parametros', 'Parâmetros', `#/perdas/parametros/${mes}`], ['publicar', 'Publicar', `#/perdas/publicar/${mes}`]] : [];
   return `<nav class="abas">${a.map(([k, t, h]) => `<a class="${k === ativa ? 'on' : ''}" href="${h}">${t}</a>`).join('')}`
     + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
@@ -272,8 +272,8 @@ ${div.map((d) => `<tr><td class="t">${E(d.tipo)}</td><td class="t">${E(d.codigo)
 }
 
 async function telaPublicar(ctx, mes) {
-  const topo = await topoPerdas(ctx, 'publicar', mes, `Publicar · ${nomeMes(mes)}`), link = `${location.origin}${location.pathname}#/perdas/resumo/${mes}`;
-  ctx.html(`${topo}<p>Publica os totais por motivo, categoria, produto e dia. A lista de materiais sem cadastro não vai para os leitores.</p><p><a class="btn sec" href="#/perdas/resumo/${mes}">Conferir antes</a> <button class="btn" id="pub">Publicar perdas ${nomeMes(mes)}</button> <span id="msg"></span></p><h2>Link para enviar por e-mail</h2><p><input type="text" readonly value="${E(link)}" style="width:100%;max-width:640px"> <button class="btn sec" id="copiar">Copiar</button></p>`);
+  const topo = await topoPerdas(ctx, 'publicar', mes, `Publicar · ${nomeMes(mes)}`), link = `${location.origin}${location.pathname}#/perdas/CBAR/${mes}`;
+  ctx.html(`${topo}<p>Publica os totais por motivo, categoria, produto e dia. A lista de materiais sem cadastro não vai para os leitores.</p><p><a class="btn sec" href="#/perdas/CBAR/${mes}">Conferir antes</a> <button class="btn" id="pub">Publicar perdas ${nomeMes(mes)}</button> <span id="msg"></span></p><h2>Link para enviar por e-mail</h2><p><input type="text" readonly value="${E(link)}" style="width:100%;max-width:640px"> <button class="btn sec" id="copiar">Copiar</button></p>`);
   document.getElementById('copiar').onclick = () => navigator.clipboard.writeText(link);
   document.getElementById('pub').onclick = async (e) => { e.target.disabled = true; try { await P.publicarPerdas(mes); document.getElementById('msg').innerHTML = '<span class="st ok">✓ publicado</span>'; } catch (err) { document.getElementById('msg').innerHTML = ctx.erro(err); } e.target.disabled = false; };
   ctx.ligarTopo((m) => `#/perdas/publicar/${m}`);
@@ -282,11 +282,12 @@ async function telaPublicar(ctx, mes) {
 // p = partes da rota (#/perdas/<sub>/<mes>)
 export async function rotearPerdas(p, ctx) {
   const sub = p[1], mes = ctx.mesP(p[2]) || (ctx.adminNaTela() ? ctx.mesAtual() : (await P.mesesPerdasPublicados())[0] || ctx.mesAtual());
-  if (!sub || sub === 'resumo') return telaResumo(ctx, mes);
+  // Sem tela de resumo: abre direto a primeira DL (Barreiras).
+  if (!sub || sub === 'resumo' || sub === 'CBAR') return telaDL(ctx, 'CBAR', mes);
   if (DLS_PERDAS[sub]) return telaDL(ctx, sub, mes);
   if (!ctx.adminNaTela()) return ctx.html('<p>Área restrita ao administrador.</p>');
   if (sub === 'importar') return telaImportar(ctx, mes);
   if (sub === 'parametros') return telaParametros(ctx, mes);
   if (sub === 'publicar') return telaPublicar(ctx, mes);
-  return telaResumo(ctx, mes);
+  return telaDL(ctx, 'CBAR', mes);
 }

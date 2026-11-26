@@ -1,17 +1,17 @@
 // Telas do Fill rate / Insuficiência de estoque, como a planilha: aba RESUMO (o quadro da aba Resumo) e uma aba
 // por revenda (CB NORTE, CB SUL) com o cabeçalho, "por dia", "por produto" e "por data e produto". Sem gráfico.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-01';
-import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261126-01';
-import { baixarComparativoFR } from './exportar_fillrate.js?v=20261126-01';
-import * as F from './dados_fillrate.js?v=20261126-01';
-import * as D from './dados.js?v=20261126-01';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-02';
+import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261126-02';
+import { baixarComparativoFR } from './exportar_fillrate.js?v=20261126-02';
+import * as F from './dados_fillrate.js?v=20261126-02';
+import * as D from './dados.js?v=20261126-02';
 
 const fcx = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (pct, meta) => (pct == null ? '' : pct <= meta ? 'c-ok' : 'c-no');
 const nomeAba = (u) => UNIDADES_FR[u].toUpperCase();
-// Regra única das setas: ▲ acima da meta (vermelho, lado ruim); ▼ dentro da meta (verde).
-const seta = (t) => (t.insuf == null ? '' : t.dentroMeta ? '<span class="t-up">▼</span>' : '<span class="t-down">▲</span>');
+// Regra das setas: folga até a meta (meta − insuficiência) positiva = ▲ verde; negativa = ▼ vermelho.
+const seta = (t) => (t.insuf == null ? '' : t.meta - t.insuf >= 0 ? '<span class="t-up">▲</span>' : '<span class="t-down">▼</span>');
 
 export function abasFR(ativa, mes, admin) {
   const a = [['resumo', 'RESUMO', `#/fillrate/resumo/${mes}`], ...Object.keys(UNIDADES_FR).map((u) => [u, nomeAba(u), `#/fillrate/${u}/${mes}`]), ['comparativo', 'MÊS A MÊS', `#/fillrate/comparativo/${mes}`]];
@@ -20,7 +20,7 @@ export function abasFR(ativa, mes, admin) {
     + `${adm.map(([k, t, h]) => `<a class="adm ${k === ativa ? 'on' : ''}" href="${h}">⚙ ${t}</a>`).join('')}</nav>`;
 }
 
-const explica = (meta) => `<p class="small">Insuficiência % = falta de estoque ÷ (pedido entregue + falta), em CX UNIT; fill rate = 100% − insuficiência. Meta: insuficiência até ${fp(meta, 0)} (verde). Meta em CX UNIT = ${fp(meta, 0)} do pedido (entregue + falta). Acima da meta = falta − meta (negativo: dentro da meta).</p>`;
+const explica = (meta) => `<p class="small">Insuficiência % = falta de estoque ÷ (pedido entregue + falta), em CX UNIT; fill rate = 100% − insuficiência. Meta: insuficiência até ${fp(meta, 0)} do pedido (entregue + falta), em CX UNIT.</p>`;
 
 // ---------------------------------------------------------------- RESUMO (aba Resumo da planilha + linha GERAL)
 export function paginaResumoFR(r, { mes, admin, topo }) {
@@ -42,7 +42,7 @@ ${linhas}${lin('GERAL', r.geral, ultimo ? { data: ultimo } : null, 'tot')}</tbod
 function tiles(d) {
   const t = d.totais;
   return `<div class="tiles">
-<div class="tile"><div class="l">Insuficiência %</div><div class="v">${fp(t.insuf)} ${seta(t)}</div><div class="d">meta até ${fp(t.meta, 0)} · ${t.dentroMeta ? 'dentro da meta' : 'acima da meta'}</div></div>
+<div class="tile"><div class="l">Insuficiência %</div><div class="v">${fp(t.insuf)} ${seta(t)}</div><div class="d">meta até ${fp(t.meta, 0)} do pedido</div></div>
 <div class="tile"><div class="l">Fill rate %</div><div class="v">${fp(t.fillRate)}</div><div class="d">100% − insuficiência</div></div>
 <div class="tile"><div class="l">Pedido entregue</div><div class="v">${fi(t.entregue)}</div><div class="d">CX UNIT</div></div>
 <div class="tile"><div class="l">Falta de estoque</div><div class="v">${fi(t.falta)}</div><div class="d">CX UNIT · meta ${fi(t.metaCx)}</div></div>

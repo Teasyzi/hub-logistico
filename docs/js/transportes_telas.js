@@ -1,16 +1,17 @@
 // Telas do Transportes 1x1: RESUMO (como a aba da planilha) e uma aba por unidade (indicador, por dia, por motorista e
 // a lista de cargas, que o leitor vê só para consulta e o admin confere e edita). ⚙ Particularidades: lista para os
 // supervisores, com o possível editável. As funções pagina* são puras (dados → HTML) e servem à prévia local.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-01';
-import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261126-01';
-import * as T from './dados_transportes.js?v=20261126-01';
-import * as D from './dados.js?v=20261126-01';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-02';
+import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261126-02';
+import * as T from './dados_transportes.js?v=20261126-02';
+import * as D from './dados.js?v=20261126-02';
 
 const ABA_PADRAO = 'resumo';
 const f2 = (x) => fd(x, 2);
 const fcub = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (dif) => (dif == null ? '' : dif <= 1e-9 ? 'c-ok' : 'c-no');
-const seta = (dif) => (dif == null ? '' : dif <= 1e-9 ? '<span class="t-up">▼</span>' : '<span class="t-down">▲</span>');
+// Regra das setas: sinal positivo = ▲ verde; negativo = ▼ vermelho.
+const seta = (dif) => (dif == null ? '' : dif >= 0 ? '<span class="t-up">▲</span>' : '<span class="t-down">▼</span>');
 const ehDA = (u) => DAS_TX.includes(u);
 const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
 const ROTULO_RESUMO = { NORTE: 'DA - CB NORTE', SUL: 'DA - CB SUL', CBAR: 'DL - BARREIRAS', CCRT: 'DL - JUAZEIRO' };

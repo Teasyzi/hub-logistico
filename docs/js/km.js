@@ -248,14 +248,15 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     const ultimoDia = diasComRealizado.at(-1) || null;
     const exibidos = dias.map((data) => {
       const d = porDia[data];
-      return { ...d, diferenca: d.realizado - d.planejado, dispersao: d.planejado ? d.realizado / d.planejado - 1 : null,
+      return { ...d, diferenca: d.realizado - d.planejado, dispersao: d.planejado ? 1 - d.realizado / d.planejado : null,
         acumulado: !ultimoDia || data > ultimoDia, parcial: data >= limite && (d.abastecimentos > 0 || data === limite) };
     });
     const incluidos = exibidos.filter((d) => ultimoDia && d.data <= ultimoDia);
     const planejado = incluidos.reduce((s, d) => s + d.planejado, 0);
     const realizado = incluidos.reduce((s, d) => s + d.realizado, 0);
     const diferenca = realizado - planejado;
-    const dispersao = planejado ? realizado / planejado - 1 : null;
+    // Dispersão = (planejado − realizado) ÷ planejado: negativa quando o realizado passa do planejado.
+    const dispersao = planejado ? 1 - realizado / planejado : null;
     const motoristas = ['NORTE', 'SUL'].includes(c) ? detalheMotoristas(c, mes, rs, as, busca, ultimoDia) : [];
     // Só para o admin: os nomes ficam no resultado do rascunho, nunca no agregado publicado.
     revisao.semCadastro = c === 'CCRT' ? [] : semCadastroKM(rs, busca);
@@ -265,7 +266,7 @@ export function calcularKM({ mes, rotas: rotasBrutas = [], abastecimentos = [], 
     revisao.extracao = extracao[c] || null;
     revisao.foraDaSecao = doMes.filter((r) => !r.excluida && !rotaNaSecao(r, secoes[c])).length;
     unidades[c] = { unidade: c, nome: u.nome, temDados: doMes.length > 0 || asMes.length > 0, revisao, dias: exibidos, ultimoDia, duplicadas: [...dups], espelhos: Object.fromEntries(espelhos), equipamentos: equip, totais: { planejado, realizado, diferenca, dispersao,
-      custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : dispersao <= (Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
+      custo: par.cpk == null ? null : diferenca * Number(par.cpk), dentroMeta: dispersao == null ? null : dispersao >= -(Number(par.meta) || 0), cpk: par.cpk == null ? null : Number(par.cpk), meta: Number(par.meta) || 0.05 }, motoristas };
   }
   return { mes, unidades };
 }
@@ -297,8 +298,8 @@ function detalheMotoristas(unidade, mes, rotas, abastecimentos, busca, ultimoDia
   const semRota = [...realPlaca].filter(([p]) => !placaKm.has(p));
   const lista = [...mot.values()].map((x) => ({ ...x, placas: [...x.placas].sort().join(', '), dias: x.dias.size,
     semCadastro: semCad.has(x.motorista),
-    dispersao: x.planejado ? x.realizado / x.planejado - 1 : null }));
-  lista.sort((a, b) => (b.dispersao ?? -9) - (a.dispersao ?? -9));
+    dispersao: x.planejado ? 1 - x.realizado / x.planejado : null }));
+  lista.sort((a, b) => (a.dispersao ?? 9) - (b.dispersao ?? 9));
   if (semRota.length) lista.push({ motorista: 'Placas sem rota no mês', semRota: true, placas: semRota.map(([p]) => p).sort().join(', '), dias: 0, rotas: 0, kmRotas: 0, idaVolta: 0, planejado: 0,
     realizado: semRota.reduce((s, [, v]) => s + v, 0), dispersao: null });
   return lista;

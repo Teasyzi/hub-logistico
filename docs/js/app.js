@@ -4,26 +4,26 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261126-01';
-import { lerArquivo, num } from './importar.js?v=20261126-01';
-import * as V from './views.js?v=20261126-01';
-import { hojeKM } from './km.js?v=20261126-01';
-import { rotearPerdas } from './perdas_telas.js?v=20261126-01';
-import { rotearRetorno } from './retorno_telas.js?v=20261126-01';
-import { rotearFR } from './fillrate_telas.js?v=20261126-01';
-import { rotearTX } from './transportes_telas.js?v=20261126-01';
-import { rotearGV } from './gestao_telas.js?v=20261126-01';
-import { rotearRP } from './reprog_telas.js?v=20261126-01';
-import { rotearKPI } from './kpi_telas.js?v=20261126-01';
-import { diasDoMes } from './calc.js?v=20261117-5';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-01';
-import { exportarPES } from './exportar_pes.js?v=20261117-3';
-import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
-import { exportarKM } from './exportar_km.js?v=20261117-3';
-import { conectarModeloExportacao } from './modelos.js?v=20261117-3';
-import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores, temCadastroMontadores } from './montadores.js?v=20261117-10';
-import { exportarMontadores } from './exportar_montadores.js?v=20261117-4';
-import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261123-2';
+import * as D from './dados.js?v=20261126-02';
+import { lerArquivo, num } from './importar.js?v=20261126-02';
+import * as V from './views.js?v=20261126-02';
+import { hojeKM } from './km.js?v=20261126-02';
+import { rotearPerdas } from './perdas_telas.js?v=20261126-02';
+import { rotearRetorno } from './retorno_telas.js?v=20261126-02';
+import { rotearFR } from './fillrate_telas.js?v=20261126-02';
+import { rotearTX } from './transportes_telas.js?v=20261126-02';
+import { rotearGV } from './gestao_telas.js?v=20261126-02';
+import { rotearRP } from './reprog_telas.js?v=20261126-02';
+import { rotearKPI } from './kpi_telas.js?v=20261126-02';
+import { diasDoMes } from './calc.js?v=20261126-02';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-02';
+import { exportarPES } from './exportar_pes.js?v=20261126-02';
+import { exportarMontagem } from './exportar_montagem.js?v=20261126-02';
+import { exportarKM } from './exportar_km.js?v=20261126-02';
+import { conectarModeloExportacao } from './modelos.js?v=20261126-02';
+import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores, temCadastroMontadores } from './montadores.js?v=20261126-02';
+import { exportarMontadores } from './exportar_montadores.js?v=20261126-02';
+import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-02';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
@@ -56,6 +56,21 @@ function historicoKM(importacoes, nome = 'KM') {
   return `<div class="tw scroll"><table><thead><tr><th class="t">Quando</th><th class="t">Arquivo</th><th class="t">Tipo</th><th>Linhas</th><th class="t">Período</th><th class="t">Por</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
 }
 
+// Ver como visitante: fica na mesma página sempre que o leitor também a vê. Só as telas de administração
+// (importar, parâmetros, publicar…) caem na versão pública do acompanhamento; nunca pula para a Montagem por engano.
+const SUB_ADMIN = ['importar', 'parametros', 'publicar', 'digitacao', 'exportar', 'planejamento'];
+function destinoVisitante(hash) {
+  const p = (hash.replace(/^#/, '') || '/').split('/').filter(Boolean), mes = p.map(mesP).find(Boolean) || mesAtual();
+  if (!p.length || ['acessos', 'montadores'].includes(p[0])) return '#/';
+  if (!p.some((x) => SUB_ADMIN.includes(x))) return hash;
+  const publico = {
+    montagem: `#/montagem/resumo/${mes}`, pes: `#/pes/resumo/${mes}`, km: `#/km/resumo/${mes}`, cargas: '#/cargas/resumo',
+    perdas: `#/perdas/CBAR/${mes}`, retorno: `#/retorno/NORTE/${mes}`, transportes: `#/transportes/resumo/${mes}`,
+    fillrate: `#/fillrate/resumo/${mes}`, gestao: `#/gestao/CBAR/${mes.slice(0, 4)}`, reprog: '#/reprog/NORTE', kpi: `#/kpi/painel/${mes}`,
+  };
+  return publico[p[0]] || '#/';
+}
+
 function cabecalhoSite(titulo) {
   document.getElementById('nav').innerHTML = titulo ? `<span>· ${V.E(titulo)}</span>` : '';
   const adminVisivel = adminNaTela();
@@ -74,8 +89,7 @@ function cabecalhoSite(titulo) {
         estado.rotaAdminAntesDaVisita = location.hash;
         estado.modoAntesDaVisita = estado.modo;
         estado.visualizarComoVisitante = true; estado.modo = 'publicado';
-        const p = (location.hash.replace(/^#/, '') || '/').split('/').filter(Boolean), mes = p.map(mesP).find(Boolean) || mesAtual();
-        const destino = p[0] === 'pes' ? `#/pes/resumo/${mes}` : p[0] === 'km' ? `#/km/resumo/${mes}` : p[0] === 'cargas' ? '#/cargas/resumo' : p[0] === 'perdas' ? `#/perdas/resumo/${mes}` : p[0] === 'retorno' ? `#/retorno/NORTE/${mes}` : p[0] === 'transportes' ? `#/transportes/resumo/${mes}` : p[0] === 'fillrate' ? `#/fillrate/resumo/${mes}` : p[0] === 'gestao' ? `#/gestao/${p[1] === 'CCRT' ? 'CCRT' : 'CBAR'}/${p.find((x) => /^\d{4}$/.test(x)) || mes.slice(0, 4)}` : p[0] === 'reprog' ? `#/reprog/${p[1] === 'SUL' ? 'SUL' : 'NORTE'}` : `#/montagem/resumo/${mes}`;
+        const destino = destinoVisitante(location.hash);
         if (location.hash === destino) rotear(); else location.hash = destino;
       } else {
         estado.visualizarComoVisitante = false; estado.modo = estado.modoAntesDaVisita || 'rascunho';
