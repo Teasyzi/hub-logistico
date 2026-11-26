@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Exportação das Perdas</title>
+<!-- Gera a exportação das Perdas a partir das planilhas em /amostras/ (sem Firebase) e guarda os bytes em base64 em
+     window.saida, para conferir no Excel. ?arqs=<arquivo1>|<arquivo2>&extra=1 (tira um material do cadastro e põe ajuste de preço) -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<pre id="log">gerando…</pre>
+<script type="module">
+const P = await import('../../docs/js/perdas.js?v=20261126-07');
+const X = await import('../../docs/js/exportar_perdas.js?v=20261126-07');
+const arqs = (new URLSearchParams(location.search).get('arqs') || '').split('|').filter(Boolean);
+const dados = {}, bases = {}, log = [];
+for (const n of arqs) {
+  const x = P.lerPlanilhaPerdas(XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array' }), n);
+  bases[x.dl] = x.base;
+  dados[x.dl] = { movimentos: x.movimentos, inventario: x.inventario, volumePlanilha: x.volume };
+}
+const extra = new URLSearchParams(location.search).has('extra');
+if (extra) for (const c of Object.keys(dados)) { const m = dados[c].movimentos.find((x) => x.tipo === 551 && x.valor); for (const b of Object.values(bases)) { const cb = b.solar[m.mat] ?? m.mat; delete b.solar[m.mat]; delete b.produtos[cb]; delete b.produtos[m.mat]; } }
+const parametros = extra ? { CBAR: { ajustePreco: -100 }, CCRT: { ajustePreco: -100 } } : {};
+const res = P.calcularPerdas({ mes: '2026-11', dados, bases, parametros });
+window.saida = {}; window.resultado = res;
+for (const c of Object.keys(dados)) {
+  const bytes = await X.gerarPerdasXlsx(c, res.dls[c]);
+  let bin = ''; for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode(...bytes.subarray(i, i + 32768));
+  window.saida[c] = btoa(bin);
+  log.push(`${c}: ${bytes.length} bytes, ${res.dls[c].produtos.length} produtos`);
+}
+// Também no DOM (oculto), para o Edge headless (--dump-dom) conseguir salvar os arquivos e conferir no Excel.
+for (const [c, b] of Object.entries(window.saida)) { const e = document.createElement('pre'); e.id = 'b64-' + c; e.hidden = true; e.textContent = b; document.body.append(e); }
+document.getElementById('log').textContent = log.join('\n'); window.pronto = true;
+</script>

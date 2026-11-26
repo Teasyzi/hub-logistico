@@ -9,7 +9,7 @@
 //   - os blocos de anos anteriores (colunas agrupadas à direita): ano − 1, ano − 2…
 // E regrava o cache dos gráficos (meses e valores), para eles já abrirem certos. O Excel recalcula tudo ao abrir.
 // anos: {AAAA: valores {mes: {linha: v}}} (o ano exportado e os anteriores que houver).
-import { LINHAS_GV, LINHA_GV, UNIDADES_GV, FATOR_CUBOS, calcularAnoGV } from './gestao.js?v=20261126-06';
+import { LINHAS_GV, LINHA_GV, UNIDADES_GV, FATOR_CUBOS, calcularAnoGV } from './gestao.js?v=20261126-07';
 
 const MES3 = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

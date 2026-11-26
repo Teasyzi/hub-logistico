@@ -1,9 +1,10 @@
 // Telas do acompanhamento Perdas de estoque (DLs). As funções pagina* são puras (dados → HTML) e servem à prévia
 // local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-06';
-import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261126-06';
-import * as P from './dados_perdas.js?v=20261126-06';
-import * as D from './dados.js?v=20261126-06';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-07';
+import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261126-07';
+import * as P from './dados_perdas.js?v=20261126-07';
+import { baixarPerdas } from './exportar_perdas.js?v=20261126-07';
+import * as D from './dados.js?v=20261126-07';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const frc = (x) => (x == null ? '–' : `R$ ${nf(2).format(x)}`);
@@ -136,6 +137,7 @@ ${d.porDia.map((x) => `<tr><td class="t">${fdata(x.data)}</td><td>${frc(x.ROTA)}
   const semCad = admin && Array.isArray(d.semCadastro) && d.semCadastro.length ? `<section class="bloco"><div class="faixa">Materiais sem cadastro de produto</div><div class="corpo">${tabelaSemCadastro(d.semCadastro.map((s) => ({ ...s, c })), mes)}</div></section>` : '';
   return `${topo}${admin ? avisosPerdas(c, d, mes) : ''}
 <div class="pd-titulo"><b>PERDAS DE ESTOQUE ${TITULO_DL[c]}</b>${d.ultimoDia ? `<span>ATUALIZADO DIA: ${fdata(d.ultimoDia)}</span>` : ''}</div>
+<p><button class="btn" id="exportarPD">⬇ Exportar planilha (.xlsx)</button> <span id="msgPD" class="small"></span></p>
 <div class="pd-planilha"><div class="pd-esq">${quadroCategorias(c, d)}${quadroProdutos(d)}</div><div class="pd-dir">${quadroCx(d)}</div></div>
 ${semCad}<details class="pd-mais"><summary>KPI e perdas por dia</summary>${kpi}${dias}</details>`;
 }
@@ -166,6 +168,13 @@ async function telaDL(ctx, c, mes) {
   const topo = await topoPerdas(ctx, c, mes, DLS_PERDAS[c]), r = await resultadoPerdas(ctx, mes);
   ctx.html(paginaDLPerdas(c, r.dls?.[c], { mes, admin: rascunho(ctx), topo }));
   status(r.atualizado); ctx.ligarTopo((m) => `#/perdas/${c}/${m}`);
+  const exp = document.getElementById('exportarPD');
+  if (exp) exp.onclick = async () => {
+    const msg = document.getElementById('msgPD');
+    exp.disabled = true; msg.textContent = 'Montando a planilha…';
+    try { await baixarPerdas(c, r.dls[c], mes); msg.textContent = '✓ planilha gerada'; } catch (err) { msg.innerHTML = ctx.erro(err); }
+    exp.disabled = false;
+  };
   ligarConfirmacoes(ctx, () => telaDL(ctx, c, mes));
 }
 

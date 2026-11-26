@@ -1,4 +1,4 @@
-import { abrirModeloXlsm, lerAbaXlsm, limparCelulaXlsm, definirNumeroCriandoXlsm, definirTextoCriandoXlsm, baixarModeloXlsm } from './xlsm.js?v=20261126-06';
+import { abrirModeloXlsm, lerAbaXlsm, limparCelulaXlsm, definirNumeroCriandoXlsm, definirTextoCriandoXlsm, baixarModeloXlsm } from './xlsm.js?v=20261126-07';
 
 const serial = (iso) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.UTC(1899, 11, 30)) / 86400000);
 const DOW = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
