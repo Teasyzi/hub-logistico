@@ -3,11 +3,11 @@
 // % quando a planilha tem), com o farol da formatação condicional. No rascunho, o admin vê de onde veio cada número
 // (passando o mouse), edita (✎), atualiza do Hub (↻) e vê o quadro do Kardex (OCO. 24, 28 e 1).
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-15';
-import { CELULAS_KPI, BLOCOS_KPI, FONTES_KPI, ORIGENS_KPI, FATOR_CUBOS_KPI, calcularKPI, farolKPI, temDadosKPI, lerArquivoKPI } from './kpi.js?v=20261126-15';
-import { baixarKPI } from './exportar_kpi.js?v=20261126-15';
-import * as K from './dados_kpi.js?v=20261126-15';
-import * as D from './dados.js?v=20261126-15';
+import { E, fi, fd, fp, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-16';
+import { CELULAS_KPI, BLOCOS_KPI, FONTES_KPI, ORIGENS_KPI, FATOR_CUBOS_KPI, calcularKPI, farolKPI, temDadosKPI, lerArquivoKPI } from './kpi.js?v=20261126-16';
+import { baixarKPI } from './exportar_kpi.js?v=20261126-16';
+import * as K from './dados_kpi.js?v=20261126-16';
+import * as D from './dados.js?v=20261126-16';
 
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const COLUNAS = { 1: 'DISTRIBUIÇÃO', 2: 'DISTRIBUIÇÃO', 3: 'REMESSA E ESTOQUE', 4: 'FROTA/ DISTRIBUIÇÃO' };

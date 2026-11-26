@@ -1,6 +1,6 @@
 // Painel principal: a prévia de cada card. Funções puras (os dados vêm de dados_painel.js).
 // Cada prévia recebe o resultado já lido do acompanhamento; null = sem dados.
-import { E, fi, fd, fp, fdata, nomeMes, farolKM } from './views.js?v=20261126-15';
+import { E, fi, fd, fp, fdata, nomeMes, farolKM } from './views.js?v=20261126-16';
 
 export const CARDS_PAINEL = [
   ['montagem', 'Montagem de cargas (DLs)', '#/montagem'], ['kpi', 'KPI Distribuição e Logística', '#/kpi'], ['pes', 'PES Logístico', '#/pes'],

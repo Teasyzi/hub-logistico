@@ -7,14 +7,14 @@
      Com ?conferir=<AAAA-MM> compara entregue e falta com as somas das linhas da planilha oficial
      (AUDITORIA/Fill_Rate_Insuficiencia.md §10). No comparativo, o botão exporta a planilha de verdade;
      window.exportarTeste() devolve a planilha relida (abas, links e alguns valores) para conferência. -->
-<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-15">
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-16">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <main id="app"><p>carregando…</p></main>
 <script type="module">
-const R = await import('../../docs/js/fillrate.js?v=20261126-15');
-const T = await import('../../docs/js/fillrate_telas.js?v=20261126-15');
-const X = await import('../../docs/js/exportar_fillrate.js?v=20261126-15');
+const R = await import('../../docs/js/fillrate.js?v=20261126-16');
+const T = await import('../../docs/js/fillrate_telas.js?v=20261126-16');
+const X = await import('../../docs/js/exportar_fillrate.js?v=20261126-16');
 const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'resumo', admin = q.get('admin') !== '0';
 const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array', cellDates: false });
 const porMesDados = {}, lidos = [];

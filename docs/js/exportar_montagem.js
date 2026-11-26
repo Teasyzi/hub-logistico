@@ -1,5 +1,5 @@
 // Mapeamento da Montagem para o modelo oficial; a edição OOXML é compartilhada.
-import { abrirModeloXlsm, lerAbaXlsm, definirNumeroPreservandoFormulaXlsm, definirTextoXlsm, baixarModeloXlsm } from './xlsm.js?v=20261126-15';
+import { abrirModeloXlsm, lerAbaXlsm, definirNumeroPreservandoFormulaXlsm, definirTextoXlsm, baixarModeloXlsm } from './xlsm.js?v=20261126-16';
 
 const serialExcel = (iso) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.UTC(1899, 11, 30)) / 86400000);
 const cel = (col, row) => `${col}${row}`;

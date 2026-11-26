@@ -5,7 +5,7 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <pre id="out">lendo…</pre>
 <script type="module">
-const R = await import('../../docs/js/reprog.js?v=20261126-15');
+const R = await import('../../docs/js/reprog.js?v=20261126-16');
 const q = new URLSearchParams(location.search), out = {};
 for (const n of (q.get('arquivos') || 'REPROG N.TXT|REPROG S.TXT').split('|')) {
   const buf = await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer();

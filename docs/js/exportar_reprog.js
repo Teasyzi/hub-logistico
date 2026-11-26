@@ -6,7 +6,7 @@
 //   - a lista (B:J): código, razão social, cidade, vendedor, supervisor, dia de rota e DIAS REPROGRAMADOS, na ordem do relatório TXT;
 //   - a aba Base: o cadastro de clientes da revenda, nas mesmas colunas da aba base da planilha (pode colar outra por cima).
 // As colunas do cadastro (C:I) são PROCV na aba Base, como na planilha, já com o resultado gravado.
-import { REVENDAS_RP, fdataRP } from './reprog.js?v=20261126-15';
+import { REVENDAS_RP, fdataRP } from './reprog.js?v=20261126-16';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);

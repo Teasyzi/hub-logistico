@@ -4,29 +4,29 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261126-15';
-import { lerArquivo, num } from './importar.js?v=20261126-15';
-import * as V from './views.js?v=20261126-15';
-import { hojeKM } from './km.js?v=20261126-15';
-import { rotearPerdas } from './perdas_telas.js?v=20261126-15';
-import { rotearRetorno } from './retorno_telas.js?v=20261126-15';
-import { rotearFR } from './fillrate_telas.js?v=20261126-15';
-import { rotearTX } from './transportes_telas.js?v=20261126-15';
-import { rotearGV } from './gestao_telas.js?v=20261126-15';
-import { rotearRP } from './reprog_telas.js?v=20261126-15';
-import { rotearKPI } from './kpi_telas.js?v=20261126-15';
-import { diasDoMes } from './calc.js?v=20261126-15';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-15';
-import { exportarPES } from './exportar_pes.js?v=20261126-15';
-import { exportarMontagem } from './exportar_montagem.js?v=20261126-15';
-import { exportarKM } from './exportar_km.js?v=20261126-15';
-import { conectarModeloExportacao } from './modelos.js?v=20261126-15';
-import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-15';
-import { exportarMontadores } from './exportar_montadores.js?v=20261126-15';
-import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-15';
-import { baixarCargas } from './exportar_cargas.js?v=20261126-15';
-import { painelPrincipal, preencherPainel, ligarCopiarPainel } from './painel.js?v=20261126-15';
-import { leitoresPainel } from './dados_painel.js?v=20261126-15';
+import * as D from './dados.js?v=20261126-16';
+import { lerArquivo, num } from './importar.js?v=20261126-16';
+import * as V from './views.js?v=20261126-16';
+import { hojeKM } from './km.js?v=20261126-16';
+import { rotearPerdas } from './perdas_telas.js?v=20261126-16';
+import { rotearRetorno } from './retorno_telas.js?v=20261126-16';
+import { rotearFR } from './fillrate_telas.js?v=20261126-16';
+import { rotearTX } from './transportes_telas.js?v=20261126-16';
+import { rotearGV } from './gestao_telas.js?v=20261126-16';
+import { rotearRP } from './reprog_telas.js?v=20261126-16';
+import { rotearKPI } from './kpi_telas.js?v=20261126-16';
+import { diasDoMes } from './calc.js?v=20261126-16';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-16';
+import { exportarPES } from './exportar_pes.js?v=20261126-16';
+import { exportarMontagem } from './exportar_montagem.js?v=20261126-16';
+import { exportarKM } from './exportar_km.js?v=20261126-16';
+import { conectarModeloExportacao } from './modelos.js?v=20261126-16';
+import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-16';
+import { exportarMontadores } from './exportar_montadores.js?v=20261126-16';
+import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-16';
+import { baixarCargas } from './exportar_cargas.js?v=20261126-16';
+import { painelPrincipal, preencherPainel, ligarCopiarPainel } from './painel.js?v=20261126-16';
+import { leitoresPainel } from './dados_painel.js?v=20261126-16';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
@@ -728,8 +728,8 @@ async function telaMontadoresImportar() {
   const mes = mesAtual(), {topo} = await topoMontadores('importar', mes, 'Importar acompanhamento oficial');
   const antes = await mesesMontadores();
   html(`${topo}<p>Importe um ou vários relatórios diários <b>listas-trabalhadas</b> (.XLSX), ou uma planilha mensal oficial com as abas <b>DA</b> e <b>DL</b>. Os relatórios diários precisam ter a data no nome (AAAA-MM-DD-listas-trabalhadas.xlsx).</p>
-<div class="modelo-box"><label>ARQUIVOS DE MONTADORES<br><input type="file" id="arqsMontadores" accept=".xlsx,.xlsm" multiple></label><label>UNIDADE DO MONTADOR FORA DO CADASTRO<br><select id="baseMontadores"><option value="NORTE" selected>CB Norte</option><option value="SUL">CB Sul</option><option value="CBAR">Barreiras</option><option value="CCRT">Juazeiro</option></select></label><button class="btn" id="importarMontadores">IMPORTAR SELECIONADOS</button></div>
-<p class="small">A unidade de cada montador vem do cadastro DA/DL (o banco de dados). Só quem não está no cadastro (novato) entra na unidade escolhida acima, em observação até ser confirmado. Cada lote diário atualiza as 4 unidades nas datas do arquivo. Reimporte a planilha oficial DA/DL para atualizar o cadastro de login, nome e unidade; listas diárias já salvas serão preservadas. Logins que ainda não forem encontrados pedem confirmação e ficam sinalizados em observação para conferência.</p>
+<div class="modelo-box"><label>ARQUIVOS DE MONTADORES<br><input type="file" id="arqsMontadores" accept=".xlsx,.xlsm" multiple></label><label>UNIDADE (SÓ SE NINGUÉM DO ARQUIVO ESTIVER NO CADASTRO)<br><select id="baseMontadores"><option value="" selected>Detectar pelo arquivo</option><option value="NORTE">CB Norte</option><option value="SUL">CB Sul</option><option value="CBAR">Barreiras</option><option value="CCRT">Juazeiro</option></select></label><button class="btn" id="importarMontadores">IMPORTAR SELECIONADOS</button></div>
+<p class="small">Cada relatório diário é de uma unidade: o Hub descobre qual pelos montadores do cadastro DA/DL. Pode escolher vários dias e várias unidades de uma vez, inclusive arquivos com (1), (2) no nome. Importe a planilha oficial DA/DL sempre que o cadastro mudar. Quem não está no cadastro pede confirmação e fica em observação.</p>
 <p id="statusMontadores" class="small">${antes.length ? `Meses com dados no Hub: ${antes.join(', ')}.` : 'Nenhum arquivo importado ainda.'}</p>`);
   document.getElementById('importarMontadores').onclick = async (e) => {
     const files = document.getElementById('arqsMontadores').files;
@@ -739,20 +739,21 @@ async function telaMontadoresImportar() {
     try {
       resultado = await importarMontadoresArquivos(files, document.getElementById('baseMontadores').value);
       if (resultado.necessitaConfirmacao) {
-        const lista = resultado.novos.slice(0, 20).map((p) => `${p.login} · ${p.nome}`).join('\n');
+        const nomeUnidade = { NORTE: 'CB Norte', SUL: 'CB Sul', CBAR: 'Barreiras', CCRT: 'Juazeiro' };
+        const lista = resultado.novos.slice(0, 20).map((p) => `${p.login} · ${p.nome} · ${nomeUnidade[p.unidade]}`).join('\n');
         const extra = resultado.novos.length > 20 ? `\n… e mais ${resultado.novos.length - 20} login(s).` : '';
-        if (!window.confirm(`Estes logins não constam no cadastro DA/DL. Confirmar a importação e deixá-los em observação para conferência?\n\n${lista}${extra}`)) {
+        if (!window.confirm(`Estes montadores não constam no cadastro DA/DL. Confirmar a importação e deixá-los em observação para conferência?\n\n${lista}${extra}`)) {
           out.textContent = 'Importação cancelada. Nenhum dado foi alterado.'; e.target.disabled = false; return;
         }
         resultado = await importarMontadoresArquivos(files, document.getElementById('baseMontadores').value, true);
       }
     }
     catch (err) { out.innerHTML = `${erro(err)}<p class="small">Nenhum dado foi alterado neste lote.</p>`; e.target.disabled = false; return; }
-    const detalhes = resultado.arquivos.map((x) => `<tr><td class="t">${V.E(x.arquivo)}</td><td>${x.data ? V.fdata(x.data) : 'Planilha mensal'}</td><td>${V.fi(x.linhas)}</td><td class="st ok">Validado</td></tr>`).join('');
-    const unidade = { NORTE: 'CB Norte', SUL: 'CB Sul', CBAR: 'Barreiras', CCRT: 'Juazeiro' }[resultado.base];
-    const tipo = resultado.tipo === 'diaria' ? `lote diário de ${V.E(unidade)} · ${V.fi(resultado.total)} registros` : `planilha oficial · ${V.fi(resultado.total)} registros`;
-    const observacao = resultado.novos?.length ? ` ${V.fi(resultado.novos.length)} login(s) novo(s) ficaram em observação para conferência.` : '';
-    out.innerHTML = `<p class="st ok">✓ ${resultado.arquivos.length} arquivo(s) validados; ${tipo}. Agora há ${V.fi(resultado.registros)} registros salvos no Hub.${observacao}</p><div class="tw scroll"><table><thead><tr><th class="t">Arquivo</th><th>Data</th><th>Linhas</th><th>Status</th></tr></thead><tbody>${detalhes}</tbody></table></div>`;
+    const detalhes = resultado.arquivos.map((x) => `<tr><td class="t">${V.E(x.arquivo)}</td><td>${x.data ? V.fdata(x.data) : 'Planilha mensal'}</td><td class="t">${V.E(x.base || 'todas')}</td><td>${V.fi(x.linhas)}</td><td class="st ok">Validado</td></tr>`).join('');
+    const tipo = resultado.tipo === 'diaria' ? `lote diário · ${V.fi(resultado.total)} registros` : `planilha oficial · ${V.fi(resultado.total)} registros e ${V.fi(resultado.pessoas)} pessoas no cadastro`;
+    const copias = resultado.repetidos?.length ? ` Cópia(s) repetida(s) ignorada(s): ${V.E(resultado.repetidos.join(', '))}.` : '';
+    const observacao = resultado.novos?.length ? ` ${V.fi(resultado.novos.length)} montador(es) novo(s) ficaram em observação para conferência.` : '';
+    out.innerHTML = `<p class="st ok">✓ ${resultado.arquivos.length} arquivo(s) validados; ${tipo}. Agora há ${V.fi(resultado.registros)} registros salvos no Hub.${observacao}${copias}</p><div class="tw scroll"><table><thead><tr><th class="t">Arquivo</th><th>Data</th><th class="t">Unidade</th><th>Linhas</th><th>Status</th></tr></thead><tbody>${detalhes}</tbody></table></div>`;
     try { await atualizarStatus(await atualizacaoMontadores()); } catch { /* A importação já foi salva; a barra poderá atualizar na próxima abertura. */ }
     e.target.disabled = false;
   };

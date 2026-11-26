@@ -139,7 +139,8 @@ export function definirTextoXlsm(ws, ref, valor) {
   const doc = documentoDe(ws);
   limparConteudo(c); c.setAttribute('t', 'inlineStr');
   const is = doc.createElementNS(MAIN, 'is'), t = doc.createElementNS(MAIN, 't');
-  t.textContent = String(valor); is.appendChild(t); c.appendChild(is);
+  t.textContent = String(valor);
+  t.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve'); is.appendChild(t); c.appendChild(is);
 }
 
 export function definirTextoSeExistirXlsm(ws, ref, valor) {
@@ -151,6 +152,13 @@ export function definirTextoSeExistirXlsm(ws, ref, valor) {
 
 export async function baixarModeloXlsm(modelo, planilhas, nomeArquivo) {
   for (const { path, xml } of planilhas) { atualizarDimensao(xml); modelo.zip.file(path, new XMLSerializer().serializeToString(xml)); }
+  // A cadeia de cálculo antiga aponta para células que deixaram de ter fórmula, e o Excel acusa arquivo corrompido.
+  // Sem ela, o Excel monta outra ao abrir.
+  modelo.zip.remove('xl/calcChain.xml');
+  for (const [arq, re] of [['[Content_Types].xml', /<Override[^>]*calcChain[^>]*\/>/], ['xl/_rels/workbook.xml.rels', /<Relationship[^>]*calcChain[^>]*\/>/]]) {
+    const f = modelo.zip.file(arq);
+    if (f) modelo.zip.file(arq, (await f.async('string')).replace(re, ''));
+  }
   let calc = modelo.workbook.getElementsByTagNameNS(MAIN, 'calcPr')[0];
   if (!calc) { calc = modelo.workbook.createElementNS(MAIN, 'calcPr'); modelo.workbook.documentElement.appendChild(calc); }
   calc.setAttribute('calcMode', 'auto'); calc.setAttribute('fullCalcOnLoad', '1'); calc.setAttribute('forceFullCalc', '1');
@@ -160,4 +168,13 @@ export async function baixarModeloXlsm(modelo, planilhas, nomeArquivo) {
   const url = URL.createObjectURL(blob), a = document.createElement('a');
   a.href = url; a.download = nomeArquivo; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Grava uma fórmula com o resultado em cache como texto (o Excel recalcula ao abrir). Cria a célula se faltar.
+export function definirFormulaCriandoXlsm(ws, ref, formula, valor = '') {
+  const c = encontrarCelula(ws, ref) || criarCelulaXlsm(ws, ref);
+  const doc = documentoDe(ws);
+  limparConteudo(c); c.setAttribute('t', 'str');
+  const f = doc.createElementNS(MAIN, 'f'); f.textContent = formula; c.appendChild(f);
+  const v = doc.createElementNS(MAIN, 'v'); v.textContent = String(valor); c.appendChild(v);
 }
