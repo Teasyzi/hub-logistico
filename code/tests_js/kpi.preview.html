@@ -6,14 +6,14 @@
      Aceita o KPI do mês e a planilha de metas de perdas (como o ⚙ Importar). O mês anterior também é montado (metas herdadas).
      &conferir= compara cada célula do catálogo (contas incluídas) com os valores da planilha oficial.
      &dump=1 põe a planilha exportada em base64 num <pre id="b64">. -->
-<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-04">
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-05">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <main id="app"><p>carregando…</p></main>
 <script type="module">
-const R = await import('../../docs/js/kpi.js?v=20261126-04');
-const T = await import('../../docs/js/kpi_telas.js?v=20261126-04');
-const X = await import('../../docs/js/exportar_kpi.js?v=20261126-04');
+const R = await import('../../docs/js/kpi.js?v=20261126-05');
+const T = await import('../../docs/js/kpi_telas.js?v=20261126-05');
+const X = await import('../../docs/js/exportar_kpi.js?v=20261126-05');
 const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'painel', admin = q.get('admin') !== '0';
 const ler = async (n) => XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(n))).arrayBuffer(), { type: 'array', cellDates: false });
 const docs = {}, lidos = [];

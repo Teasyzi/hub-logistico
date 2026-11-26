@@ -4,26 +4,26 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261126-04';
-import { lerArquivo, num } from './importar.js?v=20261126-04';
-import * as V from './views.js?v=20261126-04';
-import { hojeKM } from './km.js?v=20261126-04';
-import { rotearPerdas } from './perdas_telas.js?v=20261126-04';
-import { rotearRetorno } from './retorno_telas.js?v=20261126-04';
-import { rotearFR } from './fillrate_telas.js?v=20261126-04';
-import { rotearTX } from './transportes_telas.js?v=20261126-04';
-import { rotearGV } from './gestao_telas.js?v=20261126-04';
-import { rotearRP } from './reprog_telas.js?v=20261126-04';
-import { rotearKPI } from './kpi_telas.js?v=20261126-04';
-import { diasDoMes } from './calc.js?v=20261126-04';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-04';
-import { exportarPES } from './exportar_pes.js?v=20261126-04';
-import { exportarMontagem } from './exportar_montagem.js?v=20261126-04';
-import { exportarKM } from './exportar_km.js?v=20261126-04';
-import { conectarModeloExportacao } from './modelos.js?v=20261126-04';
-import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-04';
-import { exportarMontadores } from './exportar_montadores.js?v=20261126-04';
-import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-04';
+import * as D from './dados.js?v=20261126-05';
+import { lerArquivo, num } from './importar.js?v=20261126-05';
+import * as V from './views.js?v=20261126-05';
+import { hojeKM } from './km.js?v=20261126-05';
+import { rotearPerdas } from './perdas_telas.js?v=20261126-05';
+import { rotearRetorno } from './retorno_telas.js?v=20261126-05';
+import { rotearFR } from './fillrate_telas.js?v=20261126-05';
+import { rotearTX } from './transportes_telas.js?v=20261126-05';
+import { rotearGV } from './gestao_telas.js?v=20261126-05';
+import { rotearRP } from './reprog_telas.js?v=20261126-05';
+import { rotearKPI } from './kpi_telas.js?v=20261126-05';
+import { diasDoMes } from './calc.js?v=20261126-05';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-05';
+import { exportarPES } from './exportar_pes.js?v=20261126-05';
+import { exportarMontagem } from './exportar_montagem.js?v=20261126-05';
+import { exportarKM } from './exportar_km.js?v=20261126-05';
+import { conectarModeloExportacao } from './modelos.js?v=20261126-05';
+import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-05';
+import { exportarMontadores } from './exportar_montadores.js?v=20261126-05';
+import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-05';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
@@ -874,8 +874,30 @@ async function telaCargasPublicar(dataPedida) {
 }
 
 // ---------------------------------------------------------------- painel principal e acessos (admin)
-function telaPainel() {
-  html(V.painelPrincipal());
+// Números básicos de cada card do painel. Falha de um não derruba os outros.
+async function resumosPainel() {
+  const out = { cargas: null, montadores: null };
+  try {
+    const data = (await datasDisponiveisCargas())[0];
+    const x = data ? await resultadoCargas(data) : null;
+    if (x) out.cargas = { data, ...Object.fromEntries(['NORTE', 'SUL'].map((c) => [c, x.resultado.revendas[c]?.maisAntiga?.dias ?? null])) };
+  } catch { out.cargas = null; }
+  try {
+    const mes = mesAtual(), registros = await dadosMontadores(mes);
+    if (registros.length) {
+      const por = calcularMontadores(registros, mes);
+      out.montadores = Object.fromEntries(['NORTE', 'SUL', 'CBAR', 'CCRT'].map((b) => {
+        const ps = por[b] || [];
+        return [b, ps.length ? ps.reduce((s, p) => s + p.mediaCxHora, 0) / ps.length : null];
+      }));
+    }
+  } catch { out.montadores = null; }
+  return out;
+}
+
+async function telaPainel() {
+  html('<p class="small">Carregando resumo dos acompanhamentos…</p>');
+  html(V.painelPrincipal(await resumosPainel()));
   document.querySelectorAll('[data-copiar]').forEach((b) => {
     b.onclick = () => { navigator.clipboard.writeText(`${location.origin}${location.pathname}${b.dataset.copiar}`); b.textContent = 'Copiado ✓'; };
   });

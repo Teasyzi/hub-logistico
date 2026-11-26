@@ -1,7 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261126-04';
-import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261126-04';
-import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261126-04';
+import { UNIDADES } from './dados.js?v=20261126-05';
+import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261126-05';
+import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261126-05';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -110,14 +110,32 @@ export function graficoVendidoRetorno(dias, altura = 290) {
 }
 
 // ---------------------------------------------------------------- painel principal (só admin)
-export function painelPrincipal() {
+// Resumo básico de cada card (só os principais números; o detalhe fica em cada acompanhamento).
+const fmtDias = (d) => d == null ? '–' : `${fi(d)} dia${d === 1 ? '' : 's'}`;
+function resumoPainel(nome, r) {
+  if (nome === 'Cargas em aberto') {
+    if (!r.cargas) return '<p class="small">Sem foto da Consulta BI ainda.</p>';
+    return `<table class="kv painel-kv"><tbody><tr><td>CB Norte · carga mais antiga em aberto</td><td>${fmtDias(r.cargas.NORTE)}</td></tr>
+<tr><td>CB Sul · carga mais antiga em aberto</td><td>${fmtDias(r.cargas.SUL)}</td></tr></tbody></table><p class="small">Foto de ${fdata(r.cargas.data)}.</p>`;
+  }
+  if (nome === 'Montadores') {
+    if (!r.montadores) return '<p class="small">Sem dados de montadores neste mês.</p>';
+    const m = r.montadores;
+    return `<table class="kv painel-kv"><tbody>${[['NORTE', 'CB Norte'], ['SUL', 'CB Sul'], ['CBAR', 'Barreiras'], ['CCRT', 'Juazeiro']]
+      .map(([k, l]) => `<tr><td>${l}</td><td>${m[k] == null ? '–' : `${fd(m[k], 1)} CX/H`}</td></tr>`).join('')}</tbody></table><p class="small">Média de CX/H dos montadores no mês.</p>`;
+  }
+  return '';
+}
+
+export function painelPrincipal(resumos = {}) {
   // Só os acompanhamentos que já existem na pasta da planilha. Sem observações de status por enquanto.
   const acomp = [['Montagem de cargas (DLs)', '#/montagem'], ['KPI Distribuição e Logística', '#/kpi'], ['PES Logístico', '#/pes'], ['Cargas em aberto', '#/cargas'],
     ['Montadores', '#/montadores/NORTE'], ['Perdas de estoque DLs', '#/perdas'], ['KM planejado × realizado', '#/km'], ['Retorno por motivo', '#/retorno'],
     ['Transportes 1x1', '#/transportes'], ['Fill rate · Insuficiência', '#/fillrate'], ['Gestão à vista', '#/gestao'], ['REPROG (DAs)', '#/reprog']];
   return `<h1>Painel principal</h1><p class="sub">Acompanhamentos do Hub. Cada um tem link próprio para enviar por e-mail; quem recebe vê só aquele acompanhamento.</p>
 <div class="grid">${acomp.map(([n, h]) => `<div class="bloco"><div class="faixa">${E(n)}</div><div class="corpo">
-${h ? `<a class="btn" href="${h}">Abrir</a> <button class="btn sec" data-copiar="${h}">Copiar link</button>` : ''}</div></div>`).join('')}
+${resumoPainel(n, resumos)}
+${h ?`<a class="btn" href="${h}">Abrir</a> <button class="btn sec" data-copiar="${h}">Copiar link</button>` : ''}</div></div>`).join('')}
 <div class="bloco"><div class="faixa">Acessos</div><div class="corpo"><p class="small">Quem pode ver o que foi publicado.</p><a class="btn" href="#/acessos">Gerenciar</a></div></div></div>`;
 }
 
