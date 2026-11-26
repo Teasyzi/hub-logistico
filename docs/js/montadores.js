@@ -1,4 +1,4 @@
-import { salvarDadosMontadores, lerDadosMontadores } from './modelos.js';
+import { lerCadastroMontadores, gravarCadastroMontadores, gravarDiasMontadores, lerDiasMontadores, lerMesesMontadores } from './dados_montadores.js?v=20261126-03';
 
 const BASES = { 'CB NORTE': 'NORTE', 'CB SUL': 'SUL', 'LOG I - BARREIRAS': 'CBAR', 'LOG II - JUAZEIRO': 'CCRT' };
 const NUM = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
@@ -141,6 +141,43 @@ function lerListaDiaria(wb, file, base) {
   return { tipo: 'diaria', data, registros, arquivo: file.name };
 }
 
+// Cadastro DA/DL = banco de dados (unidade de cada montador). Pessoa fora do cadastro (novato) entra na
+// unidade escolhida no lote e fica em observação até ser confirmada.
+function cadastroDe(registros, origem) {
+  const pessoas = new Map();
+  for (const r of registros) {
+    if (!r.base) continue;
+    const chave = chaveCadastro(r.loginCadastro || r.loginOriginal || r.login || r.sistema || r.nome);
+    if (!chave) continue;
+    const p = pessoas.get(chave) || { pessoa: chave, login: r.loginCadastro || r.loginOriginal || '', nome: r.nome || '', base: r.base, diarista: false, aliases: new Set() };
+    if (p.base !== r.base) continue; // mesma pessoa em duas unidades: fica a primeira (conferir na planilha)
+    if (!p.login && r.loginCadastro) p.login = r.loginCadastro;
+    if (!p.nome && r.nome) p.nome = r.nome;
+    p.diarista ||= r.diarista === true;
+    for (const a of [r.login, r.loginCadastro, r.loginOriginal, r.sistema, r.nome, r.nomeCompleto]) { const k = chaveCadastro(a); if (k) p.aliases.add(k); }
+    pessoas.set(chave, p);
+  }
+  return [...pessoas.values()].map((p) => ({ ...p, aliases: [...p.aliases], origem }));
+}
+
+async function cadastroPorAlias() {
+  const mapa = new Map();
+  for (const p of await lerCadastroMontadores()) {
+    for (const a of p.aliases || []) {
+      if (!mapa.has(a)) mapa.set(a, p);
+      else if (mapa.get(a)?.pessoa !== p.pessoa) mapa.set(a, null); // nome igual em duas pessoas: não usa
+    }
+  }
+  return mapa;
+}
+
+function acharCadastro(mapa, r) {
+  const cands = [mapa.get(chaveCadastro(r.login)), mapa.get(chaveCadastro(r.nome))].filter(Boolean);
+  const unicos = [...new Map(cands.map((p) => [p.pessoa, p])).values()];
+  if (unicos.length > 1) throw new Error(`O login ${r.login} e o nome ${r.nome} apontam para cadastros diferentes. Confira o cadastro; nenhum dado foi alterado.`);
+  return unicos[0] || null;
+}
+
 export async function importarMontadoresArquivos(files, baseDiaria, confirmarNovos = false) {
   if (!globalThis.XLSX) throw new Error('O leitor de planilhas não carregou. Atualize a página.');
   const lista = [...files];
@@ -157,96 +194,56 @@ export async function importarMontadoresArquivos(files, baseDiaria, confirmarNov
   const tipos = new Set(analises.map((a) => a.tipo));
   if (tipos.size > 1) throw new Error('Não misture listas diárias e planilha oficial DA/DL no mesmo lote. Nenhum dado foi alterado.');
   if (tipos.has('oficial') && analises.length > 1) throw new Error('Selecione apenas uma planilha oficial DA/DL por importação. Nenhum dado foi alterado.');
+  if (!['NORTE', 'SUL', 'CBAR', 'CCRT'].includes(baseDiaria)) throw new Error('Selecione uma unidade válida para os montadores fora do cadastro. Nenhum dado foi alterado.');
 
-  const dados = await lerDadosMontadores();
-  let registros;
-  if (tipos.has('diaria')) {
-    if (!['NORTE', 'SUL', 'CBAR', 'CCRT'].includes(baseDiaria)) throw new Error('Selecione uma unidade válida para as listas diárias. Nenhum dado foi alterado.');
+  const origem = analises.map((a) => a.arquivo).join(' | ');
+  const porDia = new Map(), entrar = (r) => { if (!porDia.has(r.data)) porDia.set(r.data, []); porDia.get(r.data).push(r); };
+  let cadastroNovo = null, novos = [], total = 0;
+
+  if (tipos.has('oficial')) {
+    // Planilha oficial: o cadastro inteiro é trocado e a produção do mês entra nas unidades que ela traz.
+    const oficial = analises[0].registros;
+    cadastroNovo = cadastroDe(oficial, origem);
+    for (const r of oficial) {
+      if (!r.data || r.cadastroOnly) continue;
+      r.cadastroValidado = true; r.observacao = false; entrar(r); total++;
+    }
+  } else {
     const datas = analises.map((a) => a.data);
     if (new Set(datas).size !== datas.length) throw new Error('O lote contém mais de um arquivo para a mesma data. Remova a cópia repetida; nenhum dado foi alterado.');
-    const cadastro = new Map(), pessoas = new Map(), temCadastro = dados.registros.some((r) => r.fonteCadastro) || dados.registros.some((r) => r.posicao == null);
-    for (const r of dados.registros.filter((x) => x.fonteCadastro || (temCadastro && x.posicao == null))) {
-      r.fonteCadastro = true;
-      const chave = chaveCadastro(r.login || r.loginOriginal || r.sistema || r.nome);
-      if (!chave) continue;
-      const pessoa = pessoas.get(chave) || { chave, login: r.loginCadastro || r.loginOriginal || (!r.cadastroOnly ? r.login : ''), nome: r.nome, sistema: r.sistema, bases: new Set(), aliases: new Set(), diarista: false };
-      if (r.base) pessoa.bases.add(r.base);
-      if (!pessoa.nome && r.nome) pessoa.nome = r.nome;
-      for (const alias of [r.login, r.loginCadastro, r.loginOriginal, r.sistema, r.nome, r.nomeCompleto]) { const k = chaveCadastro(alias); if (k) pessoa.aliases.add(k); }
-      pessoa.diarista ||= r.diarista === true;
-      pessoas.set(chave, pessoa);
-    }
-    for (const pessoa of pessoas.values()) for (const alias of pessoa.aliases) {
-      if (!cadastro.has(alias)) cadastro.set(alias, pessoa);
-      else if (cadastro.get(alias)?.chave !== pessoa.chave) {
-        const atual = cadastro.get(alias), mesmaBase = atual && pessoa.bases.size === 1 && atual.bases.size === 1 && [...pessoa.bases][0] === [...atual.bases][0];
-        if (mesmaBase && !atual?.login && pessoa.login) cadastro.set(alias, pessoa);
-        else if (!(mesmaBase && atual?.login && !pessoa.login)) cadastro.set(alias, null);
+    const mapa = await cadastroPorAlias(), porNovo = new Map();
+    for (const a of analises) for (const r of a.registros) {
+      const pessoa = acharCadastro(mapa, r);
+      if (pessoa) {
+        r.base = pessoa.base; r.cadastroValidado = true; r.observacao = false;
+        r.login = pessoa.login || r.login; r.nome = pessoa.nome || r.nome; r.diarista ||= pessoa.diarista === true;
+      } else {
+        r.base = baseDiaria; r.cadastroValidado = false; r.observacao = true;
+        porNovo.set(chaveCadastro(r.login), { pessoa: chaveCadastro(r.login), login: r.login, nome: r.nome, base: baseDiaria, diarista: r.diarista === true, aliases: [chaveCadastro(r.login), chaveCadastro(r.nome)].filter(Boolean), origem });
       }
+      entrar(r); total++;
     }
-    const novos = new Map();
-    for (const r of analises.flatMap((a) => a.registros)) {
-      const candidatos = [cadastro.get(chaveCadastro(r.login)), cadastro.get(chaveCadastro(r.nome))].filter(Boolean);
-      const unicos = [...new Map(candidatos.map((p) => [p.chave, p])).values()];
-      if (unicos.length > 1) throw new Error(`O login ${r.login} e o nome ${r.nome} apontam para cadastros diferentes em DA/DL. Confira o cadastro; nenhum dado foi alterado.`);
-      const pessoa = unicos[0];
-      if (!pessoa) {
-        r.observacao = true;
-        novos.set(chaveCadastro(r.login), { login: r.login, nome: r.nome });
-        continue;
-      }
-      if (pessoa.bases.size > 1) throw new Error(`O login ${r.login} aparece em mais de uma unidade no cadastro já importado. Confira a planilha oficial; nenhum dado foi alterado.`);
-      const unidadeCadastro = [...pessoa.bases][0];
-      if (unidadeCadastro && unidadeCadastro !== baseDiaria) throw new Error(`O login ${r.login} está cadastrado em ${unidadeCadastro}, mas o lote foi marcado como ${baseDiaria}. Nenhum dado foi alterado.`);
-      r.diarista ||= pessoa.diarista;
-      r.cadastroValidado = true;
-      if (pessoa.login) r.login = pessoa.login;
-      if (pessoa.nome) r.nome = String(pessoa.nome).replace(/\s+/g, ' ').trim();
+    novos = [...porNovo.values()].map((p) => ({ login: p.login, nome: p.nome, unidade: p.base }));
+    if (novos.length && !confirmarNovos) {
+      return { tipo: 'diaria', necessitaConfirmacao: true, novos, arquivos: analises.map(({ arquivo, data, registros }) => ({ arquivo, data, linhas: registros.length })) };
     }
-    if (novos.size && !confirmarNovos) return { tipo: 'diaria', necessitaConfirmacao: true, novos: [...novos.values()], arquivos: analises.map(({ arquivo, data, registros: linhas }) => ({ arquivo, data, linhas: linhas.length })) };
-    const substituidas = new Set(datas.map((data) => `${baseDiaria}|${data}`));
-    const anteriores = dados.registros.filter((r) => !substituidas.has(`${r.base}|${r.data}`));
-    registros = [...anteriores, ...analises.flatMap((a) => a.registros)];
-  } else {
-    const oficial = analises[0].registros, aliasOficial = new Map();
-    for (const p of oficial) for (const alias of [p.login, p.loginCadastro, p.loginOriginal, p.sistema, p.nome, p.nomeCompleto]) {
-      const k = chaveCadastro(alias); if (!k) continue;
-      if (!aliasOficial.has(k)) aliasOficial.set(k, p);
-      else {
-        const atual = aliasOficial.get(k), loginAtual = atual?.loginCadastro || atual?.loginOriginal || (!atual?.cadastroOnly ? atual?.login : ''), loginNovo = p.loginCadastro || p.loginOriginal || (!p.cadastroOnly ? p.login : '');
-        const mesmaBase = atual && atual.base === p.base;
-        if (atual && chaveCadastro(loginAtual) === chaveCadastro(loginNovo)) aliasOficial.set(k, atual.cadastroOnly && !p.cadastroOnly ? p : atual);
-        else if (mesmaBase && !loginAtual && loginNovo) aliasOficial.set(k, p);
-        else if (!(mesmaBase && loginAtual && !loginNovo)) aliasOficial.set(k, null);
-      }
-    }
-    const diarios = dados.registros.filter((r) => !r.fonteCadastro && r.posicao != null);
-    for (const r of diarios) {
-      const candidatos = [aliasOficial.get(chaveCadastro(r.login)), aliasOficial.get(chaveCadastro(r.nome))].filter(Boolean);
-      const unicos = [...new Map(candidatos.map((p) => [chaveCadastro(p.login), p])).values()];
-      if (unicos.length > 1) throw new Error(`O login ${r.login} e o nome ${r.nome} apontam para cadastros diferentes em DA/DL. Confira o cadastro; nenhum dado foi alterado.`);
-      const pessoa = unicos[0];
-      if (!pessoa) { r.observacao = true; continue; }
-      const baseCadastro = pessoa.base;
-      if (baseCadastro && baseCadastro !== r.base) throw new Error(`O login ${r.login} está cadastrado em ${baseCadastro}, mas o relatório salvo está em ${r.base}. Nenhum dado foi alterado.`);
-      r.login = pessoa.loginCadastro || pessoa.loginOriginal || (!pessoa.cadastroOnly ? pessoa.login : '') || r.login; r.nome = pessoa.nome || r.nome;
-      r.cadastroValidado = true;
-      r.observacao = false; r.diarista ||= pessoa.diarista === true;
-    }
-    const substituidos = new Set(diarios.map((r) => `${r.base}|${r.data}|${chaveCadastro(r.login)}`));
-    registros = [...oficial.filter((r) => !r.data || !substituidos.has(`${r.base}|${r.data}|${chaveCadastro(r.login)}`)), ...diarios];
+    cadastroNovo = [...porNovo.values()];
   }
-  const origem = analises.map((a) => a.arquivo).join(' | ');
-  await salvarDadosMontadores(registros, origem);
-  return { tipo: analises[0].tipo, base: tipos.has('diaria') ? baseDiaria : null, arquivos: analises.map(({ arquivo, data, registros: linhas }) => ({ arquivo, data: data || '', linhas: linhas.length })), total: analises.reduce((n, a) => n + a.registros.length, 0), registros: registros.length, novos: [...(tipos.has('diaria') ? new Map(analises.flatMap((a) => a.registros).filter((r) => r.observacao).map((r) => [r.login.toLocaleLowerCase('pt-BR'), r.login])).values() : [])] };
+
+  if (tipos.has('oficial')) await gravarCadastroMontadores(cadastroNovo, true, origem);
+  else if (cadastroNovo.length) await gravarCadastroMontadores(cadastroNovo, false, origem);
+  await gravarDiasMontadores(porDia, origem);
+  return {
+    tipo: analises[0].tipo, base: tipos.has('diaria') ? baseDiaria : null,
+    arquivos: analises.map(({ arquivo, data, registros }) => ({ arquivo, data: data || '', linhas: registros.length })),
+    total, registros: total, novos,
+  };
 }
 
-export const dadosMontadores = async () => (await lerDadosMontadores()).registros;
-export const temCadastroMontadores = async () => {
-  const dados = await lerDadosMontadores();
-  return dados.registros.some((r) => r.fonteCadastro) || dados.registros.some((r) => r.posicao == null);
-};
-export const atualizacaoMontadores = async () => (await lerDadosMontadores()).atualizado || null;
+// Leitura para as telas (Firestore): registros do mês e data da última importação.
+export const dadosMontadores = (mes) => lerDiasMontadores(mes);
+export const mesesMontadores = async () => (await lerMesesMontadores()).meses || [];
+export const atualizacaoMontadores = async () => (await lerMesesMontadores()).atualizado || null;
 
 export function calcularMontadores(registros, mes, temCadastro = false) {
   const cadastroPorBase = new Map();

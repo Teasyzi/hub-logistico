@@ -134,5 +134,8 @@ service cloud.firestore {
     match /rp_base/{id}           { allow read, write: if admin(); }
     match /rp_parametro/{id}      { allow read, write: if admin(); }
     match /kpi_dados/{id}         { allow read, write: if admin(); }
+    match /mont_cadastro/{id}     { allow read, write: if admin(); }
+    match /mont_dia/{id}          { allow read, write: if admin(); }
+    match /mont_meta/{id}         { allow read, write: if admin(); }
   }
 }

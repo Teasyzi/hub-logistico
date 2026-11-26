@@ -4,26 +4,26 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261126-02';
-import { lerArquivo, num } from './importar.js?v=20261126-02';
-import * as V from './views.js?v=20261126-02';
-import { hojeKM } from './km.js?v=20261126-02';
-import { rotearPerdas } from './perdas_telas.js?v=20261126-02';
-import { rotearRetorno } from './retorno_telas.js?v=20261126-02';
-import { rotearFR } from './fillrate_telas.js?v=20261126-02';
-import { rotearTX } from './transportes_telas.js?v=20261126-02';
-import { rotearGV } from './gestao_telas.js?v=20261126-02';
-import { rotearRP } from './reprog_telas.js?v=20261126-02';
-import { rotearKPI } from './kpi_telas.js?v=20261126-02';
-import { diasDoMes } from './calc.js?v=20261126-02';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-02';
-import { exportarPES } from './exportar_pes.js?v=20261126-02';
-import { exportarMontagem } from './exportar_montagem.js?v=20261126-02';
-import { exportarKM } from './exportar_km.js?v=20261126-02';
-import { conectarModeloExportacao } from './modelos.js?v=20261126-02';
-import { importarMontadoresArquivos, dadosMontadores, atualizacaoMontadores, calcularMontadores, temCadastroMontadores } from './montadores.js?v=20261126-02';
-import { exportarMontadores } from './exportar_montadores.js?v=20261126-02';
-import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-02';
+import * as D from './dados.js?v=20261126-03';
+import { lerArquivo, num } from './importar.js?v=20261126-03';
+import * as V from './views.js?v=20261126-03';
+import { hojeKM } from './km.js?v=20261126-03';
+import { rotearPerdas } from './perdas_telas.js?v=20261126-03';
+import { rotearRetorno } from './retorno_telas.js?v=20261126-03';
+import { rotearFR } from './fillrate_telas.js?v=20261126-03';
+import { rotearTX } from './transportes_telas.js?v=20261126-03';
+import { rotearGV } from './gestao_telas.js?v=20261126-03';
+import { rotearRP } from './reprog_telas.js?v=20261126-03';
+import { rotearKPI } from './kpi_telas.js?v=20261126-03';
+import { diasDoMes } from './calc.js?v=20261126-03';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-03';
+import { exportarPES } from './exportar_pes.js?v=20261126-03';
+import { exportarMontagem } from './exportar_montagem.js?v=20261126-03';
+import { exportarKM } from './exportar_km.js?v=20261126-03';
+import { conectarModeloExportacao } from './modelos.js?v=20261126-03';
+import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-03';
+import { exportarMontadores } from './exportar_montadores.js?v=20261126-03';
+import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-03';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
@@ -706,28 +706,28 @@ async function telaKMPublicar(mes) {
   ligarTopo((m) => `#/km/publicar/${m}`);
 }
 
-// ---------------------------------------------------------------- Montadores (em validação, dados locais do navegador)
+// ---------------------------------------------------------------- Montadores (Firestore, só admin; unidade vem do cadastro DA/DL)
 async function topoMontadores(aba, mes, titulo) {
-  const registros = await dadosMontadores(), meses = [...new Set(registros.map((r) => r.data?.slice(0, 7)).filter(Boolean))].sort().reverse();
+  const registros = await dadosMontadores(mes), meses = [...new Set([...(await mesesMontadores()), mes])].sort().reverse();
   if (!meses.includes(mes)) meses.unshift(mes);
   const atualizado = await atualizacaoMontadores();
-  const topo = `<h1>Montadores — ${V.E(titulo)}</h1><p class="sub">${V.seletorMes(meses, mes)} <span class="badge">DADOS LOCAIS · EM VALIDAÇÃO</span></p>${statusAtualizacao(atualizado ? new Date(atualizado) : null, 'statusAtualizacao')}${V.abasMontadores(aba, mes)}`;
+  const topo = `<h1>Montadores — ${V.E(titulo)}</h1><p class="sub">${V.seletorMes(meses, mes)} <span class="badge">EM VALIDAÇÃO</span></p>${statusAtualizacao(atualizado ? new Date(atualizado) : null, 'statusAtualizacao')}${V.abasMontadores(aba, mes)}`;
   return { topo, registros };
 }
 
 async function telaMontadoresUnidade(base, mes) {
   const {topo, registros} = await topoMontadores(base, mes, `${base} · ${V.nomeMes(mes)}`);
-  html(V.paginaMontadoresUnidade(base, calcularMontadores(registros, mes, await temCadastroMontadores())[base] || [], {mes, topo}));
+  html(V.paginaMontadoresUnidade(base, calcularMontadores(registros, mes)[base] || [], {mes, topo}));
   ligarTopo((m) => `#/montadores/${base}/${m}`);
 }
 
 async function telaMontadoresImportar() {
   const mes = mesAtual(), {topo} = await topoMontadores('importar', mes, 'Importar acompanhamento oficial');
-  const antes = await dadosMontadores();
+  const antes = await mesesMontadores();
   html(`${topo}<p>Importe um ou vários relatórios diários <b>listas-trabalhadas</b> (.XLSX), ou uma planilha mensal oficial com as abas <b>DA</b> e <b>DL</b>. Os relatórios diários precisam ter a data no nome (AAAA-MM-DD-listas-trabalhadas.xlsx).</p>
-<div class="modelo-box"><label>ARQUIVOS DE MONTADORES<br><input type="file" id="arqsMontadores" accept=".xlsx,.xlsm" multiple></label><label>UNIDADE DOS RELATÓRIOS DIÁRIOS<br><select id="baseMontadores"><option value="NORTE" selected>CB Norte</option><option value="SUL">CB Sul</option><option value="CBAR">Barreiras</option><option value="CCRT">Juazeiro</option></select></label><button class="btn" id="importarMontadores">IMPORTAR SELECIONADOS</button></div>
-<p class="small">Os relatórios diários não trazem a unidade; ela será aplicada a todas as planilhas do lote. Um lote diário substitui os registros daquela base e das datas selecionadas e preserva os demais dias. Reimporte a planilha oficial DA/DL para atualizar o cadastro de login, nome e unidade; listas diárias já salvas serão preservadas. Logins que ainda não forem encontrados pedem confirmação e ficam sinalizados em observação para conferência.</p>
-<p id="statusMontadores" class="small">${antes.length ? `${V.fi(antes.length)} registros salvos neste navegador.` : 'Nenhum arquivo importado neste navegador.'}</p>`);
+<div class="modelo-box"><label>ARQUIVOS DE MONTADORES<br><input type="file" id="arqsMontadores" accept=".xlsx,.xlsm" multiple></label><label>UNIDADE DO MONTADOR FORA DO CADASTRO<br><select id="baseMontadores"><option value="NORTE" selected>CB Norte</option><option value="SUL">CB Sul</option><option value="CBAR">Barreiras</option><option value="CCRT">Juazeiro</option></select></label><button class="btn" id="importarMontadores">IMPORTAR SELECIONADOS</button></div>
+<p class="small">A unidade de cada montador vem do cadastro DA/DL (o banco de dados). Só quem não está no cadastro (novato) entra na unidade escolhida acima, em observação até ser confirmado. Cada lote diário atualiza as 4 unidades nas datas do arquivo. Reimporte a planilha oficial DA/DL para atualizar o cadastro de login, nome e unidade; listas diárias já salvas serão preservadas. Logins que ainda não forem encontrados pedem confirmação e ficam sinalizados em observação para conferência.</p>
+<p id="statusMontadores" class="small">${antes.length ? `Meses com dados no Hub: ${antes.join(', ')}.` : 'Nenhum arquivo importado ainda.'}</p>`);
   document.getElementById('importarMontadores').onclick = async (e) => {
     const files = document.getElementById('arqsMontadores').files;
     if (!files?.length) { document.getElementById('statusMontadores').textContent = 'Escolha pelo menos um arquivo.'; return; }
@@ -749,7 +749,7 @@ async function telaMontadoresImportar() {
     const unidade = { NORTE: 'CB Norte', SUL: 'CB Sul', CBAR: 'Barreiras', CCRT: 'Juazeiro' }[resultado.base];
     const tipo = resultado.tipo === 'diaria' ? `lote diário de ${V.E(unidade)} · ${V.fi(resultado.total)} registros` : `planilha oficial · ${V.fi(resultado.total)} registros`;
     const observacao = resultado.novos?.length ? ` ${V.fi(resultado.novos.length)} login(s) novo(s) ficaram em observação para conferência.` : '';
-    out.innerHTML = `<p class="st ok">✓ ${resultado.arquivos.length} arquivo(s) validados; ${tipo}. Agora há ${V.fi(resultado.registros)} registros salvos neste navegador.${observacao}</p><div class="tw scroll"><table><thead><tr><th class="t">Arquivo</th><th>Data</th><th>Linhas</th><th>Status</th></tr></thead><tbody>${detalhes}</tbody></table></div>`;
+    out.innerHTML = `<p class="st ok">✓ ${resultado.arquivos.length} arquivo(s) validados; ${tipo}. Agora há ${V.fi(resultado.registros)} registros salvos no Hub.${observacao}</p><div class="tw scroll"><table><thead><tr><th class="t">Arquivo</th><th>Data</th><th>Linhas</th><th>Status</th></tr></thead><tbody>${detalhes}</tbody></table></div>`;
     try { await atualizarStatus(await atualizacaoMontadores()); } catch { /* A importação já foi salva; a barra poderá atualizar na próxima abertura. */ }
     e.target.disabled = false;
   };
@@ -759,9 +759,9 @@ async function telaMontadoresExportar(mes) {
   const {topo} = await topoMontadores('exportar', mes, `Exportar · ${V.nomeMes(mes)}`);
   html(`${topo}<p>Use o modelo oficial de Montadores. Ele fica guardado neste navegador e pode ser substituído quando houver uma nova versão. A exportação gera uma cópia com os dados atualizados.</p>
 <div class="modelo-box"><label>MODELO OFICIAL (.XLSX OU .XLSM)<br><input type="file" id="modeloMontadores" accept=".xlsx,.xlsm"></label><span id="modeloStatus" class="small"></span></div>
-<p><button class="btn" id="exportar" disabled>EXPORTAR ${V.nomeMes(mes)}</button></p><p class="small">O acompanhamento precisa ter abas DA e DL. Dados e modelo permanecem locais neste navegador.</p>`);
+<p><button class="btn" id="exportar" disabled>EXPORTAR ${V.nomeMes(mes)}</button></p><p class="small">O acompanhamento precisa ter abas DA e DL. O modelo fica salvo neste navegador; os dados ficam no Hub.</p>`);
   conectarModeloExportacao({ id:'montadores', inputId:'modeloMontadores', statusId:'modeloStatus', botaoId:'exportar', executar: async (modelo) => {
-    await exportarMontadores(modelo, mes, await dadosMontadores());
+    await exportarMontadores(modelo, mes, await dadosMontadores(mes));
   }});
   ligarTopo((m) => `#/montadores/exportar/${m}`);
 }

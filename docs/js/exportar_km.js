@@ -1,7 +1,7 @@
 // Mapeamento do resumo oficial KM para a folha Analise por dia.
 import {
   abrirModeloXlsm, lerAbaXlsm, definirNumeroSeExistirXlsm, definirNumeroCriandoXlsm, definirTextoSeExistirXlsm, baixarModeloXlsm,
-} from './xlsm.js?v=20261126-02';
+} from './xlsm.js?v=20261126-03';
 
 const serialExcel = (iso) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.UTC(1899, 11, 30)) / 86400000);
 const colunaDia = (dia) => {
