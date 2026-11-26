@@ -99,7 +99,8 @@ svg text{fill:var(--muted);font-size:11px}svg text.val{fill:var(--ink);font-size
 svg text.val.ret{fill:var(--s2)}
 /* PES: um DL por linha, tabela sem quebra nos números, mais respiro */
 .pes-dls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:18px;max-width:none}
-.painel-kv td:last-child{white-space:nowrap;font-weight:700}
+.painel .bloco{display:flex;flex-direction:column}.painel .corpo{flex:1;display:flex;flex-direction:column;gap:8px}.painel .corpo p{margin:6px 0 0}.painel-botoes{margin-top:auto}
+.painel-t{width:100%}.painel-t th,.painel-t td{font-size:12px;padding:5px 6px}.painel-t td{white-space:nowrap}.painel-t td.t{white-space:normal}
 .pes-resumo{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;margin:4px 0 12px}
 .pes-pontos{min-width:220px;flex:1}.pes-pontos .v{font-size:30px;font-weight:800;margin-right:6px}.pes-pontos .l{color:var(--ink2)}
 .barra{height:10px;border-radius:999px;background:var(--row);border:1px solid var(--border);margin-top:6px;overflow:hidden}

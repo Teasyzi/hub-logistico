@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Prévia Painel</title>
+<!-- Painel principal com números fictícios, sem Firebase. ?vazio=1 mostra os cards sem dados. -->
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-13">
+<main id="app"></main>
+<script type="module">
+const P = await import('../../docs/js/painel.js?v=20261126-13');
+const mes = '2026-11', vazio = new URLSearchParams(location.search).get('vazio');
+const km = { planejado: 12450, realizado: 12010, dispersao: -0.035, meta: 0.05 };
+const d = {
+  montagem: { mes, dls: { CBAR: { resumo: { acm: 84520, tend_vs_meta: 0.031 }, media: { ocupacao: 0.874 } }, CCRT: { resumo: { acm: 51230, tend_vs_meta: -0.062 }, media: { ocupacao: 0.812 } } } },
+  kpi: { mes, ok: 18, no: 7, sem: 3 }, pes: { mes, dls: { CBAR: { feitos: 70, possiveis: 100 }, CCRT: { feitos: 55, possiveis: 100 } } },
+  cargas: { data: '2026-11-26', NORTE: 7, SUL: 10 }, montadores: { mes, NORTE: 41.2, SUL: 38.7, CBAR: 44.1, CCRT: null },
+  perdas: { mes, dls: { CBAR: { rs: 12345.67, pctCx: 0.00123 }, CCRT: null } }, km: { mes, unidades: { NORTE: km, SUL: { ...km, dispersao: -0.081 }, CBAR: { ...km, dispersao: 0.012 }, CCRT: null } },
+  retorno: { mes, unidades: { NORTE: { total: 0.0213, semCanc: 0.0151 }, SUL: { total: 0.0188, semCanc: 0.0122 }, CBAR: { total: 0.0095, semCanc: 0.0081 }, CCRT: null } },
+  transportes: { mes, meta: 1.62, realizado: 1.71, dif: 0.0556 }, fillrate: { mes, unidades: { NORTE: { insuf: 0.014, meta: 0.02 }, SUL: { insuf: 0.027, meta: 0.02 } } },
+  gestao: { dls: { CBAR: { mes: '2026-10', volume: 98765 }, CCRT: { mes: '2026-10', volume: 65432 } } },
+  reprog: { NORTE: { dia: '2026-11-25', clientes: 38, repetidos: 5 }, SUL: { dia: '2026-11-25', clientes: 22, repetidos: null } },
+};
+const app = document.getElementById('app');
+app.innerHTML = P.painelPrincipal();
+await P.preencherPainel(app, Object.fromEntries(P.CARDS_PAINEL.map(([id]) => [id, async () => (vazio ? null : d[id])])));
+</script>

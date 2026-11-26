@@ -7,8 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <pre id="log">gerando…</pre>
 <script type="module">
-const C = await import('../../docs/js/cargas.js?v=20261126-12');
-const X = await import('../../docs/js/exportar_cargas.js?v=20261126-12');
+const C = await import('../../docs/js/cargas.js?v=20261126-13');
+const X = await import('../../docs/js/exportar_cargas.js?v=20261126-13');
 const q = new URLSearchParams(location.search);
 const wb = XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(q.get('arq')))).arrayBuffer(), { type: 'array' });
 const { linhas } = C.lerConsultaCargas(wb);
