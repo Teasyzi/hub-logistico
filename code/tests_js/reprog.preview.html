@@ -5,14 +5,14 @@
      ?arquivos=<arq1>|<arq2>|…&pagina=NORTE|SUL|importar[&dia=AAAA-MM-DD][&admin=0][&editar=1][&diaResumo=AAAA-MM-DD]
      Aceita o TXT VDPDR007, a BASE ATUALIZADA, a planilha antiga do Resumo (dia = diaResumo) e a "dia a dia".
      window.exportarTeste(u) gera a planilha e devolve a aba Resumo relida (algumas células). -->
-<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-02">
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-03">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <main id="app"><p>carregando…</p></main>
 <script type="module">
-const R = await import('../../docs/js/reprog.js?v=20261126-02');
-const T = await import('../../docs/js/reprog_telas.js?v=20261126-02');
-const X = await import('../../docs/js/exportar_reprog.js?v=20261126-02');
+const R = await import('../../docs/js/reprog.js?v=20261126-03');
+const T = await import('../../docs/js/reprog_telas.js?v=20261126-03');
+const X = await import('../../docs/js/exportar_reprog.js?v=20261126-03');
 const q = new URLSearchParams(location.search), pagina = q.get('pagina') || 'NORTE', admin = q.get('admin') !== '0';
 let editar = q.get('editar') === '1';
 // "Firestore" em memória: dias[u][dia] = {clientes, pedidos, prod, dias}; bases[u].
