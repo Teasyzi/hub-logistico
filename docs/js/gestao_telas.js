@@ -2,11 +2,11 @@
 // quadro da aba Dados (jan–dez + Acum) e, embaixo, os gráficos de cada aba de gráfico da planilha, na mesma ordem.
 // No rascunho, o admin edita os valores digitados (✎). O botão exporta a planilha igual à oficial (exportar_gestao.js).
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp } from './views.js?v=20261126-07';
-import { UNIDADES_GV, CIDADE_GV, LINHAS_GV, LINHA_GV, GRAFICOS_GV, ORIGENS_GV, FONTES_AUTO_GV, rotuloGV, calcularAnoGV, lerArquivoGV } from './gestao.js?v=20261126-07';
-import { baixarGestaoGV } from './exportar_gestao.js?v=20261126-07';
-import * as G from './dados_gestao.js?v=20261126-07';
-import * as D from './dados.js?v=20261126-07';
+import { E, fi, fd, fp } from './views.js?v=20261126-08';
+import { UNIDADES_GV, CIDADE_GV, LINHAS_GV, LINHA_GV, GRAFICOS_GV, ORIGENS_GV, FONTES_AUTO_GV, rotuloGV, calcularAnoGV, lerArquivoGV } from './gestao.js?v=20261126-08';
+import { baixarGestaoGV } from './exportar_gestao.js?v=20261126-08';
+import * as G from './dados_gestao.js?v=20261126-08';
+import * as D from './dados.js?v=20261126-08';
 
 const MES3 = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);

@@ -10,8 +10,8 @@
 // Valores, não fórmulas: os números são os do Hub (regras da ficha §11, p. ex. meta = 2% do pedido).
 // Os rótulos são os da planilha ("% FILL RATE" no quadro é a insuficiência, como lá; o fill rate fica no N3).
 // porMes: {AAAA-MM: {unidades: {NORTE|SUL: unidade calculada (totais, dias, produtos, detalhe)}, geral}}
-import { UNIDADES_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261126-07';
-import { STYLES_XML, THEME_XML } from './modelo_fillrate.js?v=20261126-07';
+import { UNIDADES_FR, comparativoFR, resumoMesFR } from './fillrate.js?v=20261126-08';
+import { STYLES_XML, THEME_XML } from './modelo_fillrate.js?v=20261126-08';
 
 const NOMES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 const nomeMes = (mes) => `${NOMES[+mes.slice(5, 7) - 1]}/${mes.slice(0, 4)}`;

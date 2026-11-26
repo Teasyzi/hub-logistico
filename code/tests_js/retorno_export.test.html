@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Exportação do Retorno</title>
+<!-- Gera a exportação do Retorno a partir de uma planilha antiga "MM. Retorno - <Mês>.xlsx" em /amostras/ (sem Firebase).
+     CB Norte/Sul pelo leitor do Hub; Barreiras/Juazeiro lidos direto da aba DLS (só para este teste, para comparar).
+     ?arq=<planilha> -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<pre id="log">gerando…</pre>
+<script type="module">
+const R = await import('../../docs/js/retorno.js?v=20261126-08');
+const X = await import('../../docs/js/exportar_retorno.js?v=20261126-08');
+const arq = new URLSearchParams(location.search).get('arq');
+const wb = XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(arq))).arrayBuffer(), { type: 'array' });
+const x = R.lerArquivoRetorno(wb);
+const dados = { ...x.unidades };
+const res = R.calcularRetorno({ mes: '2026-10', dados });
+const rows = XLSX.utils.sheet_to_json(wb.Sheets.DLS, { header: 1, raw: true, defval: null, blankrows: true, range: 'A1:AC60' });
+for (const [u, cN, cV, cVol] of [['CBAR', 2, 3, 4], ['CCRT', 16, 17, 18]]) {
+  const motivos = [];
+  for (let i = 7; i < rows.length; i++) { const t = String(rows[i][cN] ?? '').trim(); if (/^TOTAL/i.test(t)) break; if (t) motivos.push({ motivo: t, cx: rows[i][cV] || 0 }); }
+  res.unidades[u] = { unidade: u, ...R.calcularUnidade({ motivos }, { volume: rows[4][cVol] }) };
+}
+// &publicado=1: como o leitor vê (sem motoristas) e com uma unidade sem dados.
+if (new URLSearchParams(location.search).has('publicado')) { for (const d of Object.values(res.unidades)) delete d.motoristas; res.unidades.SUL = { temDados: false, motivos: [], totais: {} }; }
+const bytes = await X.gerarRetornoXlsx(res);
+let bin = ''; for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode(...bytes.subarray(i, i + 32768));
+const e = document.createElement('pre'); e.id = 'b64'; e.hidden = true; e.textContent = btoa(bin); document.body.append(e);
+document.getElementById('log').textContent = `${bytes.length} bytes · ` + Object.entries(res.unidades).map(([u, d]) => `${u}: ${d.motivos.length} motivos, ${d.motoristas?.length ?? 0} motoristas`).join(' · ');
+</script>

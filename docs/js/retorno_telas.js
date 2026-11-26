@@ -1,10 +1,11 @@
 // Telas do acompanhamento Retorno por motivo (CB Norte, CB Sul, DL Barreiras, DL Juazeiro): uma aba por unidade,
 // como na planilha (tabela de valores com o gráfico de barras ao lado). As funções pagina* são puras (dados → HTML)
 // e servem à prévia local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-07';
-import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261126-07';
-import * as R from './dados_retorno.js?v=20261126-07';
-import * as D from './dados.js?v=20261126-07';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-08';
+import { UNIDADES_RET, DAS_RET, DLS_RET, lerArquivoRetorno, calcularRetorno } from './retorno.js?v=20261126-08';
+import * as R from './dados_retorno.js?v=20261126-08';
+import { baixarRetorno } from './exportar_retorno.js?v=20261126-08';
+import * as D from './dados.js?v=20261126-08';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const fcx = (x) => (x == null ? '–' : nf(1).format(x));
@@ -74,7 +75,8 @@ ${d.motoristas.map((m) => `<tr><td class="t">${E(m.nome)}</td><td>${frs(m.rs)}</
 <div>${graficoBarras(d.motoristas.map((m) => ({ rot: m.nome, v: m.rs, txt: `R$ ${nf(0).format(m.rs)}` })))}</div></div>
 <p class="small">Só no rascunho do admin: os nomes não vão para a publicação. Em R$, como no BI.</p></div></section>` : '';
   const fonte = admin ? `<p class="small">${DLS_RET.includes(u) ? `Fonte: retorno Externo e venda da Montagem de Cargas (${fi(d.linhasExterno)} linhas de retorno${d.ultimoDia ? `, até ${fdata(d.ultimoDia)}` : ''}).` : `Fonte: ${E(d.arquivos?.motivos || 'arquivo do BI')}${d.arquivos?.motoristas && d.arquivos.motoristas !== d.arquivos.motivos ? ` e ${E(d.arquivos.motoristas)}` : ''}.`}</p>` : '';
-  return `${topo}${tiles}${admin ? avisos(u, d, mes) : ''}${motivos}${motoristas}${fonte}`;
+  const exportar = `<p><button class="btn" id="exportarRT">⬇ Exportar planilha do mês (.xlsx)</button> <span id="msgRT" class="small"></span></p>`;
+  return `${topo}${tiles}${admin ? avisos(u, d, mes) : ''}${exportar}${motivos}${motoristas}${fonte}`;
 }
 
 // ---------------------------------------------------------------- telas (Firestore)
@@ -104,6 +106,13 @@ async function telaUnidade(ctx, u, mes) {
   const vazio = !r.unidades?.[u]?.temDados && !rascunho(ctx);
   ctx.html(vazio ? `${topo}<div class="aviso">O retorno de ${E(UNIDADES_RET[u])} em ${nomeMes(mes)} ainda não foi publicado.</div>` : paginaUnidadeRetorno(u, r.unidades?.[u], { mes, admin: rascunho(ctx), topo }));
   status(r.atualizado); ctx.ligarTopo((m) => `#/retorno/${u}/${m}`);
+  const exp = document.getElementById('exportarRT');
+  if (exp) exp.onclick = async () => {
+    const msg = document.getElementById('msgRT');
+    exp.disabled = true; msg.textContent = 'Montando a planilha…';
+    try { await baixarRetorno(r, mes); msg.textContent = '✓ planilha gerada (as 4 unidades)'; } catch (err) { msg.innerHTML = ctx.erro(err); }
+    exp.disabled = false;
+  };
 }
 
 function historico(imps) {
