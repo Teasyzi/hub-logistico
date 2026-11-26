@@ -18,7 +18,7 @@ let ok_ = 0, falhas = 0;
 const ok = (nome, cond) => { cond ? ok_++ : falhas++; $r.insertAdjacentHTML('beforeend', `<li>${cond ? '✓' : '✕ FALHA'} ${nome}</li>`); };
 const perto = (a, b, tol = 0.01) => Math.abs(a - b) <= tol;
 try {
-  const C = await import('../../docs/js/cargas.js?v=20261126-09');
+  const C = await import('../../docs/js/cargas.js?v=20261126-10');
 
   // Sintético: cabeçalho na 1ª linha, 2 revendas, 1 linha acertada.
   const wb = XLSX.utils.book_new();
@@ -55,7 +55,7 @@ try {
       const [a, n, s, cx] = esperado.split(',').map(Number);
       ok('real: bate com o esperado', f.abertas.length === a && r.revendas.NORTE.qtd === n && r.revendas.SUL.qtd === s && perto(r.revendas.NORTE.cxu + r.revendas.SUL.cxu, cx, 0.5));
     }
-    const V = await import('../../docs/js/views.js?v=20261126-09');
+    const V = await import('../../docs/js/views.js?v=20261126-10');
     const admin = q.get('admin') !== '0', pagina = q.get('pagina') || 'resumo';
     const dados = admin ? r : C.agregadoPublicadoCargas(r);
     const topo = `<h1>Cargas em aberto — prévia</h1>${V.abasCargas(pagina, data, admin)}`;

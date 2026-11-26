@@ -1,10 +1,11 @@
 // Telas do Transportes 1x1: RESUMO (como a aba da planilha) e uma aba por unidade (indicador, por dia, por motorista e
 // a lista de cargas, que o leitor vê só para consulta e o admin confere e edita). ⚙ Particularidades: lista para os
 // supervisores, com o possível editável. As funções pagina* são puras (dados → HTML) e servem à prévia local.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-09';
-import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261126-09';
-import * as T from './dados_transportes.js?v=20261126-09';
-import * as D from './dados.js?v=20261126-09';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-10';
+import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261126-10';
+import * as T from './dados_transportes.js?v=20261126-10';
+import { baixarTransportes } from './exportar_transportes.js?v=20261126-10';
+import * as D from './dados.js?v=20261126-10';
 
 const ABA_PADRAO = 'resumo';
 const f2 = (x) => fd(x, 2);
@@ -230,12 +231,25 @@ const rascunho = (ctx) => ctx.adminNaTela() && ctx.estado.modo === 'rascunho';
 const status = (data) => { const el = document.getElementById('statusAtualizacao'); if (el) el.textContent = data ? `Última atualização: ${data.toLocaleString('pt-BR')}` : 'Última atualização ainda não registrada'; };
 const manterRolagem = async (f) => { const y = window.scrollY; await f(); window.scrollTo(0, y); };
 
+// Botão da exportação do mês (RESUMO e as 4 unidades), igual à planilha. r precisa ter as cargas de todas as unidades.
+const BOTAO_TX = '<p><button class="btn" id="exportarTX">⬇ Exportar planilha do mês (.xlsx)</button> <span id="msgTX" class="small"></span></p>';
+function ligarExportacaoTX(r, mes) {
+  const b = document.getElementById('exportarTX');
+  if (b) b.onclick = async () => {
+    const msg = document.getElementById('msgTX');
+    b.disabled = true; msg.textContent = 'Montando a planilha…';
+    try { await baixarTransportes(r, mes); msg.textContent = '✓ planilha gerada'; } catch (err) { msg.textContent = err.message; }
+    b.disabled = false;
+  };
+}
+
 async function telaResumo(ctx, mes) {
   ctx.html('<p class="small">Calculando…</p>');
   const topo = await topoTX(ctx, 'resumo', mes, `Resumo · ${nomeMes(mes)}`);
   const r = rascunho(ctx) ? await T.calcularTXAoVivo(mes) : await T.lerTXPublicado(mes);
   const vazio = !rascunho(ctx) && !Object.keys(r.unidades).length;
-  ctx.html(vazio ? `${topo}<div class="aviso">O 1x1 de ${nomeMes(mes)} ainda não foi publicado.</div>` : paginaResumoTX(r, { mes, admin: rascunho(ctx), topo }));
+  ctx.html(vazio ? `${topo}<div class="aviso">O 1x1 de ${nomeMes(mes)} ainda não foi publicado.</div>` : paginaResumoTX(r, { mes, admin: rascunho(ctx), topo: topo + BOTAO_TX }));
+  ligarExportacaoTX(r, mes);
   status(r.atualizado || r.publicadoEm); ctx.ligarTopo((m) => `#/transportes/resumo/${m}`);
 }
 
@@ -244,15 +258,17 @@ async function telaUnidade(ctx, u, mes) {
   const topo = await topoTX(ctx, u, mes, `${UNIDADES_TX[u]} · ${nomeMes(mes)}`);
   if (!rascunho(ctx)) {
     const x = await T.lerTXPublicado(mes), d = x.unidades[u];
-    ctx.html(d?.temDados ? paginaUnidadeTX(u, { ...d, motoristas: d.motoristas || [], cargas: d.cargas || [] }, { mes, admin: false, topo }) : `${topo}<div class="aviso">O 1x1 de ${E(UNIDADES_TX[u])} em ${nomeMes(mes)} ainda não foi publicado.</div>`);
+    ctx.html(d?.temDados ? paginaUnidadeTX(u, { ...d, motoristas: d.motoristas || [], cargas: d.cargas || [] }, { mes, admin: false, topo: topo + BOTAO_TX }) : `${topo}<div class="aviso">O 1x1 de ${E(UNIDADES_TX[u])} em ${nomeMes(mes)} ainda não foi publicado.</div>`);
     status(x.publicadoEm); ctx.ligarTopo((m) => `#/transportes/${u}/${m}`); ligarFiltrosTX(document);
+    ligarExportacaoTX(x, mes);
     return;
   }
   const desenhar = async () => {
     const r = await T.calcularTXAoVivo(mes);
-    ctx.html(paginaUnidadeTX(u, r.unidades[u], { mes, admin: true, topo }) + (r.arquivos[u]?.length ? `<p class="small">Fonte: ${E(r.arquivos[u].join(', '))}.</p>` : ''));
+    ctx.html(paginaUnidadeTX(u, r.unidades[u], { mes, admin: true, topo: topo + BOTAO_TX }) + (r.arquivos[u]?.length ? `<p class="small">Fonte: ${E(r.arquivos[u].join(', '))}.</p>` : ''));
     status(r.atualizado); ctx.ligarTopo((m) => `#/transportes/${u}/${m}`);
     ligarFiltrosTX(document);
+    ligarExportacaoTX(r, mes);
     ligarEdicaoTX(document, { mes, salvar: T.gravarAjusteTX, depois: () => manterRolagem(desenhar), erro: ctx.erro });
   };
   await desenhar();

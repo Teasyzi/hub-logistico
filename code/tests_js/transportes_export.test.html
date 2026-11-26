@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Exportação do 1x1</title>
+<!-- Gera a exportação do 1x1 a partir das próprias linhas da planilha oficial em /amostras/ (sem Firebase), usando o
+     possível de cada linha como está nela, para comparar célula a célula. ?arq=<planilha>&mes=AAAA-MM -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<pre id="log">gerando…</pre>
+<script type="module">
+const T = await import('../../docs/js/transportes.js?v=20261126-10');
+const X = await import('../../docs/js/exportar_transportes.js?v=20261126-10');
+const q = new URLSearchParams(location.search), mes = q.get('mes');
+const wb = XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(q.get('arq')))).arrayBuffer(), { type: 'array' });
+const cargas = [], ajustes = {};
+const iso = (n) => new Date(Math.round((n - 25569) * 864e5)).toISOString().slice(0, 10);
+for (const [u, aba, c] of [['NORTE', 'DA - CB Norte', [1, 2, 3, 4, 5, 6, 7, 8, 9]], ['SUL', 'DA - CB Sul', [1, 2, 3, 4, 5, 6, 7, 8, 9]],
+  ['CBAR', 'DL - CB Barreiras', [1, null, null, null, 2, 3, 4, 5, 6]], ['CCRT', 'DL - CB Juazeiro', [1, null, null, null, 2, 3, 4, 5, 6]]]) {
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[aba], { header: 1, raw: true, defval: null, blankrows: true, range: 'A1:Y1000' });
+  const [cd, cr, cp, cv, cm, cn, cposs, caj, ccub] = c;
+  ajustes[u] = {};
+  for (let i = 7; i < rows.length; i++) {
+    const l = rows[i];
+    if (typeof l[cd] !== 'number' || typeof l[ccub] !== 'number') continue;
+    const chave = `r${i}`;
+    cargas.push({ unidade: u, data: iso(l[cd]), linha: i, chave, rota: cr ? l[cr] || '' : '', placa: cp ? l[cp] || '' : '', veiculo: cv ? String(l[cv] ?? '') : '',
+      motorista: String(l[cm] ?? ''), completo: String(l[cn] ?? ''), cub: l[ccub], aj: typeof l[caj] === 'number' ? l[caj] : null });
+    if (typeof l[cposs] === 'number') ajustes[u][chave] = { poss: l[cposs] };
+  }
+}
+const nomes = Object.fromEntries(Object.keys(T.UNIDADES_TX).map((u) => { const m = new Map(cargas.filter((c) => c.unidade === u).map((c) => [c.motorista, c.completo])); return [u, (s) => ({ nome: m.get(s), cadastrado: !!m.get(s) })]; }));
+const res = T.calcularTX({ mes, cargas, ajustes, nomes });
+if (q.has('leitor')) { const pub = JSON.parse(JSON.stringify({ unidades: T.agregadoPublicadoTX(res) })); pub.unidades.SUL.cargas = []; Object.assign(res, pub); }
+const bytes = await X.gerarTransportesXlsx(res, mes);
+let bin = ''; for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode(...bytes.subarray(i, i + 32768));
+const e = document.createElement('pre'); e.id = 'b64'; e.hidden = true; e.textContent = btoa(bin); document.body.append(e);
+document.getElementById('log').textContent = `${bytes.length} bytes · ` + Object.entries(res.unidades).map(([u, d]) => `${u}: ${d.cargas.filter((c) => c.conta).length}/${d.cargas.length} cargas`).join(' · ');
+</script>

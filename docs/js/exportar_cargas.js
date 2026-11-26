@@ -3,7 +3,7 @@
 // cargas.xlsx, code/tools/modelo_cargas.ps1) é a própria planilha sem clientes. "ATUALIZADO EM" leva a data da extração
 // (na planilha era HOJE(), que mudava o arquivo salvo a cada dia). A razão social só vai quando os dados a trazem
 // (rascunho do admin).
-import { REVENDAS } from './cargas.js?v=20261126-09';
+import { REVENDAS } from './cargas.js?v=20261126-10';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);
