@@ -1,9 +1,9 @@
 // Telas do acompanhamento Perdas de estoque (DLs). As funções pagina* são puras (dados → HTML) e servem à prévia
 // local; as tela* usam o Firestore e o contexto do app (ctx).
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-05';
-import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261126-05';
-import * as P from './dados_perdas.js?v=20261126-05';
-import * as D from './dados.js?v=20261126-05';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-06';
+import { DLS_PERDAS, MOTIVOS_PERDAS, ROTULO_MOTIVO, lerPlanilhaPerdas, calcularPerdas, divergenciasProdutos, comparaReferencia } from './perdas.js?v=20261126-06';
+import * as P from './dados_perdas.js?v=20261126-06';
+import * as D from './dados.js?v=20261126-06';
 
 const nf = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: n, maximumFractionDigits: n });
 const frc = (x) => (x == null ? '–' : `R$ ${nf(2).format(x)}`);
@@ -29,38 +29,6 @@ function avisosPerdas(c, d, mes) {
   if (!t.faturamento) itens.push('Sem o faturamento acumulado do DL: o % do KPI não é calculado. Confira a tarifa na Montagem ou informe em ⚙ Parâmetros.');
   if (!d.motivos.INVENTARIO.linhas) itens.push('Inventário do mês ainda não importado.');
   return itens.map((x) => `<div class="aviso">${x}</div>`).join('');
-}
-
-function cardDL(c, d, { mes, admin }) {
-  if (!d || !d.temDados) return `<section class="bloco"><div class="faixa">${E(DLS_PERDAS[c])}</div><div class="corpo"><div class="aviso">Sem dados de perdas em ${nomeMes(mes)}.</div>${admin ? `<a class="btn sec" href="#/perdas/importar/${mes}">Importar arquivos</a>` : ''}</div></section>`;
-  const t = d.totais;
-  return `<section class="bloco km-card"><div class="faixa">${E(d.nome)} <a class="btn sec" href="#/perdas/${c}/${mes}">Detalhe →</a></div><div class="corpo">
-<div class="km-disp"><div class="l">Perdas rota + estoque (KPI)</div><div class="v">${frc(t.rotaEstoque)}</div><div class="d">${t.pctKPI == null ? 'sem faturamento do mês' : `${fp2(t.pctKPI)} do faturamento acumulado`}</div></div>
-<table class="kv km-kv"><tbody>
-<tr><td>Total do mês</td><td>${frc(t.total)}</td></tr>
-<tr><td>Total em CX UNIT</td><td>${fcx(t.totalCx)}${t.pctVolume == null ? '' : ` · ${fp2(t.pctVolume)} do volume`}</td></tr>
-<tr><td>Custo por CX UNIT</td><td>${frc(t.custoCx)}</td></tr>
-${t.ajustePreco ? `<tr><td>Ajuste de preço</td><td>${frc(t.ajustePreco)}</td></tr><tr class="dest"><td>Perdas fech. op.</td><td>${frc(t.fechamentoOp)}</td></tr>` : ''}
-</tbody></table>${admin ? avisosPerdas(c, d, mes) : ''}</div></section>`;
-}
-
-function tabelaMotivosComparada(dls) {
-  const cs = Object.keys(DLS_PERDAS).filter((c) => dls[c]?.temDados);
-  if (!cs.length) return '';
-  const lin = (rot, f, cls = '') => `<tr class="${cls}"><td class="t">${rot}</td>${cs.map((c) => f(dls[c])).join('')}</tr>`;
-  const cel = (m) => `<td>${frc(m.rs)}</td><td>${fcx(m.cx)}</td><td>${fp2(m.pctVolume)}</td>`;
-  return `<h2>Por motivo</h2><div class="tw scroll"><table><thead><tr><th class="t" rowspan="2">Motivo</th>${cs.map((c) => `<th colspan="3"><a href="#/perdas/${c}/${dls[c].mes || ''}">${E(dls[c].nome)}</a></th>`).join('')}</tr>
-<tr>${cs.map(() => '<th>R$</th><th>CX UNIT</th><th>% volume</th>').join('')}</tr></thead><tbody>
-${MOTIVOS_PERDAS.map((k) => lin(ROTULO_MOTIVO[k], (d) => cel(d.motivos[k]))).join('')}
-${lin('Rota + estoque (KPI)', (d) => `<td>${frc(d.totais.rotaEstoque)}</td><td>${fcx(d.motivos.ROTA.cx + d.motivos.ESTOQUE.cx)}</td><td>${fp2(d.totais.volume ? (d.motivos.ROTA.cx + d.motivos.ESTOQUE.cx) / d.totais.volume : null)}</td>`, 'dest')}
-${lin('Total', (d) => `<td>${frc(d.totais.total)}</td><td>${fcx(d.totais.totalCx)}</td><td>${fp2(d.totais.pctVolume)}</td>`, 'tot')}
-</tbody></table></div>
-<p class="small">Perda em R$ e em CX UNIT (positivo = perda; negativo = sobra no inventário). Rota = MB59 tipo 928; estoque = 551; transporte = 928 com referência de transferência; inventário = diferenças de inventário, em caixa física × Fat.Conv2. O total soma os quatro motivos. O % do KPI usa só rota + estoque, sobre o faturamento acumulado do mês.</p>`;
-}
-
-export function paginaResumoPerdas(resultado, { mes, admin, topo }) {
-  const dls = Object.fromEntries(Object.entries(resultado.dls || {}).map(([c, d]) => [c, { ...d, mes }]));
-  return `${topo}<div class="g2 km-cards">${Object.keys(DLS_PERDAS).map((c) => cardDL(c, dls[c], { mes, admin })).join('')}</div>${tabelaMotivosComparada(dls)}`;
 }
 
 // Materiais sem cadastro, com o produto provável da base de referência (PRODUTOS.xlsx) em observação: ele não entra
@@ -92,40 +60,84 @@ function ligarConfirmacoes(ctx, recarregar) {
   };
 }
 
+// ---------------------------------------------------------------- página do DL: o mesmo quadro da aba Resumo da planilha
+// Ordem fixa das categorias de cada planilha; categoria nova (ou material sem cadastro) entra no fim.
+const CATEGORIAS_DL = {
+  CBAR: ['SSD', 'ENERGETICO', 'SUCO', 'DESTILADOS', 'AGUA', 'CERVEJA', 'BALAS/GOMAS', 'BISCOITO', 'CHA', 'ISOTONICO'],
+  CCRT: ['SSD', 'ENERGETICO', 'SUCO', 'CERVEJA', 'AGUA', 'DESTILADOS', 'BALAS/GOMAS', 'ISOTONICO', 'CHA', 'GAS CARBONICO', 'BISCOITO'],
+};
+const TITULO_DL = { CBAR: 'CBAR', CCRT: 'JUAZEIRO' };
+const zero = (x) => !x || Math.abs(x) < 0.005;
+// Formato contábil da planilha: "R$ 1.234,56", "-R$ 8,00" e "R$ -" no zero.
+const brl = (x) => (x == null ? '–' : zero(x) ? 'R$ -' : `${x < 0 ? '-' : ''}R$ ${nf(2).format(Math.abs(x))}`);
+const cxi = (x) => (x == null ? '–' : nf(0).format(Math.round(x) || 0));
+const pct = (x, casas) => (x == null || !Number.isFinite(x) ? '–' : `${nf(casas).format(x * 100 || 0)}%`);
+// Seta da planilha: perda (zero ou positivo) = ▼ vermelha; sobra (negativo) = ▲ verde.
+const seta = (x) => (x < -0.005 ? '<span class="t-up" title="sobra">▲</span> ' : '<span class="t-down" title="perda">▼</span> ');
+
+function quadroCategorias(c, d) {
+  const porNome = new Map(d.categorias.map((x) => [x.categoria, x]));
+  const nomes = [...CATEGORIAS_DL[c], ...d.categorias.map((x) => x.categoria).filter((n) => !CATEGORIAS_DL[c].includes(n))];
+  const ajuste = d.totais.ajustePreco || 0;
+  const linha = (nome, v) => {
+    const inv = v?.INVENTARIO || 0, rota = v?.ROTA || 0, est = v?.ESTOQUE || 0;
+    return `<tr><td class="t">${E(nome)}</td><td class="pd-inv">${brl(inv)}</td><td>${brl(rota)}</td><td>${brl(est)}</td><td class="pd-soma">${brl(rota + est)}</td><td class="pd-soma">${seta(inv + rota + est)}${brl(inv + rota + est)}</td><td class="pd-vao"></td><td class="pd-inv">${brl(v?.TRANSPORTE || 0)}</td></tr>`;
+  };
+  const m = d.motivos, inv = m.INVENTARIO.rs + ajuste, rota = m.ROTA.rs, est = m.ESTOQUE.rs;
+  return `<div class="pd-faixa">Perdas por categoria</div><div class="tw scroll"><table class="pd-tab pd-cat"><thead><tr><th class="t">Categoria</th><th class="pd-inv">Inventário</th><th>Rota</th><th>Estoque</th><th class="pd-soma">Perdas rota e estoque</th><th class="pd-soma">Perdas total</th><th class="pd-vao"></th><th class="pd-inv" title="Informativo: não entra em Perdas total">Transporte *</th></tr></thead><tbody>
+${nomes.map((n) => linha(n, porNome.get(n))).join('')}
+${linha('AJUSTES DE PREÇO', { INVENTARIO: ajuste })}
+<tr class="pd-total"><td class="t">TOTAL</td><td>${seta(inv)}${brl(inv)}</td><td>${seta(rota)}${brl(rota)}</td><td>${seta(est)}${brl(est)}</td><td>${seta(rota + est)}${brl(rota + est)}</td><td>${seta(inv + rota + est)}${brl(inv + rota + est)}</td><td class="pd-vao"></td><td>${brl(m.TRANSPORTE.rs)}</td></tr>
+</tbody></table></div>`;
+}
+
+function quadroProdutos(d) {
+  const lista = d.produtos.map((x) => ({ ...x, soma: x.INVENTARIO + x.ROTA + x.ESTOQUE })).sort((a, b) => b.soma - a.soma);
+  return `<div class="pd-faixa">Perdas por produto</div><div class="tw scroll"><table class="pd-tab pd-prod"><thead><tr><th class="t">Categoria</th><th class="t">Produto</th><th>Inventário</th><th>Rota</th><th>Estoque</th><th class="pd-soma">Perdas rota e estoque</th><th class="pd-soma">Total</th><th class="pd-vao"></th><th class="pd-inv" title="Informativo: não entra no Total">Transporte *</th></tr></thead><tbody>
+${lista.map((x) => `<tr><td class="t">${E(x.categoria)}</td><td class="t">${E(x.produto)}</td><td>${brl(x.INVENTARIO)}</td><td>${brl(x.ROTA)}</td><td>${brl(x.ESTOQUE)}</td><td class="pd-soma">${brl(x.ROTA + x.ESTOQUE)}</td><td class="pd-soma">${seta(x.soma)}${brl(x.soma)}</td><td class="pd-vao"></td><td class="pd-inv">${brl(x.TRANSPORTE)}</td></tr>`).join('')}
+</tbody></table></div><p class="small">* Transporte é informativo: não entra em Perdas total nem em Total.</p>`;
+}
+
+// Blocos "PERDAS EM CXS UNITÁRIAS": como na planilha, com o sinal do SAP (negativo = perda; positivo = sobra).
+// TOTAL CUSTO = soma dos valores do SAP; CUSTO P/ CX UNIT = TOTAL CUSTO ÷ TT PERDAS CX UNIT.
+function blocoCx(titulo, volume, cx, rs, partes = null) {
+  const lin = (rot, v, cls = '', parte = null) => `<tr class="${cls}"><td class="t">${rot}</td><td>${v}</td>${partes ? `<td class="pd-parte">${parte == null ? '' : pct(parte, 1)}</td>` : ''}</tr>`;
+  return `<div class="tw"><table class="pd-tab pd-cx"><thead><tr><th class="t" colspan="${partes ? 3 : 2}">${titulo}</th></tr></thead><tbody>
+${lin('VOLUME CX UNIT', cxi(volume))}
+${lin('TT PERDAS CX UNIT', cxi(0 - cx), 'pd-amarelo', partes?.cx)}
+${lin('%', pct(volume ? (0 - cx) / volume : null, 3))}
+${lin('CUSTO P/ CX UNIT', brl(cx ? rs / cx : 0))}
+${lin('TOTAL CUSTO', brl(0 - rs), 'pd-amarelo', partes?.rs)}
+</tbody></table></div>`;
+}
+
+function quadroCx(d) {
+  const t = d.totais, m = d.motivos;
+  const bloco = (k, titulo) => blocoCx(titulo, t.volume, m[k].cx, m[k].rs, { cx: t.totalCx ? m[k].cx / t.totalCx : null, rs: t.total ? m[k].rs / t.total : null });
+  return `${blocoCx('Perdas em CXS unitárias', t.volume, t.totalCx, t.total)}
+<div class="pd-quatro">${bloco('ESTOQUE', 'Estoque')}${bloco('ROTA', 'Rota')}${bloco('TRANSPORTE', 'Transporte')}${bloco('INVENTARIO', 'Inventário')}</div>
+<p class="small">Neste quadro vale o sinal do SAP, como na planilha: negativo = perda, positivo = sobra. Nas tabelas de categoria e produto, perda é positiva.</p>`;
+}
+
 export function paginaDLPerdas(c, d, { mes, admin, topo }) {
   if (!d || !d.temDados) return `${topo}<div class="aviso">Sem dados de perdas de ${E(DLS_PERDAS[c])} em ${nomeMes(mes)}.</div>`;
   const t = d.totais, m = d.motivos;
-  const tiles = `<div class="tiles">
-<div class="tile"><div class="l">Rota + estoque (KPI)</div><div class="v">${frc(t.rotaEstoque)}</div><div class="d">${t.pctKPI == null ? 'sem faturamento' : `${fp2(t.pctKPI)} do faturamento acumulado`}</div></div>
-<div class="tile"><div class="l">Total do mês</div><div class="v">${frc(t.total)}</div><div class="d">com inventário e transporte</div></div>
-<div class="tile"><div class="l">Total em CX UNIT</div><div class="v">${fcx(t.totalCx)}</div><div class="d">${t.pctVolume == null ? 'sem volume' : `${fp2(t.pctVolume)} do volume`}</div></div>
-<div class="tile"><div class="l">Custo por CX UNIT</div><div class="v">${frc(t.custoCx)}</div></div>
-${t.ajustePreco ? `<div class="tile"><div class="l">Perdas fech. op.</div><div class="v">${frc(t.fechamentoOp)}</div><div class="d">ajuste de preço ${frc(t.ajustePreco)}</div></div>` : ''}</div>`;
-  const linMot = (k) => `<tr><td class="t">${ROTULO_MOTIVO[k]}</td><td>${frc(m[k].rs)}</td><td>${fp(m[k].pctTotal, 1)}</td><td>${fcx(m[k].cx)}</td><td>${fp2(m[k].pctVolume)}</td><td>${frc(m[k].custoCx)}</td><td>${fi(m[k].linhas)}</td></tr>`;
-  const motivos = `<section class="bloco"><div class="faixa">Por motivo</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Motivo</th><th>R$</th><th>% do total</th><th>CX UNIT</th><th>% do volume</th><th>Custo por CX UNIT</th><th>Linhas</th></tr></thead><tbody>
-${MOTIVOS_PERDAS.map(linMot).join('')}
-<tr class="dest"><td class="t">Rota + estoque (KPI)</td><td>${frc(t.rotaEstoque)}</td><td>${fp(t.total ? t.rotaEstoque / t.total : null, 1)}</td><td>${fcx(m.ROTA.cx + m.ESTOQUE.cx)}</td><td>${fp2(t.volume ? (m.ROTA.cx + m.ESTOQUE.cx) / t.volume : null)}</td><td>${frc(m.ROTA.cx + m.ESTOQUE.cx ? t.rotaEstoque / (m.ROTA.cx + m.ESTOQUE.cx) : null)}</td><td></td></tr>
-<tr class="tot"><td class="t">Total</td><td>${frc(t.total)}</td><td>100%</td><td>${fcx(t.totalCx)}</td><td>${fp2(t.pctVolume)}</td><td>${frc(t.custoCx)}</td><td>${fi(MOTIVOS_PERDAS.reduce((s, k) => s + m[k].linhas, 0))}</td></tr>
-${m.VERIFICAR.linhas ? `<tr class="pv"><td class="t">Outros tipos de movimento (fora do total)</td><td>${frc(m.VERIFICAR.rs)}</td><td></td><td>${fcx(m.VERIFICAR.cx)}</td><td></td><td></td><td>${fi(m.VERIFICAR.linhas)}</td></tr>` : ''}
-</tbody></table></div>
-<table class="kv" style="max-width:560px;margin-top:10px"><tbody>
-<tr><td>Volume do DL (CX UNIT)</td><td>${fcx(t.volume)} <span class="small">${E(d.fontes?.volume || '')}</span></td></tr>
+  const kpi = `<table class="kv"><tbody>
+<tr><td>Perdas rota + estoque (KPI)</td><td>${frc(t.rotaEstoque)}</td></tr>
+<tr><td>% do faturamento acumulado</td><td>${fp2(t.pctKPI)}</td></tr>
 <tr><td>Faturamento acumulado</td><td>${frc(t.faturamento)} <span class="small">${E(d.fontes?.faturamento || '')}</span></td></tr>
-<tr><td>% KPI sobre a tendência (como era)</td><td>${fp2(t.pctKPITendencia)} <span class="small">faturamento tendência ${frc(t.fatTendencia)}</span></td></tr>
-</tbody></table></div></section>`;
-  const cats = `<section class="bloco"><div class="faixa">Por categoria (R$)</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Categoria</th><th>Inventário</th><th>Rota</th><th>Estoque</th><th>Rota + estoque</th><th>Transporte</th><th>Total</th></tr></thead><tbody>
-${d.categorias.map((x) => `<tr><td class="t">${E(x.categoria)}</td><td>${frc(x.INVENTARIO)}</td><td>${frc(x.ROTA)}</td><td>${frc(x.ESTOQUE)}</td><td>${frc(x.rotaEstoque)}</td><td>${frc(x.TRANSPORTE)}</td><td>${frc(x.total)}</td></tr>`).join('')}
-<tr class="tot"><td class="t">Total</td><td>${frc(m.INVENTARIO.rs)}</td><td>${frc(m.ROTA.rs)}</td><td>${frc(m.ESTOQUE.rs)}</td><td>${frc(t.rotaEstoque)}</td><td>${frc(m.TRANSPORTE.rs)}</td><td>${frc(t.total)}</td></tr></tbody></table></div></div></section>`;
-  const dias = d.porDia?.length ? `<section class="bloco"><div class="faixa">Por dia de lançamento (MB59, R$)</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Dia</th><th>Rota</th><th>Estoque</th><th>Transporte</th><th>Total</th></tr></thead><tbody>
-${d.porDia.map((x) => `<tr><td class="t">${fdata(x.data)}</td><td>${frc(x.ROTA)}</td><td>${frc(x.ESTOQUE)}</td><td>${frc(x.TRANSPORTE)}</td><td>${frc(x.ROTA + x.ESTOQUE + x.TRANSPORTE)}</td></tr>`).join('')}</tbody></table></div>
-<p class="small">O inventário não tem dia: entra só no mês.</p></div></section>` : '';
-  const linProd = (x) => `<tr><td class="t">${E(x.produto)}</td><td class="t">${E(x.categoria)}</td><td>${frc(x.INVENTARIO)}</td><td>${frc(x.ROTA)}</td><td>${frc(x.ESTOQUE)}</td><td>${frc(x.TRANSPORTE)}</td><td>${frc(x.total)}</td><td>${fcx(x.cx)}</td></tr>`;
-  const cabProd = '<thead><tr><th class="t">Produto</th><th class="t">Categoria</th><th>Inventário</th><th>Rota</th><th>Estoque</th><th>Transporte</th><th>Total R$</th><th>CX UNIT</th></tr></thead>';
-  const prods = `<section class="bloco"><div class="faixa">Por produto</div><div class="corpo"><div class="tw scroll"><table>${cabProd}<tbody>${d.produtos.slice(0, 30).map(linProd).join('')}</tbody></table></div>
-${d.produtos.length > 30 ? `<details><summary class="small">Ver todos os ${fi(d.produtos.length)} produtos</summary><div class="tw scroll"><table>${cabProd}<tbody>${d.produtos.slice(30).map(linProd).join('')}</tbody></table></div></details>` : ''}
-<p class="small">Ordenado pelo total. Negativo = sobra no inventário maior que a perda.</p></div></section>`;
+<tr><td>Volume do DL (CX UNIT)</td><td>${fcx(t.volume)} <span class="small">${E(d.fontes?.volume || '')}</span></td></tr>
+<tr><td>% sobre a tendência (como era)</td><td>${fp2(t.pctKPITendencia)} <span class="small">faturamento tendência ${frc(t.fatTendencia)}</span></td></tr>
+${t.ajustePreco ? `<tr><td>Perdas fech. op.</td><td>${frc(t.fechamentoOp)} <span class="small">ajuste de preço ${frc(t.ajustePreco)}</span></td></tr>` : ''}
+${m.VERIFICAR.linhas ? `<tr><td>Outros tipos de movimento (fora do total)</td><td>${frc(m.VERIFICAR.rs)} <span class="small">${fi(m.VERIFICAR.linhas)} linha(s)</span></td></tr>` : ''}
+</tbody></table>`;
+  const dias = d.porDia?.length ? `<h3>Por dia de lançamento (MB59)</h3><div class="tw scroll"><table><thead><tr><th class="t">Dia</th><th>Rota</th><th>Estoque</th><th>Transporte</th><th>Total</th></tr></thead><tbody>
+${d.porDia.map((x) => `<tr><td class="t">${fdata(x.data)}</td><td>${frc(x.ROTA)}</td><td>${frc(x.ESTOQUE)}</td><td>${frc(x.TRANSPORTE)}</td><td>${frc(x.ROTA + x.ESTOQUE + x.TRANSPORTE)}</td></tr>`).join('')}</tbody></table></div>` : '';
   const semCad = admin && Array.isArray(d.semCadastro) && d.semCadastro.length ? `<section class="bloco"><div class="faixa">Materiais sem cadastro de produto</div><div class="corpo">${tabelaSemCadastro(d.semCadastro.map((s) => ({ ...s, c })), mes)}</div></section>` : '';
-  return `${topo}${tiles}${admin ? avisosPerdas(c, d, mes) : ''}${motivos}${semCad}${cats}${dias}${prods}`;
+  return `${topo}${admin ? avisosPerdas(c, d, mes) : ''}
+<div class="pd-titulo"><b>PERDAS DE ESTOQUE ${TITULO_DL[c]}</b>${d.ultimoDia ? `<span>ATUALIZADO DIA: ${fdata(d.ultimoDia)}</span>` : ''}</div>
+<div class="pd-planilha"><div class="pd-esq">${quadroCategorias(c, d)}${quadroProdutos(d)}</div><div class="pd-dir">${quadroCx(d)}</div></div>
+${semCad}<details class="pd-mais"><summary>KPI e perdas por dia</summary>${kpi}${dias}</details>`;
 }
 
 // ---------------------------------------------------------------- telas (Firestore)
@@ -135,11 +147,11 @@ async function topoPerdas(ctx, aba, mes, titulo, comMes = true) {
     const meses = new Set(ctx.adminNaTela() ? mesesAdmin(mes, await P.mesesPerdasPublicados()) : await P.mesesPerdasPublicados());
     meses.add(mes);
     sel = seletorMes([...meses].sort().reverse(), mes);
-    if (ctx.adminNaTela() && ['resumo', 'CBAR', 'CCRT'].includes(aba)) {
+    if (ctx.adminNaTela() && ['CBAR', 'CCRT'].includes(aba)) {
       sel += ` · <select id="selModo"><option value="rascunho" ${ctx.estado.modo === 'rascunho' ? 'selected' : ''}>Rascunho</option><option value="publicado" ${ctx.estado.modo === 'publicado' ? 'selected' : ''}>Publicado</option></select>`;
     }
   }
-  return `<h1>Perdas de estoque DLs — ${E(titulo)}</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasPerdas(aba, mes, ctx.adminNaTela())}`;
+  return `<h1>Perdas de estoque — ${E(titulo)}</h1><p class="sub">${sel}</p><p id="statusAtualizacao" class="status-atualizacao" role="status"></p>${abasPerdas(aba, mes, ctx.adminNaTela())}`;
 }
 const rascunho = (ctx) => ctx.adminNaTela() && ctx.estado.modo === 'rascunho';
 async function resultadoPerdas(ctx, mes) {
@@ -149,17 +161,9 @@ async function resultadoPerdas(ctx, mes) {
 }
 const status = (data) => { const el = document.getElementById('statusAtualizacao'); if (el) el.textContent = data ? `Última atualização: ${data.toLocaleString('pt-BR')}` : 'Última atualização ainda não registrada'; };
 
-async function telaResumo(ctx, mes) {
-  ctx.html('<p class="small">Calculando perdas…</p>');
-  const topo = await topoPerdas(ctx, 'resumo', mes, nomeMes(mes)), r = await resultadoPerdas(ctx, mes);
-  const vazio = !Object.values(r.dls || {}).some((d) => d?.temDados);
-  ctx.html(paginaResumoPerdas(r, { mes, admin: rascunho(ctx), topo }) + (vazio && !rascunho(ctx) ? `<div class="aviso">As perdas de ${nomeMes(mes)} ainda não foram publicadas.</div>` : ''));
-  status(r.atualizado); ctx.ligarTopo((m) => `#/perdas/resumo/${m}`);
-}
-
 async function telaDL(ctx, c, mes) {
   ctx.html('<p class="small">Calculando perdas…</p>');
-  const topo = await topoPerdas(ctx, c, mes, `${DLS_PERDAS[c]} · ${nomeMes(mes)}`), r = await resultadoPerdas(ctx, mes);
+  const topo = await topoPerdas(ctx, c, mes, DLS_PERDAS[c]), r = await resultadoPerdas(ctx, mes);
   ctx.html(paginaDLPerdas(c, r.dls?.[c], { mes, admin: rascunho(ctx), topo }));
   status(r.atualizado); ctx.ligarTopo((m) => `#/perdas/${c}/${m}`);
   ligarConfirmacoes(ctx, () => telaDL(ctx, c, mes));
@@ -197,7 +201,7 @@ async function telaImportar(ctx, mes) {
         rows += `<tr><td class="t">${E(f.name)}</td><td class="t">${E(x.tipo + extra)}</td><td>${fi(x.movimentos.length)}</td><td>${fi(x.inventario.length)}</td><td class="t">${E(meses)}</td><td class="st ok">Importado</td></tr>`;
       } catch (e) { rows += `<tr><td class="t">${E(f.name)}</td><td colspan="5" class="st no">${E(e.message)}</td></tr>`; }
     }
-    document.getElementById('res').innerHTML = `<h2>Resultado</h2><div class="tw"><table><thead><tr><th class="t">Arquivo</th><th class="t">Conteúdo</th><th>MB59</th><th>Inventário</th><th class="t">Mês</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><p><a class="btn" href="#/perdas/resumo/${mes}">Conferir rascunho</a></p>`;
+    document.getElementById('res').innerHTML = `<h2>Resultado</h2><div class="tw"><table><thead><tr><th class="t">Arquivo</th><th class="t">Conteúdo</th><th>MB59</th><th>Inventário</th><th class="t">Mês</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><p><a class="btn" href="#/perdas/CBAR/${mes}">Conferir rascunho</a></p>`;
     document.getElementById('hist').innerHTML = historico(await D.ultimasImportacoes('perdas'));
   };
   const drop = document.getElementById('drop');

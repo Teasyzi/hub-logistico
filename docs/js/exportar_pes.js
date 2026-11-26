@@ -1,5 +1,5 @@
 // Mapeamento PES → modelo oficial; o fluxo OOXML compartilhado fica em xlsm.js.
-import { abrirModeloXlsm, lerAbaXlsm, definirNumeroXlsm, definirTextoXlsm, baixarModeloXlsm } from './xlsm.js?v=20261126-05';
+import { abrirModeloXlsm, lerAbaXlsm, definirNumeroXlsm, definirTextoXlsm, baixarModeloXlsm } from './xlsm.js?v=20261126-06';
 
 function preencherAba(ws, placar, data) {
   const porChave = Object.fromEntries(placar.linhas.map((x) => [x.k, x]));

@@ -2,7 +2,7 @@
 <meta charset="utf-8">
 <title>Prévia Perdas</title>
 <!-- Prévia local das telas de Perdas, sem Firebase. Os arquivos vêm de /amostras/:
-     ?mes=AAAA-MM&arqs=<arquivo1>|<arquivo2>|…&pagina=resumo|CBAR|CCRT[&fat_CBAR=…&fat_CCRT=…]
+     ?mes=AAAA-MM&arqs=<arquivo1>|<arquivo2>|…&pagina=CBAR|CCRT[&fat_CBAR=…&fat_CCRT=…]
      Também confere os números de nov/26 (planilhas de Perdas) contra os valores calculados à mão. -->
 <link rel="stylesheet" href="../../docs/css/hub.css">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -10,7 +10,7 @@
 <script type="module">
 const P = await import('../../docs/js/perdas.js');
 const T = await import('../../docs/js/perdas_telas.js');
-const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'resumo';
+const q = new URLSearchParams(location.search), mes = q.get('mes') || '2026-11', pagina = q.get('pagina') || 'CBAR';
 const dados = { CBAR: { movimentos: [], inventario: [] }, CCRT: { movimentos: [], inventario: [] } };
 const bases = {};
 let referencia = null;
@@ -33,7 +33,6 @@ const res = P.calcularPerdas({ mes, dados, bases, referencia, montagem });
 window.referencia = referencia;
 window.divergencias = P.divergenciasProdutos(bases);
 const topo = (aba, t) => `<h1>Perdas de estoque DLs — ${t} (prévia)</h1>${T.abasPerdas(aba, mes, true)}`;
-document.getElementById('app').innerHTML = pagina === 'resumo' ? T.paginaResumoPerdas(res, { mes, admin: true, topo: topo('resumo', 'Resumo') })
-  : T.paginaDLPerdas(pagina, res.dls[pagina], { mes, admin: true, topo: topo(pagina, res.dls[pagina].nome) });
+document.getElementById('app').innerHTML = T.paginaDLPerdas(pagina, res.dls[pagina], { mes, admin: true, topo: topo(pagina, res.dls[pagina].nome) });
 window.resultado = res; window.pronto = true;
 </script>

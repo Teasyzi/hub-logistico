@@ -207,3 +207,22 @@ svg text.fr-pct{font-size:10px;font-weight:700}svg text.fr-pct.ok{fill:var(--goo
 .kpi-kardex .faixa{background:var(--row)}
 @media(max-width:1280px){.kpi-grade{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.kpi-grade{grid-template-columns:minmax(0,1fr)}}
+/* Perdas: o quadro da aba Resumo da planilha (categoria e produto à esquerda, CX UNIT à direita) */
+.pd-titulo{display:flex;flex-direction:column;margin:6px 0 10px;font-size:14px}.pd-titulo span{color:var(--accent);font-weight:750}
+.pd-planilha{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:14px;align-items:start}
+.pd-esq,.pd-dir{display:flex;flex-direction:column;gap:10px;min-width:0}
+.pd-faixa{background:var(--total);color:var(--total-ink);font-weight:800;font-size:12px;text-align:center;text-transform:uppercase;padding:5px 8px}
+.pd-tab th,.pd-tab td{font-size:12px;padding:4px 6px;white-space:nowrap}.pd-tab th{white-space:normal;text-align:center}.pd-tab th.t{text-align:left}
+.pd-tab tbody tr:nth-child(even) td{background:var(--surface)}
+.pd-tab th.pd-soma{background:var(--section);color:var(--section-ink)}.pd-tab tbody tr td.pd-soma{background:var(--section)}
+.pd-tab th.pd-inv{background:var(--media);color:var(--ink)}.pd-tab tbody tr td.pd-inv{background:var(--media)}
+.pd-tab th.pd-vao,.pd-tab tbody tr td.pd-vao{background:var(--surface);width:6px;padding:0;border-bottom:0}
+.pd-tab tbody tr.pd-total td{background:var(--section);font-weight:800}.pd-tab tbody tr.pd-total td.pd-vao{background:var(--surface)}
+.pd-prod td:nth-child(2){white-space:normal;min-width:150px}
+.pd-quatro{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pd-cx th,.pd-cx td{font-size:11px;padding:4px 5px}.pd-cx td.t{letter-spacing:0}
+.pd-cx tbody tr.pd-amarelo td{background:var(--total);color:var(--total-ink);font-weight:700}
+.pd-cx tbody tr td.pd-parte{background:var(--surface);color:var(--ink);font-weight:400;width:1%}
+.pd-mais{margin-top:16px}.pd-mais summary{cursor:pointer;font-weight:700;text-transform:uppercase;font-size:12px;margin-bottom:8px}.pd-mais .kv{max-width:620px}
+@media(max-width:1280px){.pd-planilha{grid-template-columns:minmax(0,1fr)}.pd-dir{order:-1;max-width:560px}}
+@media(max-width:520px){.pd-quatro{grid-template-columns:minmax(0,1fr)}}
