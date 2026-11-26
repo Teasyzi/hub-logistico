@@ -7,8 +7,8 @@
 //   meta/publicacoes_perdas         {meses:[...]}
 import { db, auth } from './firebase.js';
 import { doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { calcularPerdas, agregadoPublicadoPerdas, DLS_PERDAS } from './perdas.js?v=20261126-03';
-import { calcularAoVivo } from './dados.js?v=20261126-03';
+import { calcularPerdas, agregadoPublicadoPerdas, DLS_PERDAS } from './perdas.js?v=20261126-04';
+import { calcularAoVivo } from './dados.js?v=20261126-04';
 
 const refDados = (dl, mes) => doc(db, 'perdas_dados', `${dl}_${mes}`);
 const refPar = (id) => doc(db, 'perdas_parametro', id);

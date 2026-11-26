@@ -12,10 +12,10 @@ import { db, auth } from './firebase.js';
 import {
   collection, doc, getDoc, getDocs, query, where, writeBatch, setDoc, addDoc, serverTimestamp, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { calcular, motivos } from './calc.js?v=20261126-03';
-import { placarPES } from './pes.js?v=20261126-03';
-import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261126-03';
-import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261126-03';
+import { calcular, motivos } from './calc.js?v=20261126-04';
+import { placarPES } from './pes.js?v=20261126-04';
+import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261126-04';
+import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261126-04';
 
 export const UNIDADES = {
   CBAR: { nome: 'DL Barreiras', cor: 1 },
@@ -41,15 +41,47 @@ async function gravarEmLotes(ops) {  // ops: [[ref, dados, {merge}]]
   }
 }
 
+// Um mesmo número de transporte pode aparecer em dias diferentes (ex.: CBAR 5188299 em 18/11 e 25/11).
+// A chave antiga (centro_transporte) fazia um dia sobrescrever o outro; agora a chave tem a data.
+// Antes de regravar, apaga os lançamentos antigos dos dias do arquivo (só desses dias).
+async function apagarDias(col, linhas, contem) {
+  const grupos = new Map();
+  for (const l of linhas) {
+    const k = `${l.centro}|${l.data.slice(0, 7)}`;
+    if (!grupos.has(k)) grupos.set(k, new Set());
+    grupos.get(k).add(l.data);
+  }
+  const apagar = [];
+  for (const [k, datas] of grupos) {
+    const [centro, mes] = k.split('|');
+    const s = await getDocs(query(collection(db, col), where('centro', '==', centro), where('mes', '==', mes)));
+    for (const d of s.docs) if (contem(d.data(), datas)) apagar.push(d.ref);
+  }
+  for (let i = 0; i < apagar.length; i += 400) {
+    const b = writeBatch(db);
+    for (const ref of apagar.slice(i, i + 400)) b.delete(ref);
+    await b.commit();
+  }
+}
+
 export async function gravarVenda(linhas) {
-  await gravarEmLotes(linhas.map((v) => [doc(db, 'venda', `${v.centro}_${v.transporte}`),
-    { centro: v.centro, mes: v.data.slice(0, 7), data: v.data, cxf: v.cxf, cxu: v.cxu }]));
+  await apagarDias('venda', linhas, (x, datas) => datas.has(x.data));
+  // Duas linhas do mesmo transporte no mesmo dia somam (o volume é o total do dia).
+  const porChave = new Map();
+  for (const v of linhas) {
+    const k = `${v.centro}_${v.transporte}_${v.data}`;
+    const x = porChave.get(k) || { centro: v.centro, mes: v.data.slice(0, 7), data: v.data, cxf: 0, cxu: 0 };
+    x.cxf += v.cxf || 0; x.cxu += v.cxu || 0;
+    porChave.set(k, x);
+  }
+  await gravarEmLotes([...porChave].map(([k, d]) => [doc(db, 'venda', k), d]));
 }
 
 export async function gravarRetorno(linhas) {
+  await apagarDias('retorno', linhas, (x, datas) => (x.itens || []).some((i) => datas.has(i.data)));
   const porT = new Map();
   for (const r of linhas) {
-    const k = `${r.centro}_${r.transporte}`;
+    const k = `${r.centro}_${r.transporte}_${r.data}`;
     if (!porT.has(k)) porT.set(k, { centro: r.centro, mes: r.data.slice(0, 7), data: r.data, itens: [] });
     porT.get(k).itens.push({ tipo: r.tipo, data: r.data, cli: r.cli, mot: r.mot, ext: r.ext, cxf: r.cxf, cxu: r.cxu });
   }
