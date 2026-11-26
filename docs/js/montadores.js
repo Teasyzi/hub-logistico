@@ -1,4 +1,4 @@
-import { lerCadastroMontadores, gravarCadastroMontadores, gravarDiasMontadores, lerDiasMontadores, lerMesesMontadores } from './dados_montadores.js?v=20261126-14';
+import { lerCadastroMontadores, gravarCadastroMontadores, gravarDiasMontadores, lerDiasMontadores, lerMesesMontadores } from './dados_montadores.js?v=20261126-15';
 
 const BASES = { 'CB NORTE': 'NORTE', 'CB SUL': 'SUL', 'LOG I - BARREIRAS': 'CBAR', 'LOG II - JUAZEIRO': 'CCRT' };
 const NUM = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;

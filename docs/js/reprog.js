@@ -231,7 +231,7 @@ export function revendaPeloCadastroRP(clis, bases) {
 
 // ---------------------------------------------------------------- Resumo (como a aba Resumo da planilha)
 // dia = {clientes: [{cli, nome, valor, ped, itens}], dias: {cli: n}}; base = {clientes, vends, sups}; anterior = {dia, dias} | null.
-// Linhas ordenadas por DIAS REPROGRAMADOS (maior primeiro); sem dias digitados, pelo do dia anterior; empate na ordem do relatório.
+// As linhas ficam na ordem do relatório TXT (o maior número de dias vem primeiro nele): o Hub não reordena.
 export function resumoRP(dia, base, anterior = null) {
   const dias = dia?.dias || {}, ant = anterior?.dias || {}, cad = base?.clientes || {};
   const linhas = (dia?.clientes || []).map((c, i) => {
@@ -243,8 +243,6 @@ export function resumoRP(dia, base, anterior = null) {
       valor: c.valor ?? null, ped: c.ped ?? null, itens: c.itens ?? null,
     };
   });
-  const chave = (x) => x.dias ?? x.anterior ?? 0;
-  linhas.sort((a, b) => chave(b) - chave(a) || a.i - b.i);
   // Quadro por supervisor (E:G): código, nome e clientes reprogramados; ordem do código.
   const sups = new Map();
   for (const x of linhas) { const k = x.sup || '—'; const s = sups.get(k) || { sup: k, nome: x.supNome, n: 0 }; s.n++; sups.set(k, s); }

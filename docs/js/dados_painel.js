@@ -1,17 +1,17 @@
 // Leitura dos números das prévias do painel principal (só o admin vê; usa os dados atuais do rascunho).
 // Cada função devolve o formato esperado por painel.js, ou null quando não há dado.
-import * as D from './dados.js?v=20261126-14';
-import { calcularPerdasAoVivo } from './dados_perdas.js?v=20261126-14';
-import { calcularRetornoAoVivo } from './dados_retorno.js?v=20261126-14';
-import { calcularTXAoVivo } from './dados_transportes.js?v=20261126-14';
-import { calcularFRAoVivo } from './dados_fillrate.js?v=20261126-14';
-import { lerEfetivoGV } from './dados_gestao.js?v=20261126-14';
-import { lerEfetivoKPI } from './dados_kpi.js?v=20261126-14';
-import { diasGravadosRP, lerDiaRP } from './dados_reprog.js?v=20261126-14';
-import { dadosMontadores, calcularMontadores } from './montadores.js?v=20261126-14';
-import { CELULAS_KPI, calcularKPI, farolKPI, temDadosKPI } from './kpi.js?v=20261126-14';
-import { calcularAnoGV } from './gestao.js?v=20261126-14';
-import { resumoTX } from './transportes.js?v=20261126-14';
+import * as D from './dados.js?v=20261126-15';
+import { calcularPerdasAoVivo } from './dados_perdas.js?v=20261126-15';
+import { calcularRetornoAoVivo } from './dados_retorno.js?v=20261126-15';
+import { calcularTXAoVivo } from './dados_transportes.js?v=20261126-15';
+import { calcularFRAoVivo } from './dados_fillrate.js?v=20261126-15';
+import { lerEfetivoGV } from './dados_gestao.js?v=20261126-15';
+import { lerEfetivoKPI } from './dados_kpi.js?v=20261126-15';
+import { diasGravadosRP, lerDiaRP } from './dados_reprog.js?v=20261126-15';
+import { dadosMontadores, calcularMontadores } from './montadores.js?v=20261126-15';
+import { CELULAS_KPI, calcularKPI, farolKPI, temDadosKPI } from './kpi.js?v=20261126-15';
+import { calcularAnoGV } from './gestao.js?v=20261126-15';
+import { resumoTX } from './transportes.js?v=20261126-15';
 
 const DLS = ['CBAR', 'CCRT'], TODAS = ['NORTE', 'SUL', 'CBAR', 'CCRT'];
 const porChave = async (chaves, f) => Object.fromEntries(await Promise.all(chaves.map(async (c) => [c, await f(c)])));

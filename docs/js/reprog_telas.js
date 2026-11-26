@@ -4,11 +4,11 @@
 // Admin (rascunho): também pedidos, itens e valor do dia, o detalhe de cada cliente e ✎ Editar dias, com o número do
 // dia anterior que foi feito ao lado de cada cliente. Leitores: só códigos (sem nomes), cidade, dia de rota e dias.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd } from './views.js?v=20261126-14';
-import { REVENDAS_RP, EMPRESA_RP, fdataRP, resumoRP, farolRP, lerDiasRP, lerTxtRP, ehTxtRP, lerPlanilhaRP, revendaPeloCadastroRP } from './reprog.js?v=20261126-14';
-import { baixarReprogRP } from './exportar_reprog.js?v=20261126-14';
-import * as P from './dados_reprog.js?v=20261126-14';
-import * as D from './dados.js?v=20261126-14';
+import { E, fi, fd } from './views.js?v=20261126-15';
+import { REVENDAS_RP, EMPRESA_RP, fdataRP, resumoRP, farolRP, lerDiasRP, lerTxtRP, ehTxtRP, lerPlanilhaRP, revendaPeloCadastroRP } from './reprog.js?v=20261126-15';
+import { baixarReprogRP } from './exportar_reprog.js?v=20261126-15';
+import * as P from './dados_reprog.js?v=20261126-15';
+import * as D from './dados.js?v=20261126-15';
 
 const fr2 = (v) => (v == null ? '' : `R$ ${fd(v, 2)}`);
 
@@ -88,7 +88,7 @@ export function paginaRevendaRP(u, x, { dia, base, anterior, admin, editar = fal
   const titulo = `<section class="bloco"><div class="faixa">${E(EMPRESA_RP)} - ${E(REVENDAS_RP[u])} · CLIENTES REPROGRAMADOS · ${E(fdataRP(dia))}</div><div class="corpo">`
     + `<div class="g2 rp-lado">${quadroSup(u, r, admin)}${admin && editar ? indicadores(r, anterior) : ''}</div></div></section>`;
   const nota = admin && editar
-    ? '<p class="small">Para preencher vários de uma vez: digite o dia no primeiro cliente: os clientes vazios abaixo dele recebem o mesmo número (respeita a busca e o filtro de supervisor). A lista está na ordem do dia anterior; ela se reordena depois de gravar.</p>'
+    ? '<p class="small">Para preencher vários de uma vez: digite o dia no primeiro cliente: os clientes vazios abaixo dele recebem o mesmo número (respeita a busca e o filtro de supervisor). A lista fica sempre na ordem do relatório TXT.</p>'
     : admin ? '<p class="small">Como a aba Resumo da planilha. Clique no código para ver os pedidos e os produtos do dia. Farol: 1 dia amarelo, 2 ou mais vermelho.</p>'
       : '<p class="small">Clientes com pedido reprogramado no dia. Farol: 1 dia amarelo, 2 ou mais vermelho.</p>';
   return `${topo}${botoes}${avisos.map((a) => `<div class="aviso">${a}</div>`).join('')}${vazio ? `<div class="aviso">Sem clientes reprogramados de ${E(REVENDAS_RP[u])} em ${E(fdataRP(dia))}.</div>` : ''}${titulo}${nota}${vazio ? '' : lista(r, { admin, editar, anterior })}`;
