@@ -4,11 +4,11 @@
 // Admin (rascunho): também pedidos, itens e valor do dia, o detalhe de cada cliente e ✎ Editar dias, com o número do
 // dia anterior que foi feito ao lado de cada cliente. Leitores: só códigos (sem nomes), cidade, dia de rota e dias.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd } from './views.js?v=20261126-11';
-import { REVENDAS_RP, EMPRESA_RP, fdataRP, resumoRP, farolRP, lerDiasRP, lerTxtRP, ehTxtRP, lerPlanilhaRP, revendaPeloCadastroRP } from './reprog.js?v=20261126-11';
-import { baixarReprogRP } from './exportar_reprog.js?v=20261126-11';
-import * as P from './dados_reprog.js?v=20261126-11';
-import * as D from './dados.js?v=20261126-11';
+import { E, fi, fd } from './views.js?v=20261126-12';
+import { REVENDAS_RP, EMPRESA_RP, fdataRP, resumoRP, farolRP, lerDiasRP, lerTxtRP, ehTxtRP, lerPlanilhaRP, revendaPeloCadastroRP } from './reprog.js?v=20261126-12';
+import { baixarReprogRP } from './exportar_reprog.js?v=20261126-12';
+import * as P from './dados_reprog.js?v=20261126-12';
+import * as D from './dados.js?v=20261126-12';
 
 const fr2 = (v) => (v == null ? '' : `R$ ${fd(v, 2)}`);
 
@@ -221,7 +221,7 @@ async function telaRevenda(ctx, u, dia, editar = false) {
   if (b) b.onclick = async () => {
     const msg = document.getElementById('msgRP');
     b.disabled = true; msg.textContent = 'Montando a planilha…';
-    try { await baixarReprogRP(u, dia, resumoRP(d, base, anterior)); msg.textContent = '✓ planilha gerada'; } catch (err) { msg.innerHTML = ctx.erro(err); }
+    try { await baixarReprogRP(u, dia, resumoRP(d, base, anterior), { base }); msg.textContent = '✓ planilha gerada'; } catch (err) { msg.innerHTML = ctx.erro(err); }
     b.disabled = false;
   };
 }

@@ -5,14 +5,14 @@
      ?arquivos=<arq1>|<arq2>|…&pagina=NORTE|SUL|importar[&dia=AAAA-MM-DD][&admin=0][&editar=1][&diaResumo=AAAA-MM-DD]
      Aceita o TXT VDPDR007, a BASE ATUALIZADA, a planilha antiga do Resumo (dia = diaResumo) e a "dia a dia".
      window.exportarTeste(u) gera a planilha e devolve a aba Resumo relida (algumas células). -->
-<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-11">
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-12">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <main id="app"><p>carregando…</p></main>
 <script type="module">
-const R = await import('../../docs/js/reprog.js?v=20261126-11');
-const T = await import('../../docs/js/reprog_telas.js?v=20261126-11');
-const X = await import('../../docs/js/exportar_reprog.js?v=20261126-11');
+const R = await import('../../docs/js/reprog.js?v=20261126-12');
+const T = await import('../../docs/js/reprog_telas.js?v=20261126-12');
+const X = await import('../../docs/js/exportar_reprog.js?v=20261126-12');
 const q = new URLSearchParams(location.search), pagina = q.get('pagina') || 'NORTE', admin = q.get('admin') !== '0';
 let editar = q.get('editar') === '1';
 // "Firestore" em memória: dias[u][dia] = {clientes, pedidos, prod, dias}; bases[u].
@@ -55,20 +55,20 @@ const render = () => {
   h = T.paginaRevendaRP(u, x, { dia, base: bases[u], anterior: anteriorDe(u, dia), admin: true, editar, topo });
   document.getElementById('app').innerHTML = h;
   T.ligarPaginaRP(document, x, { editar, salvar: async (ed) => { for (const [c, n] of Object.entries(ed)) { if (n == null) delete x.dias[c]; else x.dias[c] = n; } }, depois: (e) => { editar = e; render(); } });
-  document.getElementById('exportarRP')?.addEventListener('click', () => X.baixarReprogRP(u, dia, resumoDe(u, dia)));
+  document.getElementById('exportarRP')?.addEventListener('click', () => X.baixarReprogRP(u, dia, resumoDe(u, dia), { base: bases[u] }));
 };
 render();
 window.exportarTeste = async (u = pagina, dia = q.get('dia') || listaDias(u)[0]) => {
-  const bytes = await X.gerarReprogRP(u, dia, resumoDe(u, dia));
+  const bytes = await X.gerarReprogRP(u, dia, resumoDe(u, dia), { base: bases[u] });
   const lido = XLSX.read(bytes, { type: 'array', cellFormula: true }), ws = lido.Sheets.Resumo;
   const pega = (a) => ({ v: ws[a]?.v, f: ws[a]?.f });
   return { bytes: bytes.length, abas: lido.SheetNames, ref: ws['!ref'], celulas: Object.fromEntries(['A1', 'E2', 'E3', 'F3', 'G3', 'E8', 'F9', 'G9', 'B11', 'J11', 'B12', 'C12', 'E12', 'G12', 'I12', 'J12'].map((a) => [a, pega(a)])) };
 };
-window.gerarBytes = async (u = pagina, dia = q.get('dia') || listaDias(u)[0]) => Array.from(await X.gerarReprogRP(u, dia, resumoDe(u, dia)));
+window.gerarBytes = async (u = pagina, dia = q.get('dia') || listaDias(u)[0]) => Array.from(await X.gerarReprogRP(u, dia, resumoDe(u, dia), { base: bases[u] }));
 window.dias = dias; window.bases = bases; window.lidos = lidos; window.pronto = true;
 // ?dump=1: troca a página pelo .xlsx em base64 (para o Edge sem janela gravar o arquivo e conferir no Excel).
 if (q.get('dump')) {
-  const b = await X.gerarReprogRP(pagina, q.get('dia') || listaDias(pagina)[0], resumoDe(pagina, q.get('dia') || listaDias(pagina)[0]));
+  const b = await X.gerarReprogRP(pagina, q.get('dia') || listaDias(pagina)[0], resumoDe(pagina, q.get('dia') || listaDias(pagina)[0]), { base: bases[pagina] });
   let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
   document.body.innerHTML = `<pre id="b64">${btoa(s)}</pre>`;
 }

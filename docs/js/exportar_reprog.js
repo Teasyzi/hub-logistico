@@ -3,9 +3,10 @@
 // clientes e sem nomes: estilos, tema, larguras, farol (formatação condicional) e página ficam como estão. O Hub preenche:
 //   - o quadro por supervisor (E:G): código, nome e CLI REPRO = CONT.SE na coluna SUP da lista (fórmula com o resultado);
 //   - a linha do total (SOMA do quadro);
-//   - a lista (B:J): código, razão social, cidade, vendedor, supervisor, dia de rota e DIAS REPROGRAMADOS, na ordem da tela.
-// Os dados do cadastro vão como valor (a planilha usava PROCV na aba base, que não vai junto).
-import { REVENDAS_RP, fdataRP } from './reprog.js?v=20261126-11';
+//   - a lista (B:J): código, razão social, cidade, vendedor, supervisor, dia de rota e DIAS REPROGRAMADOS, na ordem da tela;
+//   - a aba Base: o cadastro de clientes da revenda, nas mesmas colunas da aba base da planilha (pode colar outra por cima).
+// As colunas do cadastro (C:I) são PROCV na aba Base, como na planilha, já com o resultado gravado.
+import { REVENDAS_RP, fdataRP } from './reprog.js?v=20261126-12';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -38,8 +39,29 @@ function lerModelo(xml, ss) {
 
 const urlModelo = (u) => new URL(`../modelos/reprog_${u}.xlsx`, import.meta.url).href;
 
-// r = resumoRP(...) (as linhas já na ordem da tela).
-export async function gerarReprogRP(u, dia, r, { modelo = null } = {}) {
+// Colunas da aba base da planilha (linha 2 = títulos, dados da linha 3). O PROCV procura o código na coluna C.
+const COLS_BASE = ['UXT (CÓD)', 'CLI (CÓD)', 'CLI (CÓD)', 'RAZÃO SOCIAL', 'NOME FANTASIA', 'END CLI COMPLETO', 'END CLI BAIRRO', 'CIDADE', 'FONE1', 'FONE2', 'CONTATO TEL',
+  'INSCRICAO EST', 'CGC CLI', 'CANAL', 'SUBCANAL', 'SUP (CÓD)', 'SUP', 'VEND (CÓD)', 'VEND', 'PASTA', 'LIMITE CRED', 'COND. PAG. CLIE.', 'STATUS', 'QTDCLI.', 'STATUS', 'PROMOTOR'];
+// Coluna da lista → coluna da aba base.
+const PROCV = { C: 'D', D: 'H', E: 'R', F: 'S', G: 'P', H: 'Q', I: 'T' };
+const letra = (i) => String.fromCharCode(65 + i);
+
+function abaBase(base, sCab) {
+  const s = sCab != null ? ` s="${sCab}"` : '';
+  const linhas = [`<row r="2">${COLS_BASE.map((t, i) => `<c r="${letra(i)}2"${s} t="inlineStr"><is><t>${esc(t)}</t></is></c>`).join('')}</row>`];
+  Object.entries(base?.clientes || {}).forEach(([cli, [razao, cidade, vend, sup, pasta]], i) => {
+    const rn = 3 + i, v = { B: numOuTexto(cli.replace('-', '')), C: cli, D: razao, H: cidade, P: numOuTexto(sup), Q: base.sups?.[sup], R: numOuTexto(vend), S: base.vends?.[vend], T: pasta };
+    linhas.push(`<row r="${rn}">${Object.entries(v).filter(([, x]) => x != null && x !== '').map(([col, x]) => celula(`${col}${rn}`, null, { v: x })).join('')}</row>`);
+  });
+  const ult = linhas.length + 1;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + `<dimension ref="A2:Z${ult}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>`
+    + '<cols><col min="1" max="3" width="12" customWidth="1"/><col min="4" max="8" width="32" customWidth="1"/><col min="9" max="26" width="16" customWidth="1"/></cols>'
+    + `<sheetData>${linhas.join('')}</sheetData><autoFilter ref="A2:Z${ult}"/></worksheet>`;
+}
+
+// r = resumoRP(...) (as linhas já na ordem da tela); base = cadastro da revenda ({clientes, vends, sups}).
+export async function gerarReprogRP(u, dia, r, { modelo = null, base = null } = {}) {
   if (!globalThis.JSZip) throw new Error('O componente de exportação não carregou. Atualize a página e tente novamente.');
   if (!REVENDAS_RP[u]) throw new Error(`Revenda desconhecida: ${u}`);
   const zip = await JSZip.loadAsync(modelo || await (await fetch(urlModelo(u))).arrayBuffer());
@@ -73,12 +95,22 @@ export async function gerarReprogRP(u, dia, r, { modelo = null } = {}) {
   out.push(row(rCab, cab.attrs, Object.entries(cab.cels).map(([col, c]) => c.xml.replace(/r="[A-Z]+\d+"/, `r="${col}${rCab}"`))));
   r.linhas.forEach((l, i) => {
     const rn = d0 + i, v = { B: l.cli, C: l.razao || l.nomeRel || '', D: l.cidade, E: numOuTexto(l.vend), F: l.vendNome, G: numOuTexto(l.sup), H: l.supNome, I: l.pasta, J: l.dias ?? null };
-    out.push(row(rn, modDado.attrs, Object.keys(v).map((col) => celula(`${col}${rn}`, st(modDado, col), { v: v[col] }))));
+    // Célula vazia no cadastro vira vazio (e não 0); cliente fora da base fica com o nome do relatório na razão social.
+    const procv = (col) => {
+      const k = PROCV[col].charCodeAt(0) - 66, busca = `VLOOKUP(B${rn},Base!C:${PROCV[col]},${k},0)`;
+      return `IFERROR(IF(${busca}="","",${busca}),"${col === 'C' ? String(l.nomeRel || '').replace(/"/g, '""') : ''}")`;
+    };
+    out.push(row(rn, modDado.attrs, Object.keys(v).map((col) => celula(`${col}${rn}`, st(modDado, col), { v: v[col], f: PROCV[col] ? procv(col) : null }))));
   });
   const ult = d0 + Math.max(0, r.linhas.length - 1);
   const a = antes.replace(/<dimension ref="[^"]*"\/>/, `<dimension ref="A1:J${ult}"/>`);
   const dp = depois.replace(/<xm:sqref>J\d+:J\d+<\/xm:sqref>/, `<xm:sqref>J${d0}:J${ult}</xm:sqref>`);
   zip.file(alvo, `${a}<sheetData>${out.join('')}</sheetData>${dp}`);
+  zip.file('xl/worksheets/sheet2.xml', abaBase(base, st(cab, 'B')));
+  const juntar = async (n, fim, novo) => zip.file(n, (await ler(n)).replace(fim, `${novo}${fim}`));
+  await juntar('[Content_Types].xml', '</Types>', '<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>');
+  await juntar('xl/_rels/workbook.xml.rels', '</Relationships>', '<Relationship Id="rIdRP2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>');
+  await juntar('xl/workbook.xml', '</sheets>', '<sheet name="Base" sheetId="2" r:id="rIdRP2"/>');
   const wb = await ler('xl/workbook.xml');
   zip.file('xl/workbook.xml', /<calcPr/.test(wb) ? wb.replace(/<calcPr([^>]*?)\/>/, (t, x) => `<calcPr${x.replace(/\s*fullCalcOnLoad="[^"]*"/, '')} fullCalcOnLoad="1"/>`) : wb.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>'));
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 6 } });
