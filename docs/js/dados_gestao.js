@@ -8,11 +8,12 @@
 // O que vale em cada célula: digitado à mão > automático do Hub > importado (efetivoGV em gestao.js).
 import { db, auth } from './firebase.js';
 import { doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { UNIDADES_GV, aplicarGV, editarGV, porAnoGV, autoDoMesGV, efetivoGV } from './gestao.js?v=20261125-22';
-import { calcularAoVivo } from './dados.js?v=20261125-22';
-import { calcularKMAoVivo } from './dados.js?v=20261125-22';
-import { calcularPerdasAoVivo } from './dados_perdas.js?v=20261125-22';
-import { calcularTXAoVivo } from './dados_transportes.js?v=20261125-22';
+import { UNIDADES_GV, aplicarGV, editarGV, porAnoGV, autoDoMesGV, efetivoGV, KPI_CELULAS_GV } from './gestao.js?v=20261126-01';
+import { lerEfetivoKPI } from './dados_kpi.js?v=20261126-01';
+import { calcularAoVivo } from './dados.js?v=20261126-01';
+import { calcularKMAoVivo } from './dados.js?v=20261126-01';
+import { calcularPerdasAoVivo } from './dados_perdas.js?v=20261126-01';
+import { calcularTXAoVivo } from './dados_transportes.js?v=20261126-01';
 
 const refDados = (u, ano) => doc(db, 'gav_dados', `${u}_${ano}`);
 const refPub = (u, ano) => doc(db, 'gav_publicado', `${u}_${ano}`);
@@ -73,6 +74,16 @@ export async function atualizarAutomaticoGV(ano, meses = null, aviso = () => {})
       tenta('Perdas', () => calcularPerdasAoVivo(mes)), tenta('KM', () => calcularKMAoVivo(mes)), tenta('1x1', () => calcularTXAoVivo(mes)),
     ]);
     const a = autoDoMesGV({ montagem: { CBAR: ba, CCRT: jn }, perdas, km, tx });
+    // O KPI do Hub completa o que os outros acompanhamentos não trazem (Greenmile, Easy Pallet, km/litro, TRIXLOG…).
+    const kpi = await tenta('KPI', () => lerEfetivoKPI(mes));
+    if (kpi) {
+      for (const u of Object.keys(UNIDADES_GV)) {
+        for (const [l, refs] of Object.entries(KPI_CELULAS_GV)) {
+          const v = kpi.valores[refs[u === 'CBAR' ? 0 : 1]];
+          if (a.valores[u][l] == null && typeof v === 'number' && Number.isFinite(v)) { a.valores[u][l] = v; a.origem[u][l] = 'kpi'; }
+        }
+      }
+    }
     for (const u of Object.keys(UNIDADES_GV)) {
       const d = docs[u];
       if (Object.keys(a.valores[u]).length) { d.auto[m] = a.valores[u]; d.autoOrigem[m] = a.origem[u]; } else { delete d.auto[m]; delete d.autoOrigem[m]; }

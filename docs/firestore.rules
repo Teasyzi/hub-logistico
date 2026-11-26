@@ -98,6 +98,14 @@ service cloud.firestore {
       allow read: if admin() || leitor();
       allow write: if admin();
     }
+    match /kpi_publicado/{id} {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
+    match /meta/publicacoes_kpi {
+      allow read: if admin() || leitor();
+      allow write: if admin();
+    }
     match /meta/acesso {
       allow read, write: if admin();
     }
@@ -125,5 +133,6 @@ service cloud.firestore {
     match /rp_dia/{id}            { allow read, write: if admin(); }
     match /rp_base/{id}           { allow read, write: if admin(); }
     match /rp_parametro/{id}      { allow read, write: if admin(); }
+    match /kpi_dados/{id}         { allow read, write: if admin(); }
   }
 }

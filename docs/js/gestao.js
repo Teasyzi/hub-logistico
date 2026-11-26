@@ -142,7 +142,7 @@ export function calcularAnoGV(valores = {}) {
 //   Perdas (calcularPerdas): 26 = PERDAS TOTAL da planilha = inventário + rota + estoque + ajuste de preço (sem transporte).
 //   KM (calcularKM): 31 = km realizado do mês.
 //   1x1 (calcularTX): 15 = ajudantes por carga (realizado).
-export const FONTES_AUTO_GV = { montagem: 'Montagem de Cargas', perdas: 'Perdas de estoque', km: 'KM planejado × realizado', '1x1': 'Transportes 1x1' };
+export const FONTES_AUTO_GV = { montagem: 'Montagem de Cargas', perdas: 'Perdas de estoque', km: 'KM planejado × realizado', '1x1': 'Transportes 1x1', kpi: 'KPI Distribuição e Logística' };
 export function autoDoMesGV({ montagem = {}, perdas = null, km = null, tx = null } = {}) {
   const out = { CBAR: {}, CCRT: {} }, origem = { CBAR: {}, CCRT: {} };
   const pon = (u, l, v, f) => { if (ehNum(v)) { out[u][l] = v; origem[u][l] = f; } };
@@ -254,7 +254,7 @@ function lerPlanilhaGV(wb, nomeArquivo) {
 }
 
 // KPI do mês: os mesmos números que a Gestão à vista copiava (conferido jan–jun/26, ficha §3).
-const KPI_CELULAS = {
+export const KPI_CELULAS_GV = {
   4: ['Q33', 'Q34'], 6: ['D21', 'D22'], 13: ['I15', 'I16'], 14: ['I21', 'I22'], 15: ['I27', 'I28'], 16: ['I33', 'I34'],
   19: ['N9', 'N10'], 21: ['D27', 'D28'], 23: ['D33', 'D34'], 31: ['S15', 'S16'], 34: ['S21', 'S22'], 35: ['S9', 'S10'],
 };
@@ -281,7 +281,7 @@ function lerKPI(wb, nomeArquivo, anoPadrao) {
       }
     }
   };
-  pega(ws, KPI_CELULAS);
+  pega(ws, KPI_CELULAS_GV);
   if (wm && norm(cel(wm, 'B20')).includes('ACM') && norm(cel(wm, 'B28')).includes('OCUP')) pega(wm, KPI_MONTAGEM);
   return { tipo: 'KPI Distribuição e Logística', unidades, ano, mes };
 }

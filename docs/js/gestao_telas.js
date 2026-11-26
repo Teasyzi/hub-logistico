@@ -2,11 +2,11 @@
 // quadro da aba Dados (jan–dez + Acum) e, embaixo, os gráficos de cada aba de gráfico da planilha, na mesma ordem.
 // No rascunho, o admin edita os valores digitados (✎). O botão exporta a planilha igual à oficial (exportar_gestao.js).
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp } from './views.js?v=20261125-22';
-import { UNIDADES_GV, CIDADE_GV, LINHAS_GV, LINHA_GV, GRAFICOS_GV, ORIGENS_GV, FONTES_AUTO_GV, rotuloGV, calcularAnoGV, lerArquivoGV } from './gestao.js?v=20261125-22';
-import { baixarGestaoGV } from './exportar_gestao.js?v=20261125-22';
-import * as G from './dados_gestao.js?v=20261125-22';
-import * as D from './dados.js?v=20261125-22';
+import { E, fi, fd, fp } from './views.js?v=20261126-01';
+import { UNIDADES_GV, CIDADE_GV, LINHAS_GV, LINHA_GV, GRAFICOS_GV, ORIGENS_GV, FONTES_AUTO_GV, rotuloGV, calcularAnoGV, lerArquivoGV } from './gestao.js?v=20261126-01';
+import { baixarGestaoGV } from './exportar_gestao.js?v=20261126-01';
+import * as G from './dados_gestao.js?v=20261126-01';
+import * as D from './dados.js?v=20261126-01';
 
 const MES3 = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -104,7 +104,7 @@ export function paginaUnidadeGV(u, x, { ano, admin, topo, exportar = true }) {
   const vazio = !cc.mesesComDados.length;
   const botoes = `<p class="gv-botoes">${exportar ? `<button class="btn" id="exportarGV" ${vazio ? 'disabled' : ''}>⬇ Exportar planilha (.xlsx)</button> ` : ''}${admin ? '<button class="btn sec" id="autoGV">↻ Atualizar do Hub</button> <button class="btn sec" id="editarGV">✎ Editar valores</button> <button class="btn" id="gravarGV" hidden>Gravar</button> <button class="btn sec" id="cancelarGV" hidden>Cancelar</button> ' : ''}<span id="msgGV" class="small"></span></p>`;
   const aviso = vazio ? `<div class="aviso">Sem dados de ${E(nomeAbaGV(u))} em ${ano}.${admin ? ` <a href="#/gestao/importar/${ano}">Importar</a> a planilha da Gestão à vista, o KPI do mês ou a planilha de Perdas, ou use ✎ para digitar.` : ''}</div>` : '';
-  const nota = `<p class="small">Como a aba Dados da planilha. Acum = média dos meses com valor (cubos por dia, cubos por carga e perdas % = razão dos Acum). Cubos = CX UNIT ÷ ${fd(1.68, 2)}. Perdas = PERDAS TOTAL da unidade (com inventário), depois do fechamento.${admin ? ' Em azul: automático, dos outros acompanhamentos do Hub (Montagem, Perdas, KM e 1x1; atualiza sozinho ao abrir, para o mês atual e o anterior, e em ↻ para o ano todo). Em vermelho: digitado à mão (vale por cima de tudo; apagar ou pôr zero volta ao automático). O resto vem das importações (KPI, Perdas, planilha antiga). Passe o mouse num valor para ver de onde ele veio.' : ''}</p>`;
+  const nota = `<p class="small">Como a aba Dados da planilha. Acum = média dos meses com valor (cubos por dia, cubos por carga e perdas % = razão dos Acum). Cubos = CX UNIT ÷ ${fd(1.68, 2)}. Perdas = PERDAS TOTAL da unidade (com inventário), depois do fechamento.${admin ? ' Em azul: automático, dos outros acompanhamentos do Hub (Montagem, Perdas, KM, 1x1 e, para o resto, o KPI do Hub; atualiza sozinho ao abrir, para o mês atual e o anterior, e em ↻ para o ano todo). Em vermelho: digitado à mão (vale por cima de tudo; apagar ou pôr zero volta ao automático). O resto vem das importações (KPI, Perdas, planilha antiga). Passe o mouse num valor para ver de onde ele veio.' : ''}</p>`;
   return `${topo}${botoes}${aviso}${quadro(u, ano, cc, x?.origem, admin)}${nota}${graficos(cc, u, ano)}`;
 }
 

@@ -4,18 +4,19 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261125-22';
-import { lerArquivo, num } from './importar.js?v=20261125-22';
-import * as V from './views.js?v=20261125-22';
-import { hojeKM } from './km.js?v=20261125-22';
-import { rotearPerdas } from './perdas_telas.js?v=20261125-22';
-import { rotearRetorno } from './retorno_telas.js?v=20261125-22';
-import { rotearFR } from './fillrate_telas.js?v=20261125-22';
-import { rotearTX } from './transportes_telas.js?v=20261125-22';
-import { rotearGV } from './gestao_telas.js?v=20261125-22';
-import { rotearRP } from './reprog_telas.js?v=20261125-22';
+import * as D from './dados.js?v=20261126-01';
+import { lerArquivo, num } from './importar.js?v=20261126-01';
+import * as V from './views.js?v=20261126-01';
+import { hojeKM } from './km.js?v=20261126-01';
+import { rotearPerdas } from './perdas_telas.js?v=20261126-01';
+import { rotearRetorno } from './retorno_telas.js?v=20261126-01';
+import { rotearFR } from './fillrate_telas.js?v=20261126-01';
+import { rotearTX } from './transportes_telas.js?v=20261126-01';
+import { rotearGV } from './gestao_telas.js?v=20261126-01';
+import { rotearRP } from './reprog_telas.js?v=20261126-01';
+import { rotearKPI } from './kpi_telas.js?v=20261126-01';
 import { diasDoMes } from './calc.js?v=20261117-5';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261125-22';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-01';
 import { exportarPES } from './exportar_pes.js?v=20261117-3';
 import { exportarMontagem } from './exportar_montagem.js?v=20261117-3';
 import { exportarKM } from './exportar_km.js?v=20261117-3';
@@ -964,6 +965,10 @@ async function rotear() {
     if (p[0] === 'gestao') {
       cabecalhoSite('Gestão à vista');
       return await rotearGV(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
+    }
+    if (p[0] === 'kpi') {
+      cabecalhoSite('KPI Distribuição e Logística');
+      return await rotearKPI(p, { html, erro, estado, adminNaTela, mesAtual, mesP, ligarTopo });
     }
     if (p[0] === 'reprog') {
       cabecalhoSite('REPROG (DAs)');

@@ -1,7 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261125-22';
+import { UNIDADES } from './dados.js?v=20261126-01';
 import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261123-2';
-import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261125-22';
+import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261126-01';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -111,7 +111,7 @@ export function graficoVendidoRetorno(dias, altura = 290) {
 
 // ---------------------------------------------------------------- painel principal (só admin)
 export function painelPrincipal() {
-  const acomp = [['Montagem de cargas (DLs)', '#/montagem', 'ativo · Barreiras e Juazeiro'], ['KPI Distribuição e Logística', null, 'próxima fase'],
+  const acomp = [['Montagem de cargas (DLs)', '#/montagem', 'ativo · Barreiras e Juazeiro'], ['KPI Distribuição e Logística', '#/kpi', 'novo · painel do Grupo CB · 4 unidades'],
     ['PES Logístico', '#/pes', 'ativo · placar mensal dos DLs'], ['Cargas em aberto', '#/cargas', 'novo · CB Norte e CB Sul (Consulta BI)'], ['Montadores', '#/montadores/NORTE', 'em validação · dados locais'],
     ['Perdas de estoque DLs', '#/perdas', 'em validação · Barreiras e Juazeiro'], ['KM planejado × realizado', '#/km', 'em validação · 4 unidades'], ['Retorno por motivo', '#/retorno', 'em validação · 4 unidades'], ['Transportes 1x1', '#/transportes', 'novo · ajudantes por carga · 4 unidades'],
     ['Fill rate · Insuficiência', '#/fillrate', 'novo · CB Norte e CB Sul'], ['Gestão à vista', '#/gestao', 'novo · DLs Barreiras e Juazeiro'], ['REPROG (DAs)', '#/reprog', 'novo · clientes reprogramados · CB Norte e CB Sul'], ['Custos de descarga', null, 'planejado']];

@@ -9,7 +9,7 @@
 // O publicado leva só códigos, cidade, dia de rota e dias (os leitores não veem nomes; ver ficha §11).
 import { db, auth } from './firebase.js';
 import { doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { REVENDAS_RP, compactarDiaRP, expandirClientesRP, resumoRP } from './reprog.js?v=20261125-22';
+import { REVENDAS_RP, compactarDiaRP, expandirClientesRP, resumoRP } from './reprog.js?v=20261126-01';
 
 const J = (s, d = {}) => (s ? JSON.parse(s) : d);
 const refDia = (u, dia) => doc(db, 'rp_dia', `${u}_${dia}`);
