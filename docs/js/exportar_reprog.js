@@ -5,7 +5,7 @@
 //   - a linha do total (SOMA do quadro);
 //   - a lista (B:J): código, razão social, cidade, vendedor, supervisor, dia de rota e DIAS REPROGRAMADOS, na ordem da tela.
 // Os dados do cadastro vão como valor (a planilha usava PROCV na aba base, que não vai junto).
-import { REVENDAS_RP, fdataRP } from './reprog.js?v=20261126-08';
+import { REVENDAS_RP, fdataRP } from './reprog.js?v=20261126-09';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);

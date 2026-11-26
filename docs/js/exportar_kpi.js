@@ -3,7 +3,7 @@
 // ocultas do Kardex, formatação condicional (farol) e área de impressão ficam como estão. O Hub escreve o número de
 // cada célula do catálogo (kpi.js) no lugar dela, como valor (a planilha oficial também guarda valores).
 // A aba oculta "Montagem das cargas" não vai: os números dela que o KPI usa já estão nas células.
-import { CELULAS_KPI, calcularKPI } from './kpi.js?v=20261126-08';
+import { CELULAS_KPI, calcularKPI } from './kpi.js?v=20261126-09';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);

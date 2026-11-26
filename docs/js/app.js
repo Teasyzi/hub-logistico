@@ -4,26 +4,27 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261126-08';
-import { lerArquivo, num } from './importar.js?v=20261126-08';
-import * as V from './views.js?v=20261126-08';
-import { hojeKM } from './km.js?v=20261126-08';
-import { rotearPerdas } from './perdas_telas.js?v=20261126-08';
-import { rotearRetorno } from './retorno_telas.js?v=20261126-08';
-import { rotearFR } from './fillrate_telas.js?v=20261126-08';
-import { rotearTX } from './transportes_telas.js?v=20261126-08';
-import { rotearGV } from './gestao_telas.js?v=20261126-08';
-import { rotearRP } from './reprog_telas.js?v=20261126-08';
-import { rotearKPI } from './kpi_telas.js?v=20261126-08';
-import { diasDoMes } from './calc.js?v=20261126-08';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-08';
-import { exportarPES } from './exportar_pes.js?v=20261126-08';
-import { exportarMontagem } from './exportar_montagem.js?v=20261126-08';
-import { exportarKM } from './exportar_km.js?v=20261126-08';
-import { conectarModeloExportacao } from './modelos.js?v=20261126-08';
-import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-08';
-import { exportarMontadores } from './exportar_montadores.js?v=20261126-08';
-import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-08';
+import * as D from './dados.js?v=20261126-09';
+import { lerArquivo, num } from './importar.js?v=20261126-09';
+import * as V from './views.js?v=20261126-09';
+import { hojeKM } from './km.js?v=20261126-09';
+import { rotearPerdas } from './perdas_telas.js?v=20261126-09';
+import { rotearRetorno } from './retorno_telas.js?v=20261126-09';
+import { rotearFR } from './fillrate_telas.js?v=20261126-09';
+import { rotearTX } from './transportes_telas.js?v=20261126-09';
+import { rotearGV } from './gestao_telas.js?v=20261126-09';
+import { rotearRP } from './reprog_telas.js?v=20261126-09';
+import { rotearKPI } from './kpi_telas.js?v=20261126-09';
+import { diasDoMes } from './calc.js?v=20261126-09';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-09';
+import { exportarPES } from './exportar_pes.js?v=20261126-09';
+import { exportarMontagem } from './exportar_montagem.js?v=20261126-09';
+import { exportarKM } from './exportar_km.js?v=20261126-09';
+import { conectarModeloExportacao } from './modelos.js?v=20261126-09';
+import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-09';
+import { exportarMontadores } from './exportar_montadores.js?v=20261126-09';
+import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-09';
+import { baixarCargas } from './exportar_cargas.js?v=20261126-09';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
@@ -803,8 +804,9 @@ async function telaCargas(aba, dataPedida) {
   html('<p class="small">Carregando cargas em aberto…</p>');
   const data = dataPedida || (await datasDisponiveisCargas())[0] || null;
   const rota = (d) => (aba === 'resumo' ? `#/cargas/resumo/${d}` : `#/cargas/${aba}/${d}`);
-  const topo = await topoCargas(aba, data, aba === 'resumo' ? 'Resumo' : V.E({ NORTE: 'CB Norte', SUL: 'CB Sul' }[aba]));
+  let topo = await topoCargas(aba, data, aba === 'resumo' ? 'Resumo' : V.E({ NORTE: 'CB Norte', SUL: 'CB Sul' }[aba]));
   const x = data ? await resultadoCargas(data) : null;
+  if (x) topo += '<p><button class="btn" id="exportarCG">⬇ Exportar planilha (.xlsx)</button> <span id="msgCG" class="small"></span></p>';
   if (!x) {
     const msg = rascunhoCargas() ? 'Ainda não há Consulta BI importada para esta data.' : 'As cargas em aberto ainda não foram publicadas.';
     html(`${topo}<div class="aviso">${msg}</div>${rascunhoCargas() ? '<p><a class="btn" href="#/cargas/importar">Importar Consulta BI</a></p>' : ''}`);
@@ -815,6 +817,13 @@ async function telaCargas(aba, dataPedida) {
   }
   await atualizarStatus(x?.em || null);
   ligarTopo(rota);
+  const exp = document.getElementById('exportarCG');
+  if (exp) exp.onclick = async () => {
+    const msg = document.getElementById('msgCG');
+    exp.disabled = true; msg.textContent = 'Montando a planilha…';
+    try { await baixarCargas(x.resultado); msg.textContent = '✓ planilha gerada (as duas revendas)'; } catch (err) { msg.textContent = err.message; }
+    exp.disabled = false;
+  };
 }
 
 async function telaCargasImportar() {

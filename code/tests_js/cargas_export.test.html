@@ -1,0 +1,20 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Exportação das Cargas em aberto</title>
+<!-- Gera a exportação a partir da planilha oficial (ou de uma Consulta BI) em /amostras/, sem Firebase.
+     ?arq=<arquivo>&data=AAAA-MM-DD -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<pre id="log">gerando…</pre>
+<script type="module">
+const C = await import('../../docs/js/cargas.js?v=20261126-09');
+const X = await import('../../docs/js/exportar_cargas.js?v=20261126-09');
+const q = new URLSearchParams(location.search);
+const wb = XLSX.read(await (await fetch('/amostras/' + encodeURIComponent(q.get('arq')))).arrayBuffer(), { type: 'array' });
+const { linhas } = C.lerConsultaCargas(wb);
+const res = C.calcularCargas(C.montarFoto(linhas, q.get('data')));
+const bytes = await X.gerarCargasXlsx(res);
+let bin = ''; for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode(...bytes.subarray(i, i + 32768));
+const e = document.createElement('pre'); e.id = 'b64'; e.hidden = true; e.textContent = btoa(bin); document.body.append(e);
+document.getElementById('log').textContent = `${bytes.length} bytes · ` + Object.entries(res.revendas).map(([c, r]) => `${c}: ${r.qtd} vendas, mais antiga ${r.maisAntiga?.dias} dias`).join(' · ');
+</script>

@@ -5,7 +5,7 @@
 <pre id="r">carregando…</pre>
 <script type="module">
 const v = new URLSearchParams(location.search).get('v') || '';
-const mods = ['views', 'gestao', 'exportar_gestao', 'fillrate_telas', 'exportar_perdas', 'perdas_telas', 'exportar_retorno', 'retorno_telas', 'transportes_telas', 'gestao_telas', 'reprog', 'dados_reprog', 'exportar_reprog', 'reprog_telas', 'kpi', 'dados_kpi', 'exportar_kpi', 'kpi_telas', 'app'];
+const mods = ['views', 'gestao', 'exportar_gestao', 'fillrate_telas', 'exportar_perdas', 'perdas_telas', 'exportar_retorno', 'retorno_telas', 'exportar_cargas', 'transportes_telas', 'gestao_telas', 'reprog', 'dados_reprog', 'exportar_reprog', 'reprog_telas', 'kpi', 'dados_kpi', 'exportar_kpi', 'kpi_telas', 'app'];
 const out = [];
 for (const m of mods) {
   try { await import(`../../docs/js/${m}.js?v=${v}`); out.push(`${m}: ok`); } catch (e) { out.push(`${m}: ${e.name}: ${e.message}`); }
