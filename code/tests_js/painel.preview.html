@@ -2,10 +2,10 @@
 <meta charset="utf-8">
 <title>Prévia Painel</title>
 <!-- Painel principal com números fictícios, sem Firebase. ?vazio=1 mostra os cards sem dados. -->
-<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-13">
+<link rel="stylesheet" href="../../docs/css/hub.css?v=20261126-14">
 <main id="app"></main>
 <script type="module">
-const P = await import('../../docs/js/painel.js?v=20261126-13');
+const P = await import('../../docs/js/painel.js?v=20261126-14');
 const mes = '2026-11', vazio = new URLSearchParams(location.search).get('vazio');
 const km = { planejado: 12450, realizado: 12010, dispersao: -0.035, meta: 0.05 };
 const d = {
@@ -20,5 +20,6 @@ const d = {
 };
 const app = document.getElementById('app');
 app.innerHTML = P.painelPrincipal();
+P.ligarCopiarPainel(app);
 await P.preencherPainel(app, Object.fromEntries(P.CARDS_PAINEL.map(([id]) => [id, async () => (vazio ? null : d[id])])));
 </script>

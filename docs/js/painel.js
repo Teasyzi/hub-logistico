@@ -1,6 +1,6 @@
 // Painel principal: a prévia de cada card. Funções puras (os dados vêm de dados_painel.js).
 // Cada prévia recebe o resultado já lido do acompanhamento; null = sem dados.
-import { E, fi, fd, fp, fdata, nomeMes, farolKM } from './views.js?v=20261126-13';
+import { E, fi, fd, fp, fdata, nomeMes, farolKM } from './views.js?v=20261126-14';
 
 export const CARDS_PAINEL = [
   ['montagem', 'Montagem de cargas (DLs)', '#/montagem'], ['kpi', 'KPI Distribuição e Logística', '#/kpi'], ['pes', 'PES Logístico', '#/pes'],
@@ -77,12 +77,29 @@ export const PREVIAS = {
 
 export const semDadosPainel = '<p class="small">Sem dados ainda.</p>';
 
+const icone = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const ICONE_COPIAR = icone('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>');
+const ICONE_COPIADO = icone('<path d="M5 13l4 4L19 7"/>');
+
+// O card inteiro é o link (o <a> cobre o card, então Ctrl+clique abre em outra aba); o ícone de copiar fica por cima.
+const card = (titulo, href, corpo, copiar = true) => `<div class="bloco painel-card"><a class="painel-abrir" href="${href}" aria-label="Abrir ${E(titulo)}"></a>
+<div class="faixa">${E(titulo)}${copiar ? `<button class="painel-copiar" data-copiar="${href}" title="Copiar link" aria-label="Copiar link de ${E(titulo)}">${ICONE_COPIAR}</button>` : ''}</div>
+<div class="corpo">${corpo}</div></div>`;
+
 export function painelPrincipal() {
-  return `<h1>Painel principal</h1><p class="sub">Prévia de cada acompanhamento (dados atuais do rascunho). Cada um tem link próprio para enviar por e-mail; quem recebe vê só aquele acompanhamento.</p>
-<div class="grid painel">${CARDS_PAINEL.map(([id, n, h]) => `<div class="bloco"><div class="faixa">${E(n)}</div><div class="corpo">
-<div data-previa="${id}"><p class="small">Carregando…</p></div>
-<div class="painel-botoes"><a class="btn" href="${h}">Abrir</a> <button class="btn sec" data-copiar="${h}">Copiar link</button></div></div></div>`).join('')}
-<div class="bloco"><div class="faixa">Acessos</div><div class="corpo"><p class="small">Quem pode ver o que foi publicado.</p><div class="painel-botoes"><a class="btn" href="#/acessos">Gerenciar</a></div></div></div></div>`;
+  return `<h1>Painel principal</h1><p class="sub">Prévia de cada acompanhamento (dados atuais do rascunho). Clique no card para abrir; o ícone copia o link para enviar por e-mail, e quem recebe vê só aquele acompanhamento.</p>
+<div class="grid painel">${CARDS_PAINEL.map(([id, n, h]) => card(n, h, `<div data-previa="${id}"><p class="small">Carregando…</p></div>`)).join('')}
+${card('Acessos', '#/acessos', '<p class="small">Quem pode ver o que foi publicado.</p>', false)}</div>`;
+}
+
+export function ligarCopiarPainel(raiz) {
+  raiz.querySelectorAll('[data-copiar]').forEach((b) => {
+    b.onclick = async () => {
+      await navigator.clipboard.writeText(`${location.origin}${location.pathname}${b.dataset.copiar}`);
+      b.innerHTML = ICONE_COPIADO; b.title = 'Link copiado';
+      setTimeout(() => { b.innerHTML = ICONE_COPIAR; b.title = 'Copiar link'; }, 1500);
+    };
+  });
 }
 
 // carregar = {id: async () => dados | null}. Cada card se preenche sozinho; a falha de um não derruba os outros.

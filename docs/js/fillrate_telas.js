@@ -1,11 +1,11 @@
 // Telas do Fill rate / Insuficiência de estoque, como a planilha: aba RESUMO (o quadro da aba Resumo) e uma aba
 // por revenda (CB NORTE, CB SUL) com o cabeçalho, "por dia", "por produto" e "por data e produto". Sem gráfico.
 // As funções pagina* são puras (dados → HTML) e servem à prévia local; as tela* usam o Firestore e o contexto do app.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-13';
-import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261126-13';
-import { baixarComparativoFR } from './exportar_fillrate.js?v=20261126-13';
-import * as F from './dados_fillrate.js?v=20261126-13';
-import * as D from './dados.js?v=20261126-13';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261126-14';
+import { UNIDADES_FR, META_FR, lerArquivoFR, comparativoFR, chaveProduto } from './fillrate.js?v=20261126-14';
+import { baixarComparativoFR } from './exportar_fillrate.js?v=20261126-14';
+import * as F from './dados_fillrate.js?v=20261126-14';
+import * as D from './dados.js?v=20261126-14';
 
 const fcx = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (pct, meta) => (pct == null ? '' : pct <= meta ? 'c-ok' : 'c-no');

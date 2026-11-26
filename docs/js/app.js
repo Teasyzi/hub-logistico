@@ -4,29 +4,29 @@ import { auth } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as D from './dados.js?v=20261126-13';
-import { lerArquivo, num } from './importar.js?v=20261126-13';
-import * as V from './views.js?v=20261126-13';
-import { hojeKM } from './km.js?v=20261126-13';
-import { rotearPerdas } from './perdas_telas.js?v=20261126-13';
-import { rotearRetorno } from './retorno_telas.js?v=20261126-13';
-import { rotearFR } from './fillrate_telas.js?v=20261126-13';
-import { rotearTX } from './transportes_telas.js?v=20261126-13';
-import { rotearGV } from './gestao_telas.js?v=20261126-13';
-import { rotearRP } from './reprog_telas.js?v=20261126-13';
-import { rotearKPI } from './kpi_telas.js?v=20261126-13';
-import { diasDoMes } from './calc.js?v=20261126-13';
-import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-13';
-import { exportarPES } from './exportar_pes.js?v=20261126-13';
-import { exportarMontagem } from './exportar_montagem.js?v=20261126-13';
-import { exportarKM } from './exportar_km.js?v=20261126-13';
-import { conectarModeloExportacao } from './modelos.js?v=20261126-13';
-import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-13';
-import { exportarMontadores } from './exportar_montadores.js?v=20261126-13';
-import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-13';
-import { baixarCargas } from './exportar_cargas.js?v=20261126-13';
-import { painelPrincipal, preencherPainel } from './painel.js?v=20261126-13';
-import { leitoresPainel } from './dados_painel.js?v=20261126-13';
+import * as D from './dados.js?v=20261126-14';
+import { lerArquivo, num } from './importar.js?v=20261126-14';
+import * as V from './views.js?v=20261126-14';
+import { hojeKM } from './km.js?v=20261126-14';
+import { rotearPerdas } from './perdas_telas.js?v=20261126-14';
+import { rotearRetorno } from './retorno_telas.js?v=20261126-14';
+import { rotearFR } from './fillrate_telas.js?v=20261126-14';
+import { rotearTX } from './transportes_telas.js?v=20261126-14';
+import { rotearGV } from './gestao_telas.js?v=20261126-14';
+import { rotearRP } from './reprog_telas.js?v=20261126-14';
+import { rotearKPI } from './kpi_telas.js?v=20261126-14';
+import { diasDoMes } from './calc.js?v=20261126-14';
+import { INDICADORES_PES, lerNumTela, pctParaTela } from './pes.js?v=20261126-14';
+import { exportarPES } from './exportar_pes.js?v=20261126-14';
+import { exportarMontagem } from './exportar_montagem.js?v=20261126-14';
+import { exportarKM } from './exportar_km.js?v=20261126-14';
+import { conectarModeloExportacao } from './modelos.js?v=20261126-14';
+import { importarMontadoresArquivos, dadosMontadores, mesesMontadores, atualizacaoMontadores, calcularMontadores } from './montadores.js?v=20261126-14';
+import { exportarMontadores } from './exportar_montadores.js?v=20261126-14';
+import { ehConsultaCargas, lerConsultaCargas, montarFoto } from './cargas.js?v=20261126-14';
+import { baixarCargas } from './exportar_cargas.js?v=20261126-14';
+import { painelPrincipal, preencherPainel, ligarCopiarPainel } from './painel.js?v=20261126-14';
+import { leitoresPainel } from './dados_painel.js?v=20261126-14';
 
 const $app = document.getElementById('app');
 const estado = { user: null, admin: false, modo: 'rascunho', visualizarComoVisitante: false, rotaAdminAntesDaVisita: null };
@@ -887,9 +887,7 @@ async function telaCargasPublicar(dataPedida) {
 // ---------------------------------------------------------------- painel principal e acessos (admin)
 async function telaPainel() {
   html(painelPrincipal());
-  document.querySelectorAll('[data-copiar]').forEach((b) => {
-    b.onclick = () => { navigator.clipboard.writeText(`${location.origin}${location.pathname}${b.dataset.copiar}`); b.textContent = 'Copiado ✓'; };
-  });
+  ligarCopiarPainel($app);
   await preencherPainel($app, leitoresPainel(mesAtual()));
 }
 
