@@ -12,10 +12,10 @@ import { db, auth } from './firebase.js';
 import {
   collection, doc, getDoc, getDocs, query, where, writeBatch, setDoc, addDoc, serverTimestamp, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { calcular, motivos } from './calc.js?v=20261127-1';
-import { placarPES } from './pes.js?v=20261127-1';
-import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261127-1';
-import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261127-1';
+import { calcular, motivos } from './calc.js?v=20261127-2';
+import { placarPES } from './pes.js?v=20261127-2';
+import { calcularKM, agregadoPublicado, aplicarAjustesKM, UNIDADES_KM } from './km.js?v=20261127-2';
+import { calcularCargas, agregadoPublicadoCargas } from './cargas.js?v=20261127-2';
 
 export const UNIDADES = {
   CBAR: { nome: 'DL Barreiras', cor: 1 },

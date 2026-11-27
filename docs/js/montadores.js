@@ -1,4 +1,4 @@
-import { lerCadastroMontadores, gravarCadastroMontadores, gravarDiasMontadores, lerDiasMontadores, lerMesesMontadores } from './dados_montadores.js?v=20261127-1';
+import { lerCadastroMontadores, gravarCadastroMontadores, gravarDiasMontadores, lerDiasMontadores, lerMesesMontadores } from './dados_montadores.js?v=20261127-2';
 
 const BASES = { 'CB NORTE': 'NORTE', 'CB SUL': 'SUL', 'LOG I - BARREIRAS': 'CBAR', 'LOG II - JUAZEIRO': 'CCRT' };
 const ROTULO_BASE = { NORTE: 'CB Norte', SUL: 'CB Sul', CBAR: 'Barreiras', CCRT: 'Juazeiro' };

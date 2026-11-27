@@ -1,18 +1,18 @@
 // Telas do Transportes 1x1: RESUMO (como a aba da planilha) e uma aba por unidade (indicador, por dia, por motorista e
 // a lista de cargas, que o leitor vê só para consulta e o admin confere e edita). ⚙ Particularidades: lista para os
 // supervisores, com o possível editável. As funções pagina* são puras (dados → HTML) e servem à prévia local.
-import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261127-1';
-import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261127-1';
-import * as T from './dados_transportes.js?v=20261127-1';
-import { baixarTransportes } from './exportar_transportes.js?v=20261127-1';
-import * as D from './dados.js?v=20261127-1';
+import { E, fi, fd, fp, fdata, nomeMes, seletorMes, mesesAdmin } from './views.js?v=20261127-2';
+import { UNIDADES_TX, DAS_TX, META_CUB_TX, FAIXA_ABONO_TX, lerArquivoTX, textoForaTX, resumoTX } from './transportes.js?v=20261127-2';
+import * as T from './dados_transportes.js?v=20261127-2';
+import { baixarTransportes } from './exportar_transportes.js?v=20261127-2';
+import * as D from './dados.js?v=20261127-2';
 
 const ABA_PADRAO = 'resumo';
 const f2 = (x) => fd(x, 2);
 const fcub = (x) => (x == null ? '–' : fd(x, 2));
 const farol = (dif) => (dif == null ? '' : dif <= 1e-9 ? 'c-ok' : 'c-no');
-// Regra das setas: sinal positivo = ▲ verde; negativo = ▼ vermelho.
-const seta = (dif) => (dif == null ? '' : dif >= 0 ? '<span class="t-up">▲</span>' : '<span class="t-down">▼</span>');
+// No 1x1 a meta é um teto: ficar igual ou abaixo é bom (▼ verde); passar da meta é ruim (▲ vermelho).
+const seta = (dif) => (dif == null ? '' : dif <= 1e-9 ? '<span class="t-up">▼</span>' : '<span class="t-down">▲</span>');
 const ehDA = (u) => DAS_TX.includes(u);
 const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
 const ROTULO_RESUMO = { NORTE: 'DA - CB NORTE', SUL: 'DA - CB SUL', CBAR: 'DL - BARREIRAS', CCRT: 'DL - JUAZEIRO' };
@@ -34,7 +34,7 @@ export function paginaResumoTX(r, { mes, admin, topo }) {
 <td>${f2(t.realizado)}</td><td class="${farol(t.dif)}">${fp(t.dif)}</td><td>${fi(d.metaCub)}</td><td>${fi(t.cargas)}</td></tr>`; };
   const tabela = `<div class="tw scroll tx-resumo"><table><thead><tr><th class="t">Unidade</th><th>Meta + 5%</th><th>Dia anterior</th><th>Realizado</th><th>Dif.</th><th>Meta cubagem</th><th>Cargas</th></tr></thead><tbody>
 ${us.map(lin).join('')}
-<tr class="tot"><td class="t">GERAL</td><td>${f2(g.meta)}</td><td>${f2(g.diaAnterior)}</td><td>${f2(g.realizado)}</td><td>${fp(g.dif)}</td><td>${fi(g.metaCub)}</td><td>${fi(g.cargas)}</td></tr></tbody></table></div>`;
+<tr class="tot"><td class="t">GERAL</td><td>${f2(g.meta)}</td><td>${f2(g.diaAnterior)}</td><td>${f2(g.realizado)}</td><td class="${farol(g.dif)}">${fp(g.dif)}</td><td>${fi(g.metaCub)}</td><td>${fi(g.cargas)}</td></tr></tbody></table></div>`;
   const pend = admin ? us.filter((d) => d.totais.pendentes || d.totais.excesso || d.semCadastro?.length).map((d) => `<li><a href="#/transportes/${d.unidade}/${mes}">${E(d.nome)}</a>: ${[
     d.totais.pendentes && `${fi(d.totais.pendentes)} carga(s) sem ajudantes ou cubagem`, d.totais.excesso && `${fi(d.totais.excesso)} acima do possível`,
     d.semCadastro?.length && `${fi(d.semCadastro.length)} motorista(s) sem nome completo`].filter(Boolean).join(' · ')}</li>`).join('') : '';
@@ -57,7 +57,7 @@ function quadroDias(d) {
   const t = d.totais;
   const lin = (x) => `<tr><td class="t">${fdata(x.data)}</td><td>${fi(x.cargas)}</td><td>${f2(x.meta)}</td><td>${f2(x.realizado)}</td><td class="${farol(x.dif)}">${fp(x.dif, 1)}</td></tr>`;
   return `<section class="bloco"><div class="faixa">Por dia</div><div class="corpo"><div class="tw scroll"><table><thead><tr><th class="t">Dia</th><th>Cargas</th><th>Possíveis +5%</th><th>Ajudantes</th><th>Dif.</th></tr></thead><tbody>
-${d.dias.map(lin).join('')}<tr class="tot"><td class="t">Mês</td><td>${fi(t.cargas)}</td><td>${f2(t.meta)}</td><td>${f2(t.realizado)}</td><td>${fp(t.dif, 1)}</td></tr></tbody></table></div></div></section>`;
+${d.dias.map(lin).join('')}<tr class="tot"><td class="t">Mês</td><td>${fi(t.cargas)}</td><td>${f2(t.meta)}</td><td>${f2(t.realizado)}</td><td class="${farol(t.dif)}">${fp(t.dif, 1)}</td></tr></tbody></table></div></div></section>`;
 }
 
 function quadroMotoristas(d) {

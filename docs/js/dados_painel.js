@@ -1,17 +1,17 @@
 // Leitura dos números das prévias do painel principal (só o admin vê; usa os dados atuais do rascunho).
 // Cada função devolve o formato esperado por painel.js, ou null quando não há dado.
-import * as D from './dados.js?v=20261127-1';
-import { calcularPerdasAoVivo } from './dados_perdas.js?v=20261127-1';
-import { calcularRetornoAoVivo } from './dados_retorno.js?v=20261127-1';
-import { calcularTXAoVivo } from './dados_transportes.js?v=20261127-1';
-import { calcularFRAoVivo } from './dados_fillrate.js?v=20261127-1';
-import { lerEfetivoGV } from './dados_gestao.js?v=20261127-1';
-import { lerEfetivoKPI } from './dados_kpi.js?v=20261127-1';
-import { diasGravadosRP, lerDiaRP } from './dados_reprog.js?v=20261127-1';
-import { dadosMontadores, calcularMontadores } from './montadores.js?v=20261127-1';
-import { CELULAS_KPI, calcularKPI, farolKPI, temDadosKPI } from './kpi.js?v=20261127-1';
-import { calcularAnoGV } from './gestao.js?v=20261127-1';
-import { resumoTX } from './transportes.js?v=20261127-1';
+import * as D from './dados.js?v=20261127-2';
+import { calcularPerdasAoVivo } from './dados_perdas.js?v=20261127-2';
+import { calcularRetornoAoVivo } from './dados_retorno.js?v=20261127-2';
+import { calcularTXAoVivo } from './dados_transportes.js?v=20261127-2';
+import { calcularFRAoVivo } from './dados_fillrate.js?v=20261127-2';
+import { lerEfetivoGV } from './dados_gestao.js?v=20261127-2';
+import { lerEfetivoKPI } from './dados_kpi.js?v=20261127-2';
+import { diasGravadosRP, lerDiaRP } from './dados_reprog.js?v=20261127-2';
+import { dadosMontadores, calcularMontadores } from './montadores.js?v=20261127-2';
+import { CELULAS_KPI, calcularKPI, farolKPI, temDadosKPI } from './kpi.js?v=20261127-2';
+import { calcularAnoGV } from './gestao.js?v=20261127-2';
+import { resumoTX } from './transportes.js?v=20261127-2';
 
 const DLS = ['CBAR', 'CCRT'], TODAS = ['NORTE', 'SUL', 'CBAR', 'CCRT'];
 const porChave = async (chaves, f) => Object.fromEntries(await Promise.all(chaves.map(async (c) => [c, await f(c)])));
