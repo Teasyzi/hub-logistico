@@ -1,7 +1,7 @@
 // Exportação dos Montadores no modelo oficial. Nas abas DA e DL, cada lançamento ocupa E:M: MONTADOR (nome no sistema),
 // LOGIN, caixas, caixa/hora, erros, data, nome completo e base (PROCV no cadastro A:C, como na planilha) e dia da semana.
 // O cadastro (A:C) não é tocado.
-import { abrirModeloXlsm, lerAbaXlsm, limparCelulaXlsm, definirNumeroCriandoXlsm, definirTextoCriandoXlsm, definirFormulaCriandoXlsm, baixarModeloXlsm } from './xlsm.js?v=20261126-16';
+import { abrirModeloXlsm, lerAbaXlsm, limparCelulaXlsm, definirNumeroCriandoXlsm, definirTextoCriandoXlsm, definirFormulaCriandoXlsm, baixarModeloXlsm } from './xlsm.js?v=20261127-1';
 
 const serial = (iso) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.UTC(1899, 11, 30)) / 86400000);
 const DOW = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];

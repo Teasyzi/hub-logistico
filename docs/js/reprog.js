@@ -39,7 +39,8 @@ const RE_TOT = /(-?[\d.]+)\/\d{4}\s+TOTAL PED\.\/CLI\.\s+(-?[\d.]+,\d{2})/;
 export function ehTxtRP(texto) { return /VDPDR007/.test(texto) && /TOTAL PED\.\/CLI\./.test(texto); }
 
 export function lerTxtRP(texto, nome = '') {
-  const linhas = String(texto).replace(/\r/g, '').split('\n');
+  // O fim de página (\f) também separa linhas: o cabeçalho seguinte vem colado no último item da página.
+  const linhas = String(texto).replace(/\r/g, '').split(/[\n\f]/);
   const per = texto.match(/PERIODO DE (\d\d)\/(\d\d)\/(\d{4}) A (\d\d)\/(\d\d)\/(\d{4})/);
   const pedidos = [], avisos = [], datas = new Set();
   let atual = null, semPedido = 0;
@@ -51,7 +52,7 @@ export function lerTxtRP(texto, nome = '') {
     return true;
   };
   for (const bruta of linhas) {
-    const l = bruta.replace(/\f/g, '');
+    const l = bruta;
     if (!l.trim()) continue;
     const t = l.match(RE_TOT);
     if (t) {
@@ -71,13 +72,16 @@ export function lerTxtRP(texto, nome = '') {
   }
   if (atual) { avisos.push(`pedido ${atual.ped} do cliente ${atual.cli} sem a linha de total`); pedidos.push(atual); }
   if (semPedido) avisos.push(`${semPedido} item(ns) antes do primeiro pedido foram ignorados`);
-  // Conferência: soma dos itens = total do pedido.
-  let difs = 0;
+  // Conferência: soma dos itens = total do pedido. Cada divergência diz o cliente e o pedido, para conferir no relatório.
+  const reais = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const difs = [];
   for (const x of pedidos) {
     const s = arred(x.itens.reduce((a, i) => a + i.vt, 0));
-    if (x.total == null) x.total = s; else if (Math.abs(s - x.total) > 0.011) difs++;
+    if (x.total == null) x.total = s;
+    else if (Math.abs(s - x.total) > 0.011) difs.push(`pedido ${x.ped} do cliente ${x.cli} (${x.nome}): ${x.itens.length} item(ns) somam R$ ${reais(s)} e o TOTAL PED./CLI. é R$ ${reais(x.total)}`);
   }
-  if (difs) avisos.push(`${difs} pedido(s) com soma dos itens diferente do TOTAL PED./CLI.`);
+  avisos.push(...difs.slice(0, 20));
+  if (difs.length > 20) avisos.push(`mais ${difs.length - 20} pedido(s) com soma dos itens diferente do TOTAL PED./CLI.`);
   const dia = per ? iso(+per[4], +per[5], +per[6]) : [...datas].sort().at(-1) || null;
   if (per && (per[1] !== per[4] || per[2] !== per[5])) avisos.push(`o relatório cobre ${per[1]}/${per[2]} a ${per[4]}/${per[5]}; o Hub grava como ${fdataRP(dia)}`);
   return { tipo: 'TXT VDPDR007', dia, revendaArq: revendaDoNome(nome), pedidos, avisos };

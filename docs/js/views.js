@@ -1,7 +1,7 @@
 // Renderização. Funções puras: dados -> HTML. Visual inspirado nas planilhas dos acompanhamentos.
-import { UNIDADES } from './dados.js?v=20261126-16';
-import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261126-16';
-import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261126-16';
+import { UNIDADES } from './dados.js?v=20261127-1';
+import { faixaDe, DIAS_CRITICO } from './cargas.js?v=20261127-1';
+import { buscaIdaVoltaKM, idaDaRota, idaNaRotaKM, nomeMotoristaKM, rotaNaSecao, semAtribuicaoKM, SECOES_PADRAO_KM } from './km.js?v=20261127-1';
 
 export const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];

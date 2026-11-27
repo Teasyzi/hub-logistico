@@ -2,7 +2,7 @@
 // (lista de cargas, quadro por dia e quadro por motorista). O modelo (docs/modelos/transportes.xlsx,
 // code/tools/modelo_transportes.ps1) é a própria planilha sem cargas e sem nomes. Só entram as cargas que contam.
 // O possível vai como a fórmula da planilha; quando há abono (automático ou do admin), vai o valor.
-import { UNIDADES_TX, META_CUB_TX, TOLERANCIA_TX, resumoTX } from './transportes.js?v=20261126-16';
+import { UNIDADES_TX, META_CUB_TX, TOLERANCIA_TX, resumoTX } from './transportes.js?v=20261127-1';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ehNum = (v) => typeof v === 'number' && Number.isFinite(v);
